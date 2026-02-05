@@ -34,6 +34,28 @@
         </nav>
 
         <section class="input-panel">
+            <div id="cover" class="tab-content">
+    <h2>Cover Page Details</h2>
+    
+    <label>Docket Number(s):</label>
+    <input type="text" id="docketNumber" placeholder="e.g., Nos. 24-656, 24-657" onkeyup="updatePreview()">
+
+    <label>Petitioner Name(s):</label>
+    <input type="text" id="petitionerName" placeholder="e.g., John Doe, et al." onkeyup="updatePreview()">
+
+    <label>Respondent Name(s):</label>
+    <input type="text" id="respondentName" placeholder="e.g., Maryland" onkeyup="updatePreview()">
+
+    <label>Jurisdiction / Lower Court:</label>
+    <input type="text" id="lowerCourt" placeholder="e.g., United States Court of Appeals for the Fourth Circuit" onkeyup="updatePreview()">
+
+    <label>Support Status (For Amicus):</label>
+    <select id="amicusSupport" onchange="updatePreview()">
+        <option value="PETITIONER">Supporting Petitioner</option>
+        <option value="RESPONDENT">Supporting Respondent</option>
+        <option value="NEITHER PARTY">Supporting Neither Party</option>
+    </select>
+</div>
             <div id="setup" class="tab-content active">
                 <h2>Project Setup</h2>
                 <label>Type of Document:</label>
