@@ -3,59 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SCOTUS Brief Pro | Legal Document Generator</title>
+    <title>SCOTUS Brief Pro | Legal Generator</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <style>
-        :root { --legal-blue: #1a237e; --ui-bg: #f8f9fa; --border-color: #dee2e6; --action-green: #2e7d32; }
+        :root { --legal-blue: #1a237e; --ui-bg: #f8f9fa; --border-color: #dee2e6; }
         
-        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; background: #525659; overflow: hidden; }
-        header { background: var(--legal-blue); color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        /* APPLICATION UI */
+        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', system-ui, sans-serif; background: #525659; overflow: hidden; }
+        header { background: var(--legal-blue); color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
         .app-container { display: flex; flex: 1; overflow: hidden; }
 
         /* SIDEBAR */
-        .sidebar { width: 280px; background: white; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 15px; }
-        .tab-btn { padding: 12px; border: none; background: transparent; text-align: left; cursor: pointer; border-radius: 6px; margin-bottom: 5px; font-weight: 600; color: #444; transition: 0.2s; }
+        .sidebar { width: 280px; background: white; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 15px; z-index: 10; }
+        .tab-btn { padding: 12px; border: none; background: transparent; text-align: left; cursor: pointer; border-radius: 6px; margin-bottom: 5px; font-weight: 600; color: #444; transition: background 0.2s; }
         .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); }
-        .tab-btn:hover { background: #f1f3f5; }
         
-        /* PERSISTENCE BUTTONS */
         .persistence-zone { margin-top: auto; padding-top: 15px; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
-        .btn-sm { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer; font-size: 0.75rem; font-weight: bold; background: white; }
-        .btn-cloud { background: var(--legal-blue); color: white; border: none; display: none; } /* Only shown when logged in */
+        .action-btn { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font-size: 0.8rem; font-weight: bold; transition: 0.2s; }
+        .btn-cloud { background: var(--legal-blue); color: white; border: none; display: none; }
+        .btn-cloud:hover { background: #0d145a; }
 
-        /* INPUT AREA */
-        .input-panel { flex: 1; background: white; padding: 30px; overflow-y: auto; border-right: 2px solid #333; display: flex; flex-direction: column; }
-        .tab-content { display: none; flex: 1; }
+        /* INPUT PANEL */
+        .input-panel { flex: 1; background: white; padding: 30px; overflow-y: auto; border-right: 2px solid #333; }
+        .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .dynamic-row { display: flex; gap: 8px; margin-bottom: 8px; }
-        label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 15px; color: #666; text-transform: uppercase; }
-        input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
-
-        /* FOOTER */
-        .tos-footer { margin-top: 40px; padding: 20px 0; border-top: 1px solid #eee; text-align: center; font-size: 0.8rem; color: #888; }
-        .tos-footer a { color: var(--legal-blue); text-decoration: none; font-weight: bold; }
+        
+        label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 20px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+        input, textarea, select { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; box-sizing: border-box; }
+        
+        .dynamic-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+        .add-field-btn { background: #f8f9fa; border: 1px dashed #999; width: 100%; padding: 10px; cursor: pointer; font-weight: bold; border-radius: 6px; margin-top: 5px; }
 
         /* PREVIEW PANEL */
-        .preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; background: #525659; }
-        .paper { width: 8.5in; min-height: 11in; background: white; padding: 1in; margin: 0 auto; box-shadow: 0 0 20px rgba(0,0,0,0.5); font-family: 'Crimson Pro', serif; font-size: 12pt; line-height: 1.6; color: black; position: relative; }
+        .preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; background: #525659; display: block; }
+        .paper { width: 8.5in; min-height: 11in; background: white; padding: 1in; margin: 0 auto 50px auto; box-shadow: 0 0 30px rgba(0,0,0,0.5); font-family: 'Crimson Pro', serif; font-size: 12pt; line-height: 1.6; color: black; box-sizing: border-box; }
 
-        /* LEGAL TYPESETTING */
+        /* TYPESETTING */
         .sc-caps { font-variant: small-caps; letter-spacing: 1px; }
-        .docket { font-weight: bold; font-size: 13pt; }
+        .docket { font-weight: bold; font-size: 13pt; margin-bottom: 5px; }
         .court-header { text-align: center; font-weight: bold; font-size: 14pt; text-transform: uppercase; margin: 30px 0; }
-        .title-box { text-align: center; border-top: 1.5pt solid black; border-bottom: 1.5pt solid black; padding: 20px 10px; margin: 40px 0; font-weight: bold; text-transform: uppercase; }
-        .section-header { text-align: center; font-weight: bold; text-transform: uppercase; margin: 30px 0 20px 0; }
+        .caption-table { display: flex; width: 100%; margin: 20px 0; }
+        .party-box { flex: 1; }
+        .bracket-box { border-left: 1.5pt solid black; padding-left: 20px; width: 40%; font-style: italic; display: flex; align-items: center; }
+        .title-box { text-align: center; border-top: 1.5pt solid black; border-bottom: 1.5pt solid black; padding: 20px 10px; margin: 40px 0; font-weight: bold; text-transform: uppercase; font-size: 13pt; }
+        .section-header { text-align: center; font-weight: bold; text-transform: uppercase; margin: 35px 0 20px 0; }
 
-        /* PRINT LOGIC: Hide everything except paper */
+        .tos-footer { margin-top: 50px; padding: 20px; border-top: 1px solid #eee; text-align: center; font-size: 0.8rem; color: #888; }
+        .tos-footer a { color: var(--legal-blue); text-decoration: none; font-weight: bold; }
+
+        /* PRINT OVERRIDE */
         @media print {
             body { background: white !important; }
             header, .sidebar, .input-panel, #google-btn-wrapper { display: none !important; }
-            .preview-panel { padding: 0 !important; margin: 0 !important; overflow: visible !important; width: 100% !important; background: white !important; }
-            .paper { box-shadow: none !important; margin: 0 !important; width: 100% !important; border: none !important; }
+            .preview-panel { background: white !important; padding: 0 !important; margin: 0 !important; overflow: visible !important; }
+            .paper { box-shadow: none !important; margin: 0 !important; padding: 0.5in !important; width: 100% !important; border: none !important; }
         }
     </style>
 </head>
@@ -66,28 +71,28 @@
     <div id="google-btn-wrapper">
         <div id="g_id_onload" 
              data-client_id="129113401099-ihpv7tunjjfeuovepgphcfibf4nqj25g.apps.googleusercontent.com" 
-             data-callback="handleSignIn"></div>
-        <div class="g_id_signin" data-type="standard" data-shape="pill"></div>
+             data-callback="onSignIn"></div>
+        <div class="g_id_signin" data-type="standard"></div>
     </div>
 </header>
 
 <main class="app-container">
     <nav class="sidebar">
-        <div id="user-status" style="font-size: 0.75rem; margin-bottom: 15px; color: #666; font-style: italic;">Not signed in. Cloud saving disabled.</div>
+        <div id="auth-status" style="font-size: 0.75rem; color: #666; margin-bottom: 15px; font-style: italic;">Sign in to unlock Cloud Database.</div>
         
-        <button class="tab-btn active" onclick="showTab('setup')">1. Project Setup</button>
-        <button class="tab-btn" onclick="showTab('cover')">2. Cover Page</button>
-        <button class="tab-btn" onclick="showTab('authorities')">3. Authorities</button>
-        <button class="tab-btn" onclick="showTab('questions')">4. Questions</button>
-        <button class="tab-btn" onclick="showTab('argument')">5. Argument</button>
-        <button class="tab-btn" onclick="showTab('conclusion')">6. Finalize</button>
+        <button class="tab-btn active" onclick="switchTab('setup')">1. Initial Setup</button>
+        <button class="tab-btn" onclick="switchTab('cover')">2. Cover Page</button>
+        <button class="tab-btn" onclick="switchTab('authorities')">3. Authorities</button>
+        <button class="tab-btn" onclick="switchTab('questions')">4. Questions</button>
+        <button class="tab-btn" onclick="switchTab('argument')">5. Argument</button>
+        <button class="tab-btn" onclick="switchTab('finalize')">6. Finalize & Print</button>
         
         <div class="persistence-zone">
-            <button class="btn-sm btn-cloud" id="cloudSaveBtn" onclick="saveToCloud()">☁️ Save to My Account</button>
-            <button class="btn-sm" onclick="exportProject()">💾 Export as .JSON</button>
-            <label class="btn-sm" style="text-align:center; display:block;">
-                📂 Import .JSON
-                <input type="file" id="importFile" hidden onchange="importProject(event)">
+            <button class="action-btn btn-cloud" id="cloudBtn" onclick="dbSave()">☁️ Save to My Account</button>
+            <button class="action-btn" onclick="localExport()">💾 Export .JSON File</button>
+            <label class="action-btn" style="text-align:center; display:block; background:#eee;">
+                📂 Import .JSON File
+                <input type="file" id="importFile" hidden onchange="localImport(event)">
             </label>
         </div>
     </nav>
@@ -95,155 +100,153 @@
     <section class="input-panel">
         <div id="setup" class="tab-content active">
             <h2>Project Setup</h2>
-            <label>Brief Type:</label>
-            <select id="briefType" onchange="updatePreview()">
+            <label>Writing for:</label>
+            <select id="briefType" onchange="refresh()">
                 <option value="Petitioner">Brief for Petitioner</option>
                 <option value="Respondent">Brief for Respondent</option>
                 <option value="Amicus Curiae">Brief for Amicus Curiae</option>
             </select>
             <label>Court Term:</label>
-            <input type="text" id="courtTerm" placeholder="January Term 2026" oninput="updatePreview()">
-            <label>Counsel/School Name:</label>
-            <input type="text" id="firmName" oninput="updatePreview()">
-            <label>Student Names (One per line):</label>
-            <textarea id="studentNames" rows="3" oninput="updatePreview()"></textarea>
+            <input type="text" id="courtTerm" placeholder="October Term, 2025" oninput="refresh()">
+            <label>School or Law Firm:</label>
+            <input type="text" id="firmName" placeholder="Harvard Law School" oninput="refresh()">
+            <label>Student Counsel Names:</label>
+            <textarea id="studentNames" rows="3" placeholder="John Adams&#10;Thomas Jefferson" oninput="refresh()"></textarea>
 
-            <div id="amicus-interest-ui" style="display:none; background:#f4f4f4; padding:15px; margin-top:15px; border-radius:8px;">
+            <div id="amicus-box" style="display:none; margin-top:15px; background:#f0f4f8; padding:15px; border-radius:8px;">
                 <label>Interest of Amicus Curiae:</label>
-                <textarea id="amicusInterest" rows="4" oninput="updatePreview()"></textarea>
+                <textarea id="amicusInterest" rows="4" placeholder="Briefly describe why this amicus is filing..." oninput="refresh()"></textarea>
             </div>
         </div>
 
         <div id="cover" class="tab-content">
-            <h2>Cover Page</h2>
+            <h2>Cover Page Details</h2>
             <label>Docket Number:</label>
-            <input type="text" id="docketNum" placeholder="No. 26-101" oninput="updatePreview()">
+            <input type="text" id="docketNum" placeholder="No. 26-1234" oninput="refresh()">
+            
             <label>Petitioners:</label>
-            <div id="petitioner-container"></div>
-            <button onclick="addField('petitioner')" style="cursor:pointer">+ Add Petitioner</button>
+            <div id="petitioner-inputs"></div>
+            <button class="add-field-btn" onclick="addDynamic('petitioner')">+ Add Petitioner</button>
+            
             <label>Respondents:</label>
-            <div id="respondent-container"></div>
-            <button onclick="addField('respondent')" style="cursor:pointer">+ Add Respondent</button>
-            <label>Lower Court (Writ of Certiorari To):</label>
-            <input type="text" id="lowerCourt" oninput="updatePreview()">
+            <div id="respondent-inputs"></div>
+            <button class="add-field-btn" onclick="addDynamic('respondent')">+ Add Respondent</button>
+            
+            <label>Lower Court:</label>
+            <input type="text" id="lowerCourt" placeholder="United States Court of Appeals for the Second Circuit" oninput="refresh()">
         </div>
 
         <div id="authorities" class="tab-content">
             <h2>Table of Authorities</h2>
             <label>Cases:</label>
-            <div id="case-container"></div>
-            <button onclick="addField('case')" style="cursor:pointer">+ Add Case</button>
+            <div id="case-inputs"></div>
+            <button class="add-field-btn" onclick="addDynamic('case')">+ Add Case Reference</button>
             <label>Statutes:</label>
-            <div id="statute-container"></div>
-            <button onclick="addField('statute')" style="cursor:pointer">+ Add Statute</button>
+            <div id="statute-inputs"></div>
+            <button class="add-field-btn" onclick="addDynamic('statute')">+ Add Statute</button>
         </div>
 
         <div id="questions" class="tab-content">
             <h2>Questions Presented</h2>
-            <div id="question-container"></div>
-            <button onclick="addField('question')" style="cursor:pointer">+ Add Question</button>
+            <div id="question-inputs"></div>
+            <button class="add-field-btn" onclick="addDynamic('question')">+ Add Question</button>
         </div>
 
         <div id="argument" class="tab-content">
-            <h2>Argument</h2>
+            <h2>Legal Argument</h2>
             <label>Summary of Argument:</label>
-            <textarea id="summaryArg" rows="4" oninput="updatePreview()"></textarea>
-            <label>Main Argument Body:</label>
-            <textarea id="argBody" rows="12" oninput="updatePreview()"></textarea>
+            <textarea id="summaryArg" rows="4" oninput="refresh()"></textarea>
+            <label>Full Argument Body:</label>
+            <textarea id="argBody" rows="12" oninput="refresh()"></textarea>
         </div>
 
-        <div id="conclusion" class="tab-content">
-            <h2>Final Conclusion</h2>
-            <textarea id="conclusionText" rows="6" oninput="updatePreview()"></textarea>
-            <div style="margin-top:30px;">
-                <button class="btn-sm" style="background:var(--legal-blue); color:white; padding:15px; font-size:1rem;" onclick="downloadPDF()">Download PDF Brief</button>
-                <button class="btn-sm" style="background:#333; color:white; padding:15px; font-size:1rem; margin-top:10px;" onclick="window.print()">Direct Print (Document Only)</button>
+        <div id="finalize" class="tab-content">
+            <h2>Finalize Brief</h2>
+            <label>Conclusion Text:</label>
+            <textarea id="conclusionText" rows="5" placeholder="For the foregoing reasons, the judgment of the court of appeals should be reversed." oninput="refresh()"></textarea>
+            
+            <div style="margin-top:30px; display:flex; flex-direction:column; gap:10px;">
+                <button class="action-btn" style="background:var(--legal-blue); color:white; height:50px;" onclick="downloadPDF()">📥 DOWNLOAD PDF BRIEF</button>
+                <button class="action-btn" style="background:#333; color:white; height:50px;" onclick="window.print()">🖨️ DIRECT PRINT (DOC ONLY)</button>
             </div>
         </div>
 
         <footer class="tos-footer">
-            <p>By using this tool, you agree to our <a href="terms.html" target="_blank">Terms of Service</a>.</p>
-            <p>© 2026 Moot Court Generator</p>
+            <p>By using this generator, you agree to our <a href="terms.html" target="_blank">Terms of Service</a>.</p>
+            <p>© 2026 Moot Court Generator Pro</p>
         </footer>
     </section>
 
     <section class="preview-panel">
         <div id="print-area" class="paper">
-            <div id="preview-render"></div>
+            <div id="render-target"></div>
         </div>
     </section>
 </main>
 
 <script>
-    let appData = {
-        petitioners: [""], respondents: [""], questions: [""],
-        cases: [""], statutes: [""]
+    let data = {
+        petitioners: [""], 
+        respondents: [""], 
+        questions: [""],
+        cases: [""], 
+        statutes: [""]
     };
-    let currentUser = null;
+    let userKey = null;
 
-    // --- GOOGLE SIGN IN & CLOUD SAVE LOGIC ---
-    function handleSignIn(response) {
-        const payload = JSON.parse(atob(response.credential.split('.')[1]));
-        currentUser = payload.sub; // Google Unique ID
-        document.getElementById('user-status').innerText = `Signed in as: ${payload.email}`;
-        document.getElementById('cloudSaveBtn').style.display = 'block';
-        
-        // Auto-load from "database" if brief exists for this user
-        const savedBrief = localStorage.getItem(`brief_${currentUser}`);
-        if (savedBrief) {
-            if (confirm("Found a saved brief in your account. Would you like to load it?")) {
-                loadFromCloud(savedBrief);
-            }
-        }
-    }
+    // --- INITIALIZATION ---
+    window.onload = () => {
+        renderInputFields();
+        refresh();
+    };
 
-    function saveToCloud() {
-        if (!currentUser) return alert("Please sign in first.");
-        const textData = {};
-        document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) textData[el.id] = el.value; });
-        const pack = JSON.stringify({ textData, appData });
-        localStorage.setItem(`brief_${currentUser}`, pack);
-        alert("Brief saved to your account database!");
-    }
-
-    function loadFromCloud(data) {
-        const saved = JSON.parse(data);
-        appData = saved.appData;
-        for(let id in saved.textData) { if(document.getElementById(id)) document.getElementById(id).value = saved.textData[id]; }
-        renderFields();
-        updatePreview();
-    }
-
-    // --- UI LOGIC ---
-    function showTab(tabId) {
+    function switchTab(id) {
         document.querySelectorAll('.tab-content, .tab-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active');
-        document.querySelector(`[onclick="showTab('${tabId}')"]`).classList.add('active');
+        document.getElementById(id).classList.add('active');
+        document.querySelector(`[onclick="switchTab('${id}')"]`).classList.add('active');
     }
 
-    function addField(type) {
-        appData[type + 's'].push("");
-        renderFields();
-        updatePreview();
+    // --- DYNAMIC FIELDS ---
+    function addDynamic(type) {
+        data[type + 's'].push("");
+        renderInputFields();
+        refresh();
     }
 
-    function renderFields() {
-        ['petitioner', 'respondent', 'question', 'case', 'statute'].forEach(t => {
-            const container = document.getElementById(`${t}-container`);
+    function removeDynamic(type, idx) {
+        if(data[type + 's'].length > 1) {
+            data[type + 's'].splice(idx, 1);
+        } else {
+            data[type + 's'][0] = "";
+        }
+        renderInputFields();
+        refresh();
+    }
+
+    function renderInputFields() {
+        const types = ['petitioner', 'respondent', 'question', 'case', 'statute'];
+        types.forEach(t => {
+            const container = document.getElementById(`${t}-inputs`);
             if(!container) return;
-            container.innerHTML = appData[t+'s'].map((val, i) => `
+            container.innerHTML = data[t+'s'].map((val, i) => `
                 <div class="dynamic-row">
-                    <input type="text" value="${val}" oninput="appData['${t}s'][${i}]=this.value; updatePreview()" placeholder="...">
-                    <button style="border:none; background:none; cursor:pointer;" onclick="appData['${t}s'].splice(${i},1); renderFields(); updatePreview()">❌</button>
+                    <input type="text" value="${val}" oninput="data['${t}s'][${i}]=this.value; refresh()" placeholder="...">
+                    <button style="border:none; background:none; cursor:pointer;" onclick="removeDynamic('${t}', ${i})">❌</button>
                 </div>
             `).join('');
         });
     }
 
-    function updatePreview() {
+    // --- REFRESH PREVIEW ---
+    function refresh() {
         const get = (id) => document.getElementById(id)?.value || "";
         const bType = get('briefType');
-        document.getElementById('amicus-interest-ui').style.display = (bType === 'Amicus Curiae') ? 'block' : 'none';
+        
+        // Toggle Amicus UI
+        document.getElementById('amicus-box').style.display = (bType === 'Amicus Curiae') ? 'block' : 'none';
+
+        const sCases = [...data.cases].filter(x => x).sort();
+        const sStats = [...data.statutes].filter(x => x).sort();
 
         let html = `
             <div class="docket">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
@@ -251,76 +254,117 @@
             <div style="text-align:center; font-weight:bold;">${get('courtTerm').toUpperCase()}</div>
             <hr style="border:0; border-top:1.5pt solid black; margin:10px 0;">
 
-            <div style="display:flex; margin:20px 0;">
-                <div style="flex:1;">
-                    ${appData.petitioners.map(p => p.toUpperCase() || 'PETITIONER').join(',<br>')},<br>
-                    <i>Petitioner${appData.petitioners.length > 1 ? 's' : ''}</i>,<br>
-                    <div style="margin:10px 40px;">v.</div>
-                    ${appData.respondents.map(r => r.toUpperCase() || 'RESPONDENT').join(',<br>')},<br>
-                    <i>Respondent${appData.respondents.length > 1 ? 's' : ''}.</i>
+            <div class="caption-table">
+                <div class="party-box">
+                    ${data.petitioners.map(p => p.toUpperCase() || 'PETITIONER').join(',<br>')},<br>
+                    <i style="margin-left:20px;">Petitioner${data.petitioners.length > 1 ? 's' : ''}</i>,<br>
+                    <div style="margin:15px 40px;">v.</div>
+                    ${data.respondents.map(r => r.toUpperCase() || 'RESPONDENT').join(',<br>')},<br>
+                    <i style="margin-left:20px;">Respondent${data.respondents.length > 1 ? 's' : ''}.</i>
                 </div>
-                <div style="border-left:1.5pt solid black; padding-left:20px; width:40%; font-style:italic; display:flex; align-items:center;">
-                    On Writ of Certiorari to the ${get('lowerCourt') || 'Lower Court'}
+                <div class="bracket-box">
+                    On Writ of Certiorari to the ${get('lowerCourt') || 'the Lower Court'}
                 </div>
             </div>
 
-            <div class="title-box">BRIEF FOR THE ${bType.toUpperCase()}</div>
+            <div class="title-box">
+                ${bType === 'Amicus Curiae' 
+                  ? `BRIEF FOR THE ${get('firmName').toUpperCase() || 'AMICUS CURIAE'} AS AMICUS CURIAE SUPPORTING THE ${bType.toUpperCase()}`
+                  : `BRIEF FOR THE ${bType.toUpperCase()}`}
+            </div>
 
             <div style="text-align:center; margin-top:1in;">
                 <b>Respectfully Submitted,</b><br><br>
                 <span class="sc-caps">${get('firmName')}</span><br>
-                <div style="font-size:11pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>')}</div>
+                <div style="font-size:11pt; margin-top:10px; line-height:1.4;">${get('studentNames').replace(/\n/g, '<br>')}</div>
             </div>
 
-            <div style="page-break-before: always;"></div>
+            <div style="page-break-after: always;"></div>
             <div class="section-header">QUESTIONS PRESENTED</div>
-            ${appData.questions.map((q, i) => `<p><b>${i+1}.</b> ${q}</p>`).join('')}
+            ${data.questions.map((q, i) => `<p style="text-indent: 0.5in; margin-bottom:15px;"><b>${i+1}.</b> ${q}</p>`).join('')}
 
-            <div style="page-break-before: always;"></div>
+            <div style="page-break-after: always;"></div>
             <div class="section-header">TABLE OF AUTHORITIES</div>
             <p><b>Cases:</b></p>
-            ${[...appData.cases].sort().filter(x=>x).map(c => `<div><i>${c}</i></div>`).join('')}
+            ${sCases.map(c => `<div style="padding-left:0.5in; text-indent:-0.2in; margin-bottom:5px;"><i>${c}</i></div>`).join('')}
+            <p style="margin-top:20px;"><b>Statutes:</b></p>
+            ${sStats.map(s => `<div style="padding-left:0.5in; margin-bottom:5px;">${s}</div>`).join('')}
 
-            <div style="page-break-before: always;"></div>
+            ${bType === 'Amicus Curiae' ? `
+                <div style="page-break-after: always;"></div>
+                <div class="section-header">INTEREST OF AMICUS CURIAE</div>
+                <p style="text-indent: 0.5in; white-space: pre-wrap;">${get('amicusInterest')}</p>
+            ` : ''}
+
+            <div style="page-break-after: always;"></div>
+            <div class="section-header">SUMMARY OF ARGUMENT</div>
+            <p style="text-indent: 0.5in;">${get('summaryArg')}</p>
+
             <div class="section-header">ARGUMENT</div>
-            <p><b>SUMMARY:</b> ${get('summaryArg')}</p>
             <p style="white-space: pre-wrap; text-indent: 0.5in;">${get('argBody')}</p>
 
+            <div style="page-break-after: always;"></div>
             <div class="section-header">CONCLUSION</div>
-            <p>${get('conclusionText')}</p>
+            <p style="text-indent: 0.5in;">${get('conclusionText')}</p>
         `;
-        document.getElementById('preview-render').innerHTML = html;
+        document.getElementById('render-target').innerHTML = html;
     }
 
-    function downloadPDF() {
-        html2pdf().from(document.getElementById('print-area')).set({
-            margin: 0.5, filename: 'Moot_Court_Brief.pdf',
-            html2canvas: { scale: 3 }, jsPDF: { unit: 'in', format: 'letter' }
-        }).save();
+    // --- AUTH & DATABASE ---
+    function onSignIn(resp) {
+        const payload = JSON.parse(atob(resp.credential.split('.')[1]));
+        userKey = payload.sub;
+        document.getElementById('auth-status').innerText = `Logged in: ${payload.email}`;
+        document.getElementById('cloudBtn').style.display = 'block';
+        
+        // Auto-recall from "database"
+        const saved = localStorage.getItem('db_' + userKey);
+        if(saved && confirm("Found a saved brief in your account. Load it?")) {
+            const parsed = JSON.parse(saved);
+            data = parsed.data;
+            for(let id in parsed.inputs) { if(document.getElementById(id)) document.getElementById(id).value = parsed.inputs[id]; }
+            renderInputFields(); refresh();
+        }
     }
 
-    function exportProject() {
-        const text = {};
-        document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) text[el.id] = el.value; });
-        const blob = new Blob([JSON.stringify({ text, appData })], {type: "application/json"});
+    function dbSave() {
+        if(!userKey) return;
+        const inputs = {};
+        document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
+        localStorage.setItem('db_' + userKey, JSON.stringify({ data, inputs }));
+        alert("Saved to Account Database!");
+    }
+
+    // --- EXPORT / IMPORT ---
+    function localExport() {
+        const inputs = {};
+        document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
+        const blob = new Blob([JSON.stringify({ data, inputs })], {type: "application/json"});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = "brief_export.json";
+        a.download = "my_brief.json";
         a.click();
     }
 
-    function importProject(event) {
+    function localImport(e) {
         const reader = new FileReader();
-        reader.onload = (e) => {
-            const saved = JSON.parse(e.target.result);
-            appData = saved.appData;
-            for(let id in saved.text) { if(document.getElementById(id)) document.getElementById(id).value = saved.text[id]; }
-            renderFields(); updatePreview();
+        reader.onload = (event) => {
+            const pack = JSON.parse(event.target.result);
+            data = pack.data;
+            for(let id in pack.inputs) { if(document.getElementById(id)) document.getElementById(id).value = pack.inputs[id]; }
+            renderInputFields(); refresh();
         };
-        reader.readAsText(event.target.files[0]);
+        reader.readAsText(e.target.files[0]);
     }
 
-    window.onload = () => { renderFields(); updatePreview(); };
+    // --- PDF ---
+    function downloadPDF() {
+        const el = document.getElementById('print-area');
+        html2pdf().from(el).set({
+            margin: 0.5, filename: 'SCOTUS_Brief.pdf',
+            html2canvas: { scale: 3 }, jsPDF: { unit: 'in', format: 'letter' }
+        }).save();
+    }
 </script>
 </body>
 </html>
