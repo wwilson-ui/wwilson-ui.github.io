@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moot Court Generator - Test</title>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            font-family: sans-serif; 
+            background: #525659; 
+        }
+        
+        header { 
+            background: #1a237e; 
+            color: white; 
+            padding: 15px 20px; 
+        }
+        
+        .app-container { 
+            display: flex; 
+            flex: 1; 
+            overflow: hidden; 
+        }
+        
+        .input-panel { 
+            flex: 1; 
+            background: white; 
+            padding: 20px; 
+            overflow-y: auto; 
+        }
+        
+        .preview-panel { 
+            flex: 1.5; 
+            background: #525659; 
+            padding: 40px; 
+            overflow-y: auto; 
+            display: flex; 
+            justify-content: center; 
+        }
+        
+        .paper { 
+            width: 8.5in; 
+            min-height: 11in; 
+            background: white; 
+            padding: 1in; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.5); 
+            font-family: 'Crimson Pro', serif; 
+            font-size: 12pt; 
+            line-height: 1.6; 
+            color: black; 
+        }
+        
+        label { 
+            display: block; 
+            font-weight: bold; 
+            margin-top: 15px; 
+            font-size: 0.9rem; 
+        }
+        
+        input, textarea, select { 
+            width: 100%; 
+            padding: 10px; 
+            margin-top: 5px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            box-sizing: border-box; 
+            font-family: inherit;
+            font-size: 1rem;
+        }
+        
+        .docket { 
+            font-weight: bold; 
+            margin-bottom: 10px; 
+        }
+        
+        .court-header { 
+            text-align: center; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+            margin: 30px 0; 
+        }
+        
+        .caption-box { 
+            display: flex; 
+            margin: 20px 0; 
+        }
+        
+        .parties { 
+            flex: 1; 
+            padding-right: 15px; 
+        }
+        
+        .bracket { 
+            border-left: 2px solid black; 
+            padding-left: 15px; 
+            min-width: 150px; 
+            display: flex; 
+            align-items: center; 
+            font-style: italic; 
+        }
+        
+        .title-box { 
+            text-align: center; 
+            border-top: 2px solid black; 
+            border-bottom: 2px solid black; 
+            padding: 15px; 
+            margin: 30px 0; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1 style="margin: 0; font-size: 1.3rem;">Civics Moot Court Generator</h1>
+</header>
+
+<main class="app-container">
+    <section class="input-panel">
+        <h2>Cover Page Details</h2>
+        
+        <label>Docket Number:</label>
+        <input type="text" id="docket" placeholder="No. 24-XXXX">
+        
+        <label>Petitioner:</label>
+        <input type="text" id="petitioner" placeholder="Enter petitioner name">
+        
+        <label>Respondent:</label>
+        <input type="text" id="respondent" placeholder="Enter respondent name">
+        
+        <label>Lower Court:</label>
+        <input type="text" id="lowerCourt" placeholder="e.g., United States Court of Appeals">
+        
+        <label>Law Firm Name:</label>
+        <input type="text" id="firmName" placeholder="e.g., Hamilton & Associates">
+        
+        <label>Term Date:</label>
+        <input type="text" id="termDate" placeholder="e.g., October Term, 2025">
+        
+        <label>Student Names (one per line):</label>
+        <textarea id="studentNames" rows="4" placeholder="Student 1&#10;Student 2&#10;Student 3"></textarea>
+    </section>
+
+    <section class="preview-panel">
+        <div class="paper" id="printable-area">
+            <div id="preview-content">
+                <!-- Content will be inserted here -->
+            </div>
+        </div>
+    </section>
+</main>
+
+<script>
+console.log('Script loading...');
+
+// Simple function to get value safely
+function getVal(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : '';
+}
+
+// The update function
+function updatePreview() {
+    console.log('updatePreview called');
+    
+    const previewContent = document.getElementById('preview-content');
+    if (!previewContent) {
+        console.error('preview-content element not found!');
+        return;
+    }
+    
+    const html = `
+        <div class="docket">${getVal('docket') || 'No. 24-XXXX'}</div>
+        <div class="court-header">In the Supreme Court of the United States</div>
+        
+        <div class="caption-box">
+            <div class="parties">
+                ${getVal('petitioner') || '[Petitioner]'},<br>
+                <i>Petitioner</i>,<br>
+                <div style="margin: 10px 0">v.</div>
+                ${getVal('respondent') || '[Respondent]'},<br>
+                <i>Respondent</i>.
+            </div>
+            <div class="bracket">
+                On Writ of Certiorari to the ${getVal('lowerCourt') || '[Lower Court]'}
+            </div>
+        </div>
+        
+        ${getVal('termDate') ? `<div style="text-align:center; margin-bottom:20px;">${getVal('termDate')}</div>` : ''}
+
+        <div class="title-box">BRIEF FOR THE PETITIONER</div>
+
+        <div style="text-align:center; margin-top:40px;">
+            <b>Respectfully Submitted,</b><br><br>
+            ${getVal('firmName') || '[Law Firm Name]'}<br>
+            <div style="font-size:0.9rem; margin-top:10px;">
+                ${getVal('studentNames').replace(/\n/g, '<br>') || '[Student Names]'}
+            </div>
+        </div>
+    `;
+    
+    previewContent.innerHTML = html;
+    console.log('Preview updated');
+}
+
+// Wait for DOM to load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded');
+    
+    // Get all input elements
+    const inputs = document.querySelectorAll('input, textarea, select');
+    console.log('Found ' + inputs.length + ' input elements');
+    
+    // Add listeners to each input
+    inputs.forEach(function(input) {
+        input.addEventListener('input', function() {
+            console.log('Input detected on: ' + input.id);
+            updatePreview();
+        });
+    });
+    
+    // Initial render
+    updatePreview();
+    console.log('Initial preview rendered');
+});
+</script>
+
+</body>
+</html>
