@@ -21,12 +21,18 @@
 
 <main class="app-container">
     <nav class="tab-sidebar">
-        <button class="tab-btn active" data-tab="setup">1. Setup</button>
-        <button class="tab-btn" data-tab="cover">2. Cover Page</button>
-        <button class="tab-btn" data-tab="questions">3. Questions</button>
-        <button class="tab-btn" data-tab="authorities">4. Authorities</button>
-        <button class="tab-btn" data-tab="argument">5. Argument</button>
-        <button class="tab-btn" data-tab="export">6. Export</button>
+        <button class="tab-btn active" onclick="openTab('setup')">1. Setup</button>
+        <button class="tab-btn" onclick="openTab('cover')">2. Cover Page</button>
+        <button class="tab-btn" onclick="openTab('questions')">3. Questions</button>
+        <button class="tab-btn" onclick="openTab('authorities')">4. Authorities</button>
+        <button class="tab-btn" onclick="openTab('argument')">5. Argument</button>
+        <button class="tab-btn" onclick="openTab('export')">6. Export</button>
+        
+        <div class="file-ops">
+            <button class="op-btn" onclick="exportData()">💾 Save Progress</button>
+            <button class="op-btn" onclick="document.getElementById('importFile').click()">📂 Load Progress</button>
+            <input type="file" id="importFile" hidden onchange="importData(event)">
+        </div>
     </nav>
 
     <section class="input-panel">
@@ -34,7 +40,7 @@
         <div id="setup" class="tab-content active">
             <h2>Project Setup</h2>
             <label>Brief Type:</label>
-            <select id="docType">
+            <select id="docType" onchange="updatePreview()">
                 <option value="brief">Petitioner / Respondent Brief</option>
                 <option value="amicus">Amicus Curiae Submission</option>
             </select>
@@ -46,7 +52,7 @@
             <input type="text" id="termDate" placeholder="e.g. October Term, 2025">
             
             <label>Student Counsel Names:</label>
-            <textarea id="studentNames" rows="4" placeholder="Enter one name per line"></textarea>
+            <textarea id="studentNames" rows="4" placeholder="Student 1&#10;Student 2&#10;Student 3"></textarea>
         </div>
 
         <div id="cover" class="tab-content">
@@ -63,9 +69,9 @@
             <label>Lower Court:</label>
             <input type="text" id="lowerCourt" placeholder="e.g. United States Court of Appeals for the Fourth Circuit">
             
-            <div id="amicus-options" style="display:none;">
+            <div id="amicus-options" style="display:none; background:#e8f5e9; padding:10px; margin-top:10px; border-radius:4px;">
                 <label>Amicus Supporting:</label>
-                <select id="amicusSupport">
+                <select id="amicusSupport" onchange="updatePreview()">
                     <option value="PETITIONER">Petitioner</option>
                     <option value="RESPONDENT">Respondent</option>
                     <option value="NEITHER PARTY">Neither Party</option>
@@ -76,7 +82,7 @@
         <div id="questions" class="tab-content">
             <h2>Questions Presented</h2>
             <div id="questions-list"></div>
-            <button class="add-btn" id="add-question-btn">+ Add Question</button>
+            <button class="add-btn" onclick="addQuestion()">+ Add Question</button>
         </div>
 
         <div id="authorities" class="tab-content">
@@ -88,7 +94,7 @@
                 </select>
                 <input type="text" id="authName" placeholder="Name">
                 <input type="text" id="authYear" placeholder="Year" style="width: 100px;">
-                <button id="add-auth-btn">Add</button>
+                <button onclick="addAuthority()">Add</button>
             </div>
             <div id="auth-list"></div>
         </div>
@@ -110,17 +116,17 @@
             <h3>Argument Sections</h3>
             <div id="argument-sections"></div>
             <div style="display: flex; gap: 10px;">
-                <button class="add-btn" id="add-heading-btn">+ Main Point (I, II...)</button>
-                <button class="add-btn" id="add-sub-btn">+ Sub-Point (A, B...)</button>
+                <button class="add-btn" onclick="addArgumentSection('heading')">+ Main Point (I, II...)</button>
+                <button class="add-btn" onclick="addArgumentSection('sub')">+ Sub-Point (A, B...)</button>
             </div>
         </div>
 
         <div id="export" class="tab-content">
             <h2>Finalize</h2>
             <label>Conclusion:</label>
-            <textarea id="conclusion" rows="3" placeholder="For the foregoing reasons..."></textarea>
+            <textarea id="conclusion" rows="3" placeholder="For the foregoing reasons, the judgment should be reversed."></textarea>
             
-            <button class="download-btn" id="generate-pdf-btn">Download SCOTUS PDF</button>
+            <button class="download-btn" onclick="generatePDF()">Download SCOTUS PDF</button>
             
             <div style="margin-top: 20px; text-align: center;">
                 <a href="tos.html" target="_blank">Terms of Service</a>
