@@ -7,31 +7,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
 <header>
     <div class="logo">Civics Moot Court Brief Generator</div>
-    
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    
-    <div id="google-signin-container" style="display: flex; align-items: center;">
-        <div id="g_id_onload"
-             data-client_id="YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com"
-             data-context="signin"
-             data-ux_mode="popup"
-             data-callback="handleCredentialResponse"
-             data-auto_prompt="false">
-        </div>
-
-        <div class="g_id_signin"
-             data-type="standard"
-             data-shape="rectangular"
-             data-theme="outline"
-             data-text="signin_with"
-             data-size="medium"
-             data-logo_alignment="left">
-        </div>
+    <div id="google-signin-container">
+        <div id="g_id_onload" data-client_id="YOUR_ID_HERE" data-callback="handleCredentialResponse"></div>
+        <div class="g_id_signin" data-type="standard"></div>
     </div>
 </header>
 
@@ -63,20 +47,23 @@
             <input type="text" id="lawFirm" onkeyup="updatePreview()">
             <label>Term Date:</label>
             <input type="text" id="termDate" placeholder="e.g., October Term, 2024" onkeyup="updatePreview()">
-            <label>Student Counsel Names:</label>
-            <textarea id="studentNames" placeholder="One name per line" onkeyup="updatePreview()"></textarea>
+            <label>Student Names (Counsel):</label>
+            <div id="student-list">
+                <input type="text" class="student-name-input" placeholder="Student Name" onkeyup="updatePreview()">
+            </div>
+            <button class="add-btn" onclick="addStudentField()">+ Add Another Student</button>
         </div>
 
         <div id="cover" class="tab-content">
             <h2>Cover Page</h2>
             <label>Docket Number:</label>
-            <input type="text" id="docketNumber" onkeyup="updatePreview()">
+            <input type="text" id="docketNumber" placeholder="No. 24-XXXX" onkeyup="updatePreview()">
             <label>Petitioner:</label>
             <input type="text" id="petitionerName" onkeyup="updatePreview()">
             <label>Respondent:</label>
             <input type="text" id="respondentName" onkeyup="updatePreview()">
             <label>Lower Court:</label>
-            <input type="text" id="lowerCourt" onkeyup="updatePreview()">
+            <input type="text" id="lowerCourt" placeholder="Court of Appeals for..." onkeyup="updatePreview()">
             <div id="amicus-support-div" style="display:none;">
                 <label>Amicus Support:</label>
                 <select id="amicusSupport" onchange="updatePreview()">
@@ -103,12 +90,12 @@
                 </select>
                 <input type="text" id="new-auth-name" placeholder="Name">
                 <input type="text" id="new-auth-year" placeholder="Year">
-                <button class="add-btn" onclick="registerAuthority()">Add</button>
+                <button class="add-btn" onclick="registerAuthority()">Add to Library</button>
             </div>
         </div>
 
         <div id="argument" class="tab-content">
-            <h2>Argument</h2>
+            <h2>Legal Argument</h2>
             <label>Statement of the Case:</label>
             <textarea id="statementOfCase" onkeyup="updatePreview()"></textarea>
             <div id="amicus-interest-div" style="display:none;">
@@ -118,13 +105,13 @@
             <label>Summary of Argument:</label>
             <textarea id="summaryArgument" onkeyup="updatePreview()"></textarea>
             <div id="argument-sections-container"></div>
-            <button class="add-btn" onclick="addArgumentSection('heading')">+ Add Main Point (I)</button>
-            <button class="add-btn" onclick="addArgumentSection('subheading')">+ Add Sub-point (A)</button>
+            <button class="add-btn" onclick="addArgumentSection('heading')">+ Add Main Point (I, II...)</button>
+            <button class="add-btn" onclick="addArgumentSection('subheading')">+ Add Sub-point (A, B...)</button>
         </div>
 
         <div id="review" class="tab-content">
-            <h2>Finalize</h2>
-            <label>Conclusion (Call to Action):</label>
+            <h2>Conclusion & Export</h2>
+            <label>Conclusion (Final Call to Action):</label>
             <textarea id="conclusionText" onkeyup="updatePreview()"></textarea>
             <button class="download-btn" onclick="generatePDF()">Download SCOTUS PDF</button>
         </div>
@@ -138,7 +125,7 @@
 </main>
 
 <footer>
-    <a href="tos.html" target="_blank">Terms of Service & Privacy Policy</a> | 8th Grade Social Studies
+    <a href="tos.html" target="_blank">Terms of Service & Privacy Policy</a> | 8th Grade Social Studies Civics
 </footer>
 
 <script src="app.js"></script>
