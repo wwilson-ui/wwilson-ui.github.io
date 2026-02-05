@@ -1,82 +1,53 @@
-// State
+// STATE
 let questions = [];
 let authorities = [];
 let argumentSections = [];
 
-// Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('App initialized');
+// Wait for page to load
+window.addEventListener('load', function() {
+    console.log('Page loaded, initializing...');
     
-    // Set up tab navigation
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const tabId = this.getAttribute('data-tab');
-            switchTab(tabId);
-        });
-    });
-    
-    // Set up global input listener on the input panel
+    // Attach input listeners to ALL inputs in the input panel
     const inputPanel = document.querySelector('.input-panel');
     if (inputPanel) {
-        inputPanel.addEventListener('input', function(e) {
-            if (e.target.matches('input, textarea, select')) {
-                updatePreview();
-            }
-        });
-        
-        inputPanel.addEventListener('change', function(e) {
-            if (e.target.matches('select')) {
-                if (e.target.id === 'docType') {
-                    handleDocTypeChange();
-                } else {
-                    updatePreview();
-                }
-            }
-        });
+        inputPanel.addEventListener('input', updatePreview);
+        inputPanel.addEventListener('change', updatePreview);
     }
-    
-    // Set up button listeners
-    const addQuestionBtn = document.getElementById('add-question-btn');
-    if (addQuestionBtn) addQuestionBtn.addEventListener('click', addQuestion);
-    
-    const addAuthBtn = document.getElementById('add-auth-btn');
-    if (addAuthBtn) addAuthBtn.addEventListener('click', addAuthority);
-    
-    const addHeadingBtn = document.getElementById('add-heading-btn');
-    if (addHeadingBtn) addHeadingBtn.addEventListener('click', () => addArgumentSection('heading'));
-    
-    const addSubBtn = document.getElementById('add-sub-btn');
-    if (addSubBtn) addSubBtn.addEventListener('click', () => addArgumentSection('sub'));
-    
-    const generatePdfBtn = document.getElementById('generate-pdf-btn');
-    if (generatePdfBtn) generatePdfBtn.addEventListener('click', generatePDF);
     
     // Initial render
     updatePreview();
+    console.log('Initial preview rendered');
 });
 
-function switchTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+// TAB NAVIGATION
+function openTab(tabId) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(el => {
+        el.classList.remove('active');
+    });
     
+    // Deactivate all buttons
+    document.querySelectorAll('.tab-btn').forEach(el => {
+        el.classList.remove('active');
+    });
+    
+    // Show selected tab
     const targetTab = document.getElementById(tabId);
-    if (targetTab) targetTab.classList.add('active');
+    if (targetTab) {
+        targetTab.classList.add('active');
+    }
     
-    const targetBtn = document.querySelector(`[data-tab="${tabId}"]`);
-    if (targetBtn) targetBtn.classList.add('active');
+    // Activate clicked button
+    event.target.classList.add('active');
 }
 
-function handleDocTypeChange() {
-    const isAmicus = document.getElementById('docType').value === 'amicus';
-    const amicusOptions = document.getElementById('amicus-options');
-    const amicusInterest = document.getElementById('amicus-interest-section');
-    
-    if (amicusOptions) amicusOptions.style.display = isAmicus ? 'block' : 'none';
-    if (amicusInterest) amicusInterest.style.display = isAmicus ? 'block' : 'none';
-    
-    updatePreview();
+// HELPER FUNCTION
+function getVal(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : '';
 }
 
+// QUESTIONS
 function addQuestion() {
     questions.push('');
     renderQuestions();
@@ -90,42 +61,34 @@ function renderQuestions() {
         <div class="dynamic-item">
             <button class="delete-x" onclick="removeQuestion(${i})">×</button>
             <label>Question ${i + 1}:</label>
-            <textarea rows="3">${q}</textarea>
+            <textarea rows="3" oninput="updateQuestionText(${i}, this.value)">${q}</textarea>
         </div>
     `).join('');
-    
-    // Attach listeners to the new textareas
-    const textareas = container.querySelectorAll('textarea');
-    textareas.forEach((ta, index) => {
-        ta.addEventListener('input', function() {
-            questions[index] = this.value;
-            updatePreview();
-        });
-    });
-    
+}
+
+function updateQuestionText(index, value) {
+    questions[index] = value;
     updatePreview();
 }
 
 function removeQuestion(index) {
     questions.splice(index, 1);
     renderQuestions();
+    updatePreview();
 }
 
+// AUTHORITIES
 function addAuthority() {
-    const nameInput = document.getElementById('authName');
-    const yearInput = document.getElementById('authYear');
-    const typeSelect = document.getElementById('authType');
+    const name = getVal('authName');
+    const year = getVal('authYear');
+    const type = getVal('authType');
     
-    if (!nameInput || !nameInput.value.trim()) return;
+    if (!name) return;
     
-    authorities.push({ 
-        name: nameInput.value, 
-        year: yearInput ? yearInput.value : '', 
-        type: typeSelect ? typeSelect.value : 'Cases'
-    });
+    authorities.push({ name, year, type });
     
-    nameInput.value = '';
-    if (yearInput) yearInput.value = '';
+    document.getElementById('authName').value = '';
+    document.getElementById('authYear').value = '';
     
     renderAuthorities();
 }
@@ -149,6 +112,7 @@ function removeAuthority(index) {
     renderAuthorities();
 }
 
+// ARGUMENTS
 function addArgumentSection(type) {
     argumentSections.push({ type, title: '', body: '' });
     renderArgumentSections();
@@ -162,40 +126,26 @@ function renderArgumentSections() {
         <div class="dynamic-item" style="${sec.type === 'sub' ? 'margin-left: 30px; border-left: 4px solid #1a237e; padding-left: 10px;' : ''}">
             <button class="delete-x" onclick="removeArgumentSection(${i})">×</button>
             <label>${sec.type === 'heading' ? 'Main Point' : 'Sub-Point'}:</label>
-            <input type="text" value="${sec.title}" placeholder="Title">
-            <textarea rows="3" placeholder="Text...">${sec.body}</textarea>
+            <input type="text" value="${sec.title}" placeholder="Title" 
+                   oninput="updateArgument(${i}, 'title', this.value)">
+            <textarea rows="3" placeholder="Text..." 
+                      oninput="updateArgument(${i}, 'body', this.value)">${sec.body}</textarea>
         </div>
     `).join('');
-    
-    // Attach listeners
-    const items = container.querySelectorAll('.dynamic-item');
-    items.forEach((item, index) => {
-        const input = item.querySelector('input');
-        const textarea = item.querySelector('textarea');
-        
-        if (input) {
-            input.addEventListener('input', function() {
-                argumentSections[index].title = this.value;
-                updatePreview();
-            });
-        }
-        
-        if (textarea) {
-            textarea.addEventListener('input', function() {
-                argumentSections[index].body = this.value;
-                updatePreview();
-            });
-        }
-    });
-    
+}
+
+function updateArgument(index, field, value) {
+    argumentSections[index][field] = value;
     updatePreview();
 }
 
 function removeArgumentSection(index) {
     argumentSections.splice(index, 1);
     renderArgumentSections();
+    updatePreview();
 }
 
+// ROMAN NUMERALS
 function romanize(num) {
     if (!num || num < 1) return '';
     const lookup = {M:1000,CM:900,D:500,CD:400,C:100,XC:90,L:50,XL:40,X:10,IX:9,V:5,IV:4,I:1};
@@ -209,51 +159,50 @@ function romanize(num) {
     return roman;
 }
 
-function getValue(id) {
-    const el = document.getElementById(id);
-    return el ? el.value : '';
-}
-
+// MAIN UPDATE FUNCTION
 function updatePreview() {
     const previewContent = document.getElementById('preview-content');
-    if (!previewContent) {
-        console.error('Preview content element not found!');
-        return;
-    }
+    if (!previewContent) return;
     
-    const isAmicus = getValue('docType') === 'amicus';
+    const isAmicus = getVal('docType') === 'amicus';
+    
+    // Toggle Amicus fields
+    const amicusOptions = document.getElementById('amicus-options');
+    const amicusInterest = document.getElementById('amicus-interest-section');
+    if (amicusOptions) amicusOptions.style.display = isAmicus ? 'block' : 'none';
+    if (amicusInterest) amicusInterest.style.display = isAmicus ? 'block' : 'none';
     
     let html = `
-        <div class="docket">${getValue('docket') || 'No. 24-XXXX'}</div>
+        <div class="docket">${getVal('docket') || 'No. 24-XXXX'}</div>
         <div class="court-header">In the Supreme Court of the United States</div>
         
         <div class="caption-box">
             <div class="parties">
-                ${getValue('petitioner') || '[Petitioner]'},<br>
+                ${getVal('petitioner') || '[Petitioner]'},<br>
                 <i>Petitioner</i>,<br>
                 <div style="margin: 10px 0">v.</div>
-                ${getValue('respondent') || '[Respondent]'},<br>
+                ${getVal('respondent') || '[Respondent]'},<br>
                 <i>Respondent</i>.
             </div>
             <div class="bracket">
-                On Writ of Certiorari to the ${getValue('lowerCourt') || '[Lower Court]'}
+                On Writ of Certiorari to the ${getVal('lowerCourt') || '[Lower Court]'}
             </div>
         </div>
         
-        ${getValue('termDate') ? `<div style="text-align:center; margin-bottom:20px;">${getValue('termDate')}</div>` : ''}
+        ${getVal('termDate') ? `<div style="text-align:center; margin-bottom:20px;">${getVal('termDate')}</div>` : ''}
 
         <div class="title-box">
             ${isAmicus 
-                ? `BRIEF OF ${getValue('firmName') || '[FIRM NAME]'} AS AMICUS CURIAE SUPPORTING ${getValue('amicusSupport') || 'PETITIONER'}` 
+                ? `BRIEF OF ${getVal('firmName') || '[FIRM NAME]'} AS AMICUS CURIAE SUPPORTING ${getVal('amicusSupport') || 'PETITIONER'}` 
                 : `BRIEF FOR THE PETITIONER`
             }
         </div>
 
         <div style="text-align:center; margin-top:40px;">
             <b>Respectfully Submitted,</b><br><br>
-            ${getValue('firmName') || '[Law Firm Name]'}<br>
+            ${getVal('firmName') || '[Law Firm Name]'}<br>
             <div style="font-size:0.9rem; margin-top:10px;">
-                ${getValue('studentNames').replace(/\n/g, '<br>') || '[Student Names]'}
+                ${getVal('studentNames').replace(/\n/g, '<br>') || '[Student Names]'}
             </div>
         </div>
 
@@ -279,18 +228,18 @@ function updatePreview() {
         <div class="page-break"></div>
         <div class="center-head">ARGUMENT</div>
         
-        ${isAmicus && getValue('interestAmicus') 
-            ? `<h4>Interest of Amicus Curiae</h4><p>${getValue('interestAmicus')}</p>` 
+        ${isAmicus && getVal('interestAmicus') 
+            ? `<h4>Interest of Amicus Curiae</h4><p>${getVal('interestAmicus')}</p>` 
             : ''
         }
         
-        ${getValue('statementCase') 
-            ? `<h4>Statement of the Case</h4><p>${getValue('statementCase')}</p>` 
+        ${getVal('statementCase') 
+            ? `<h4>Statement of the Case</h4><p>${getVal('statementCase')}</p>` 
             : ''
         }
         
-        ${getValue('summaryArg') 
-            ? `<h4>Summary of Argument</h4><p>${getValue('summaryArg')}</p>` 
+        ${getVal('summaryArg') 
+            ? `<h4>Summary of Argument</h4><p>${getVal('summaryArg')}</p>` 
             : ''
         }
         
@@ -314,29 +263,17 @@ function updatePreview() {
     });
 
     // Conclusion
-    if (getValue('conclusion')) {
-        html += `<div class="page-break"></div><div class="center-head">CONCLUSION</div><p>${getValue('conclusion')}</p>`;
+    if (getVal('conclusion')) {
+        html += `<div class="page-break"></div><div class="center-head">CONCLUSION</div><p>${getVal('conclusion')}</p>`;
     }
 
     previewContent.innerHTML = html;
 }
 
+// PDF GENERATION
 function generatePDF() {
     const element = document.getElementById('printable-area');
     if (!element) {
         alert('Error: Unable to generate PDF');
         return;
     }
-    
-    html2pdf().from(element).set({
-        margin: 0.5,
-        filename: 'MootCourt_Brief.pdf',
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    }).save();
-}
-
-function handleCredentialResponse(response) {
-    console.log('Google Sign-In:', response.credential);
-    alert('Signed in successfully!');
-}
