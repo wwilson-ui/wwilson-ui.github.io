@@ -1,38 +1,266 @@
-body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; background: #525659; }
-header { background: #1a237e; color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
-.app-container { display: flex; flex: 1; overflow: hidden; }
+/* GLOBAL */
+body { 
+    margin: 0; 
+    display: flex; 
+    flex-direction: column; 
+    height: 100vh; 
+    font-family: sans-serif; 
+    background: #525659; 
+}
 
-/* Sidebar */
-.tab-sidebar { width: 200px; background: #f4f4f4; border-right: 1px solid #ccc; display: flex; flex-direction: column; padding: 10px; }
-.tab-btn { padding: 12px; border: none; background: none; text-align: left; cursor: pointer; border-bottom: 1px solid #ddd; }
-.tab-btn.active { background: #1a237e; color: white; font-weight: bold; }
+* { box-sizing: border-box; }
 
-/* Inputs */
-.input-panel { flex: 1; background: white; padding: 25px; overflow-y: auto; }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-.hidden-group { display: none; background: #e8eaf6; padding: 10px; margin-top: 10px; border-radius: 4px; }
+/* HEADER */
+header { 
+    background: #1a237e; 
+    color: white; 
+    padding: 10px 20px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
 
-label { display: block; font-weight: bold; font-size: 0.85rem; color: #333; margin-top: 15px; }
-input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #bbb; border-radius: 3px; box-sizing: border-box; font-family: inherit; }
-.add-btn { background: #1a237e; color: white; border: none; padding: 10px; width: 100%; margin-top: 10px; cursor: pointer; }
-.small-btn { background: #333; color: white; border: none; padding: 8px 15px; cursor: pointer; margin-top: 5px; }
-.download-btn { background: #2e7d32; color: white; border: none; padding: 15px; width: 100%; font-size: 1.1rem; font-weight: bold; cursor: pointer; border-radius: 5px; }
-.delete-x { float: right; color: red; background: none; border: none; cursor: pointer; font-weight: bold; }
+.logo { 
+    font-weight: bold; 
+    font-size: 1.2rem; 
+}
 
-/* List Items */
-.dynamic-item { background: #f9f9f9; border: 1px solid #ddd; padding: 10px; margin-top: 8px; }
+/* MAIN LAYOUT */
+.app-container { 
+    display: flex; 
+    flex: 1; 
+    overflow: hidden; 
+}
 
-/* Preview */
-.preview-panel { flex: 1.4; background: #525659; padding: 40px; overflow-y: auto; display: flex; justify-content: center; }
-.paper { width: 8.5in; min-height: 11in; background: white; padding: 1in; box-shadow: 0 0 15px rgba(0,0,0,0.5); font-family: 'Crimson Pro', serif; font-size: 12pt; line-height: 1.6; color: black; }
+/* SIDEBAR */
+.tab-sidebar { 
+    width: 200px; 
+    background: #f5f5f5; 
+    border-right: 1px solid #ccc; 
+    display: flex; 
+    flex-direction: column; 
+    padding: 10px; 
+}
 
-/* Legal Styles */
-.docket { font-weight: bold; }
-.court-header { text-align: center; font-weight: bold; text-transform: uppercase; margin: 30px 0; }
-.caption-box { display: flex; margin: 20px 0; }
-.parties { flex: 1; padding-right: 15px; }
-.bracket { border-left: 2px solid black; padding-left: 15px; min-width: 150px; display: flex; align-items: center; font-style: italic; }
-.title-box { text-align: center; border-top: 2px solid black; border-bottom: 2px solid black; padding: 15px; margin: 30px 0; font-weight: bold; text-transform: uppercase; }
-.page-break { page-break-before: always; border-top: 2px dashed #ccc; margin: 50px 0; padding-top: 30px; }
-.center-head { text-align: center; font-weight: bold; text-transform: uppercase; margin-bottom: 20px; }
+.tab-btn { 
+    padding: 10px; 
+    margin-bottom: 5px; 
+    border: none; 
+    background: none; 
+    text-align: left; 
+    cursor: pointer; 
+    border-radius: 4px; 
+    font-size: 0.9rem; 
+}
+
+.tab-btn:hover { 
+    background: #e0e0e0; 
+}
+
+.tab-btn.active { 
+    background: #1a237e; 
+    color: white; 
+    font-weight: bold; 
+}
+
+.file-ops { 
+    margin-top: auto; 
+    border-top: 1px solid #ccc; 
+    padding-top: 10px; 
+}
+
+.op-btn { 
+    width: 100%; 
+    background: #ddd; 
+    border: 1px solid #999; 
+    padding: 8px; 
+    margin-top: 5px; 
+    cursor: pointer; 
+    font-size: 0.85rem; 
+    border-radius: 3px;
+}
+
+/* INPUT PANEL */
+.input-panel { 
+    flex: 1; 
+    background: white; 
+    padding: 20px; 
+    overflow-y: auto; 
+    border-right: 1px solid #ccc; 
+}
+
+.tab-content { 
+    display: none; 
+}
+
+.tab-content.active { 
+    display: block; 
+}
+
+/* FORM ELEMENTS */
+label { 
+    display: block; 
+    font-weight: bold; 
+    font-size: 0.85rem; 
+    color: #444; 
+    margin-top: 15px; 
+}
+
+input, select, textarea { 
+    width: 100%; 
+    padding: 8px; 
+    margin-top: 5px; 
+    border: 1px solid #aaa; 
+    border-radius: 3px; 
+    font-family: inherit; 
+    font-size: 1rem;
+}
+
+.add-btn { 
+    background: #1a237e; 
+    color: white; 
+    border: none; 
+    padding: 10px; 
+    width: 100%; 
+    margin-top: 10px; 
+    cursor: pointer; 
+    border-radius: 3px; 
+    font-weight: bold;
+}
+
+.download-btn { 
+    background: #2e7d32; 
+    color: white; 
+    border: none; 
+    padding: 15px; 
+    width: 100%; 
+    font-size: 1.1rem; 
+    font-weight: bold; 
+    cursor: pointer; 
+    border-radius: 5px; 
+    margin-top: 20px;
+}
+
+/* DYNAMIC ITEMS */
+.dynamic-item { 
+    background: #f9f9f9; 
+    border: 1px solid #ddd; 
+    padding: 10px; 
+    margin-top: 8px; 
+    position: relative;
+    border-radius: 4px;
+}
+
+.delete-x { 
+    position: absolute; 
+    top: 5px; 
+    right: 5px; 
+    color: red; 
+    cursor: pointer; 
+    font-weight: bold; 
+    border: none; 
+    background: none; 
+    font-size: 1.2rem;
+    padding: 0 5px;
+}
+
+.auth-input-row { 
+    display: flex; 
+    gap: 5px; 
+    margin-top: 10px; 
+}
+
+.auth-input-row select { 
+    flex: 1; 
+}
+
+.auth-input-row input { 
+    flex: 2; 
+}
+
+.auth-input-row button { 
+    padding: 8px 15px; 
+    background: #333; 
+    color: white; 
+    border: none; 
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+/* PREVIEW PANEL */
+.preview-panel { 
+    flex: 1.5; 
+    background: #525659; 
+    padding: 40px; 
+    overflow-y: auto; 
+    display: flex; 
+    justify-content: center; 
+}
+
+.paper { 
+    width: 8.5in; 
+    min-height: 11in; 
+    background: white; 
+    padding: 1in; 
+    box-shadow: 0 0 15px rgba(0,0,0,0.5); 
+    font-family: 'Crimson Pro', serif; 
+    font-size: 12pt; 
+    line-height: 1.6;
+    color: black; 
+}
+
+/* LEGAL DOCUMENT STYLING */
+.docket { 
+    font-weight: bold; 
+}
+
+.court-header { 
+    text-align: center; 
+    font-weight: bold; 
+    text-transform: uppercase; 
+    margin: 30px 0; 
+}
+
+.caption-box { 
+    display: flex; 
+    margin: 20px 0; 
+}
+
+.parties { 
+    flex: 1; 
+    padding-right: 15px; 
+    line-height: 1.4; 
+}
+
+.bracket { 
+    border-left: 2px solid black; 
+    padding-left: 15px; 
+    min-width: 160px; 
+    display: flex; 
+    align-items: center; 
+    font-style: italic; 
+    font-size: 11pt; 
+}
+
+.title-box { 
+    text-align: center; 
+    border-top: 2px solid black; 
+    border-bottom: 2px solid black; 
+    padding: 15px; 
+    margin: 30px 0; 
+    font-weight: bold; 
+    text-transform: uppercase; 
+}
+
+.page-break { 
+    border-top: 2px dashed #ccc; 
+    margin: 40px 0; 
+    padding-top: 20px; 
+}
+
+.center-head { 
+    text-align: center; 
+    font-weight: bold; 
+    text-transform: uppercase; 
+    margin-bottom: 20px; 
+}
