@@ -43,3 +43,40 @@ function openTab(tabId) {
     document.getElementById(tabId).classList.add('active');
     event.currentTarget.classList.add('active');
 }
+
+
+function addQuestionField() {
+    const container = document.getElementById('questions-container');
+    const count = container.getElementsByClassName('question-entry').length + 1;
+    
+    const div = document.createElement('div');
+    div.className = 'question-entry';
+    div.innerHTML = `
+        <label>Question ${count}:</label>
+        <textarea class="question-input" onkeyup="updatePreview()"></textarea>
+    `;
+    container.appendChild(div);
+}
+
+// Update your existing updatePreview() function to include this logic:
+function updatePreview() {
+    // ... previous code for cover ...
+
+    // Get Questions
+    const questions = document.querySelectorAll('.question-input');
+    let questionsHtml = '<div class="preview-page-break"></div><h3 style="text-align:center;">QUESTION PRESENTED</h3>';
+    
+    // Logic: If 1 question, don't number it. If multiple, number them.
+    if (questions.length === 1) {
+        questionsHtml += `<div class="question-text centered-block">${questions[0].value}</div>`;
+    } else {
+        questions.forEach((q, index) => {
+            if (q.value.trim() !== "") {
+                questionsHtml += `<div class="question-text"><strong>${index + 1}.</strong> ${q.value}</div><br>`;
+            }
+        });
+    }
+
+    // Append to preview (we will expand this as we add more tabs)
+    document.getElementById('preview-content').innerHTML = coverHtml + questionsHtml;
+}
