@@ -34,7 +34,21 @@
         </nav>
 
         <section class="input-panel">
-            <div id="cover" class="tab-content">
+            <div id="questions" class="tab-content">
+            <h2>Questions Presented</h2>
+            <p class="instruction-text">Enter the constitutional questions the Court is being asked to decide. If there are multiple, they will be numbered automatically.</p>
+    
+            <div id="questions-container">
+                <div class="question-entry">
+                    <label>Question 1:</label>
+                    <textarea class="question-input" onkeyup="updatePreview()" placeholder="e.g., Whether the Fourth Amendment prohibits the warrantless search of a cell phone..."></textarea>
+                </div>
+            </div>
+    
+            <button class="add-btn" onclick="addQuestionField()">+ Add Another Question</button>
+        </div>
+   
+    <div id="cover" class="tab-content">
     <h2>Cover Page Details</h2>
     
     <label>Docket Number(s):</label>
