@@ -1,29 +1,32 @@
 body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; background: #525659; }
-header { background: #1a237e; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
+header { background: #1a237e; color: white; padding: 10px 30px; display: flex; justify-content: space-between; align-items: center; }
 .app-container { display: flex; flex: 1; overflow: hidden; }
 
 /* Tabs */
 .tab-sidebar { width: 220px; background: #fff; border-right: 1px solid #ddd; padding: 15px; display: flex; flex-direction: column; }
-.tab-btn { padding: 12px; border: none; background: none; text-align: left; cursor: pointer; border-radius: 4px; margin-bottom: 4px; }
+.tab-btn { padding: 12px; border: none; background: none; text-align: left; cursor: pointer; border-radius: 4px; margin-bottom: 4px; font-size: 0.9rem; }
 .tab-btn.active { background: #e8eaf6; color: #1a237e; font-weight: bold; border-left: 4px solid #1a237e; }
 .input-panel { flex: 1; background: white; padding: 30px; overflow-y: auto; border-right: 1px solid #ddd; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
-/* Preview */
+/* Preview Paper Styling */
 .preview-panel { flex: 1.5; overflow-y: auto; padding: 40px; display: flex; justify-content: center; }
-.paper { width: 8.5in; background: white; padding: 1in; box-shadow: 0 0 20px rgba(0,0,0,0.3); font-family: 'Crimson Pro', serif; font-size: 12pt; line-height: 1.5; }
+.paper { width: 8.5in; background: white; padding: 1in; box-shadow: 0 0 20px rgba(0,0,0,0.3); font-family: 'Crimson Pro', serif; font-size: 12pt; line-height: 1.5; color: black; }
 
-/* Legal Formatting */
-.docket { font-weight: bold; }
-.court { text-align: center; text-transform: uppercase; font-weight: bold; margin: 40px 0; }
-.caption { display: flex; margin: 30px 0; }
-.bracket { border-left: 2px solid black; padding-left: 15px; margin-left: 20px; min-width: 120px; display: flex; align-items: center; }
-.title-box { text-align: center; font-weight: bold; text-transform: uppercase; border: 2px solid black; padding: 15px; margin: 30px 0; }
-.page-break { page-break-before: always; border-top: 1px dashed #ccc; margin-top: 50px; padding-top: 50px; }
+/* Cover Layout */
+.docket { font-weight: bold; margin-bottom: 10px; }
+.court-header { text-align: center; text-transform: uppercase; font-weight: bold; margin: 30px 0; font-size: 1.1rem; }
+.caption-box { display: flex; margin: 20px 0; border-bottom: 1px solid transparent; }
+.parties { flex: 1; padding-right: 15px; }
+.v-mark { margin: 10px 0; font-style: italic; }
+.bracket-side { border-left: 2px solid black; padding-left: 15px; min-width: 150px; display: flex; align-items: center; font-style: italic; }
+.title-block { text-align: center; font-weight: bold; text-transform: uppercase; border-top: 2px solid black; border-bottom: 2px solid black; padding: 15px; margin: 30px 0; }
 
-/* Controls */
-textarea, input, select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-.add-btn { background: #1a237e; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 4px; width: 100%; margin-top: 10px; }
-.download-btn { background: #2e7d32; color: white; border: none; padding: 20px; font-size: 1.2rem; cursor: pointer; width: 100%; border-radius: 8px; margin-top: 20px; }
-.side-action { font-size: 0.8rem; margin-top: 10px; }
+/* Inputs */
+textarea, input, select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
+.add-btn { background: #1a237e; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 4px; width: 100%; margin: 10px 0; font-weight: bold; }
+.download-btn { background: #2e7d32; color: white; border: none; padding: 20px; font-size: 1.2rem; cursor: pointer; width: 100%; border-radius: 8px; margin-top: 20px; font-weight: bold; }
+.arg-section-input { background: #f9f9f9; padding: 15px; border: 1px solid #ddd; margin-bottom: 10px; border-radius: 4px; }
+.page-break-indicator { border-top: 2px dashed #444; margin: 40px 0; position: relative; }
+.page-break-indicator::after { content: "PAGE BREAK"; position: absolute; top: -10px; right: 0; font-size: 10px; background: #525659; color: white; padding: 2px 5px; }
