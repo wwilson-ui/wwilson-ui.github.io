@@ -3,233 +3,313 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Moot Court Generator - Test</title>
-    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;700&display=swap" rel="stylesheet">
+    <title>SCOTUS Brief Generator Pro</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <style>
-        body { 
-            margin: 0; 
-            display: flex; 
-            flex-direction: column; 
-            height: 100vh; 
-            font-family: sans-serif; 
-            background: #525659; 
-        }
+        :root { --legal-blue: #1a237e; --ui-bg: #f8f9fa; --border-color: #dee2e6; }
         
-        header { 
-            background: #1a237e; 
-            color: white; 
-            padding: 15px 20px; 
-        }
+        /* UI LAYOUT */
+        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; background: #525659; overflow: hidden; }
+        header { background: var(--legal-blue); color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
+        .app-container { display: flex; flex: 1; overflow: hidden; }
+
+        /* SIDEBAR & BUTTONS */
+        .sidebar { width: 260px; background: white; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 15px; }
+        .tab-btn { padding: 12px; border: none; background: transparent; text-align: left; cursor: pointer; border-radius: 6px; margin-bottom: 5px; font-weight: 600; color: #444; }
+        .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); }
         
-        .app-container { 
-            display: flex; 
-            flex: 1; 
-            overflow: hidden; 
-        }
+        .save-load-container { margin-top: auto; padding-top: 20px; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        .sl-btn { width: 100%; padding: 10px; background: #454545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; text-align: center; }
+
+        /* INPUT PANEL */
+        .input-panel { flex: 1; background: white; padding: 30px; overflow-y: auto; border-right: 2px solid #333; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .dynamic-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .add-btn { background: #f0f0f0; border: 1px dashed #999; width: 100%; padding: 10px; cursor: pointer; border-radius: 6px; font-weight: bold; }
+        label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 15px; color: #666; text-transform: uppercase; }
+        input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
+
+        /* PREVIEW PANEL */
+        .preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; background: #525659; }
         
-        .input-panel { 
-            flex: 1; 
-            background: white; 
-            padding: 20px; 
-            overflow-y: auto; 
-        }
-        
-        .preview-panel { 
-            flex: 1.5; 
-            background: #525659; 
-            padding: 40px; 
-            overflow-y: auto; 
-            display: flex; 
-            justify-content: center; 
-        }
-        
+        /* LEGAL DOCUMENT STYLING (The "Supreme Court" Look) */
         .paper { 
             width: 8.5in; 
             min-height: 11in; 
             background: white; 
             padding: 1in; 
+            margin: 0 auto; 
             box-shadow: 0 0 20px rgba(0,0,0,0.5); 
             font-family: 'Crimson Pro', serif; 
             font-size: 12pt; 
             line-height: 1.6; 
             color: black; 
+            position: relative;
         }
+
+        .sc-caps { font-variant: small-caps; letter-spacing: 1px; }
+        .docket { font-weight: bold; font-size: 13pt; }
+        .court-header { text-align: center; font-weight: bold; font-size: 14pt; text-transform: uppercase; margin: 30px 0; }
+        .caption-table { display: flex; width: 100%; margin: 20px 0; }
+        .party-box { flex: 1; padding-right: 10px; }
+        .bracket-box { border-left: 1.5pt solid black; padding-left: 20px; width: 40%; font-style: italic; display: flex; align-items: center; }
+        .title-box { text-align: center; border-top: 1.5pt solid black; border-bottom: 1.5pt solid black; padding: 20px 10px; margin: 40px 0; font-weight: bold; text-transform: uppercase; font-size: 13pt; line-height: 1.3; }
+        .section-header { text-align: center; font-weight: bold; text-transform: uppercase; margin: 30px 0 20px 0; font-size: 12pt; text-decoration: none; }
         
-        label { 
-            display: block; 
-            font-weight: bold; 
-            margin-top: 15px; 
-            font-size: 0.9rem; 
-        }
-        
-        input, textarea, select { 
-            width: 100%; 
-            padding: 10px; 
-            margin-top: 5px; 
-            border: 1px solid #ccc; 
-            border-radius: 4px; 
-            box-sizing: border-box; 
-            font-family: inherit;
-            font-size: 1rem;
-        }
-        
-        .docket { 
-            font-weight: bold; 
-            margin-bottom: 10px; 
-        }
-        
-        .court-header { 
-            text-align: center; 
-            font-weight: bold; 
-            text-transform: uppercase; 
-            margin: 30px 0; 
-        }
-        
-        .caption-box { 
-            display: flex; 
-            margin: 20px 0; 
-        }
-        
-        .parties { 
-            flex: 1; 
-            padding-right: 15px; 
-        }
-        
-        .bracket { 
-            border-left: 2px solid black; 
-            padding-left: 15px; 
-            min-width: 150px; 
-            display: flex; 
-            align-items: center; 
-            font-style: italic; 
-        }
-        
-        .title-box { 
-            text-align: center; 
-            border-top: 2px solid black; 
-            border-bottom: 2px solid black; 
-            padding: 15px; 
-            margin: 30px 0; 
-            font-weight: bold; 
-            text-transform: uppercase; 
+        /* PRINT SPECIFIC RULES */
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; padding: 0.5in; }
+            .preview-panel { background: white; padding: 0; overflow: visible; }
+            .sidebar, header, .input-panel { display: none !important; }
         }
     </style>
 </head>
 <body>
 
 <header>
-    <h1 style="margin: 0; font-size: 1.3rem;">Civics Moot Court Generator</h1>
+    <div style="font-weight:bold;">⚖️ Moot Court Generator</div>
+    <div id="google-btn-wrapper">
+        <div id="g_id_onload" 
+             data-client_id="129113401099-ihpv7tunjjfeuovepgphcfibf4nqj25g.apps.googleusercontent.com" 
+             data-callback="handleCredentialResponse"></div>
+        <div class="g_id_signin" data-type="standard" data-shape="pill"></div>
+    </div>
 </header>
 
 <main class="app-container">
+    <nav class="sidebar">
+        <button class="tab-btn active" onclick="showTab('setup')">1. Initial Setup</button>
+        <button class="tab-btn" onclick="showTab('cover')">2. Cover Page</button>
+        <button class="tab-btn" onclick="showTab('authorities')">3. Authorities</button>
+        <button class="tab-btn" onclick="showTab('questions')">4. Questions</button>
+        <button class="tab-btn" onclick="showTab('argument')">5. Argument</button>
+        <button class="tab-btn" onclick="showTab('conclusion_tab')">6. Conclusion</button>
+        
+        <div class="save-load-container">
+            <button class="sl-btn" onclick="exportProject()">SAVE PROJECT</button>
+            <label class="sl-btn" style="cursor:pointer; margin-top:5px;">
+                LOAD PROJECT
+                <input type="file" id="importFile" hidden onchange="importProject(event)">
+            </label>
+        </div>
+    </nav>
+
     <section class="input-panel">
-        <h2>Cover Page Details</h2>
-        
-        <label>Docket Number:</label>
-        <input type="text" id="docket" placeholder="No. 24-XXXX">
-        
-        <label>Petitioner:</label>
-        <input type="text" id="petitioner" placeholder="Enter petitioner name">
-        
-        <label>Respondent:</label>
-        <input type="text" id="respondent" placeholder="Enter respondent name">
-        
-        <label>Lower Court:</label>
-        <input type="text" id="lowerCourt" placeholder="e.g., United States Court of Appeals">
-        
-        <label>Law Firm Name:</label>
-        <input type="text" id="firmName" placeholder="e.g., Hamilton & Associates">
-        
-        <label>Term Date:</label>
-        <input type="text" id="termDate" placeholder="e.g., October Term, 2025">
-        
-        <label>Student Names (one per line):</label>
-        <textarea id="studentNames" rows="4" placeholder="Student 1&#10;Student 2&#10;Student 3"></textarea>
+        <div id="setup" class="tab-content active">
+            <h2>Project Setup</h2>
+            <label>Brief Type:</label>
+            <select id="briefType" onchange="updatePreview()">
+                <option value="Petitioner">Brief for Petitioner</option>
+                <option value="Respondent">Brief for Respondent</option>
+                <option value="Amicus Curiae">Brief for Amicus Curiae</option>
+            </select>
+            <label>Court Term:</label>
+            <input type="text" id="courtTerm" placeholder="January Term 2026" oninput="updatePreview()">
+            <label>Counsel/School Name:</label>
+            <input type="text" id="firmName" oninput="updatePreview()">
+            <label>Student Names (One per line):</label>
+            <textarea id="studentNames" rows="3" oninput="updatePreview()"></textarea>
+
+            <div id="amicus-interest-ui" style="display:none; background:#f4f4f4; padding:15px; margin-top:15px; border-radius:8px;">
+                <label>Interest of Amicus Curiae:</label>
+                <textarea id="amicusInterest" rows="4" placeholder="Qualifications..." oninput="updatePreview()"></textarea>
+            </div>
+        </div>
+
+        <div id="cover" class="tab-content">
+            <h2>Cover Page</h2>
+            <label>Docket Number:</label>
+            <input type="text" id="docketNum" placeholder="No. 26-101" oninput="updatePreview()">
+            <label>Petitioners:</label>
+            <div id="petitioner-container"></div>
+            <button class="add-btn" onclick="addField('petitioner')">+ Add Name</button>
+            <label>Respondents:</label>
+            <div id="respondent-container"></div>
+            <button class="add-btn" onclick="addField('respondent')">+ Add Name</button>
+            <label>Lower Court:</label>
+            <input type="text" id="lowerCourt" oninput="updatePreview()">
+        </div>
+
+        <div id="authorities" class="tab-content">
+            <h2>Table of Authorities</h2>
+            <label>Cases:</label>
+            <div id="case-container"></div>
+            <button class="add-btn" onclick="addField('case')">+ Add Case</button>
+            <label>Statutes:</label>
+            <div id="statute-container"></div>
+            <button class="add-btn" onclick="addField('statute')">+ Add Statute</button>
+        </div>
+
+        <div id="questions" class="tab-content">
+            <h2>Questions Presented</h2>
+            <div id="question-container"></div>
+            <button class="add-btn" onclick="addField('question')">+ Add Question</button>
+        </div>
+
+        <div id="argument" class="tab-content">
+            <h2>Argument</h2>
+            <label>Summary:</label>
+            <textarea id="summaryArg" rows="4" oninput="updatePreview()"></textarea>
+            <label>Full Argument Body:</label>
+            <textarea id="argBody" rows="15" oninput="updatePreview()"></textarea>
+        </div>
+
+        <div id="conclusion_tab" class="tab-content">
+            <h2>Final Step</h2>
+            <label>Conclusion Text:</label>
+            <textarea id="conclusionText" rows="5" oninput="updatePreview()"></textarea>
+            <button class="add-btn" style="background:var(--legal-blue); color:white; margin-top:20px;" onclick="downloadPDF()">📥 DOWNLOAD PDF</button>
+            <button class="add-btn" style="background:#333; color:white; margin-top:10px;" onclick="window.print()">🖨️ PRINT BRIEF ONLY</button>
+        </div>
     </section>
 
     <section class="preview-panel">
-        <div class="paper" id="printable-area">
-            <div id="preview-content">
-                <!-- Content will be inserted here -->
-            </div>
+        <div id="print-area" class="paper">
+            <div id="preview-render"></div>
         </div>
     </section>
 </main>
 
 <script>
-console.log('Script loading...');
+    let appData = {
+        petitioners: [""], respondents: [""], questions: [""],
+        cases: [""], statutes: [""]
+    };
 
-// Simple function to get value safely
-function getVal(id) {
-    const el = document.getElementById(id);
-    return el ? el.value : '';
-}
-
-// The update function
-function updatePreview() {
-    console.log('updatePreview called');
-    
-    const previewContent = document.getElementById('preview-content');
-    if (!previewContent) {
-        console.error('preview-content element not found!');
-        return;
+    function showTab(tabId) {
+        document.querySelectorAll('.tab-content, .tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        document.querySelector(`[onclick="showTab('${tabId}')"]`).classList.add('active');
     }
-    
-    const html = `
-        <div class="docket">${getVal('docket') || 'No. 24-XXXX'}</div>
-        <div class="court-header">In the Supreme Court of the United States</div>
-        
-        <div class="caption-box">
-            <div class="parties">
-                ${getVal('petitioner') || '[Petitioner]'},<br>
-                <i>Petitioner</i>,<br>
-                <div style="margin: 10px 0">v.</div>
-                ${getVal('respondent') || '[Respondent]'},<br>
-                <i>Respondent</i>.
-            </div>
-            <div class="bracket">
-                On Writ of Certiorari to the ${getVal('lowerCourt') || '[Lower Court]'}
-            </div>
-        </div>
-        
-        ${getVal('termDate') ? `<div style="text-align:center; margin-bottom:20px;">${getVal('termDate')}</div>` : ''}
 
-        <div class="title-box">BRIEF FOR THE PETITIONER</div>
+    function addField(type) {
+        appData[type + 's'].push("");
+        renderFields();
+        updatePreview();
+    }
 
-        <div style="text-align:center; margin-top:40px;">
-            <b>Respectfully Submitted,</b><br><br>
-            ${getVal('firmName') || '[Law Firm Name]'}<br>
-            <div style="font-size:0.9rem; margin-top:10px;">
-                ${getVal('studentNames').replace(/\n/g, '<br>') || '[Student Names]'}
-            </div>
-        </div>
-    `;
-    
-    previewContent.innerHTML = html;
-    console.log('Preview updated');
-}
-
-// Wait for DOM to load
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded');
-    
-    // Get all input elements
-    const inputs = document.querySelectorAll('input, textarea, select');
-    console.log('Found ' + inputs.length + ' input elements');
-    
-    // Add listeners to each input
-    inputs.forEach(function(input) {
-        input.addEventListener('input', function() {
-            console.log('Input detected on: ' + input.id);
-            updatePreview();
+    function renderFields() {
+        const list = ['petitioner', 'respondent', 'question', 'case', 'statute'];
+        list.forEach(t => {
+            const container = document.getElementById(`${t}-container`);
+            if(!container) return;
+            container.innerHTML = appData[t+'s'].map((val, i) => `
+                <div class="dynamic-row">
+                    <input type="text" value="${val}" oninput="appData['${t}s'][${i}]=this.value; updatePreview()" placeholder="Enter...">
+                    <button style="border:none; background:none; cursor:pointer;" onclick="appData['${t}s'].splice(${i},1); renderFields(); updatePreview()">❌</button>
+                </div>
+            `).join('');
         });
-    });
-    
-    // Initial render
-    updatePreview();
-    console.log('Initial preview rendered');
-});
-</script>
+    }
 
+    function updatePreview() {
+        const get = (id) => document.getElementById(id)?.value || "";
+        const bType = get('briefType');
+        document.getElementById('amicus-interest-ui').style.display = (bType === 'Amicus Curiae') ? 'block' : 'none';
+
+        const sortedCases = [...appData.cases].filter(x => x).sort();
+        const sortedStats = [...appData.statutes].filter(x => x).sort();
+
+        let html = `
+            <div class="docket">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
+            <div class="court-header">In the <span class="sc-caps">Supreme Court of the United States</span></div>
+            <div style="text-align:center; font-weight:bold;">${get('courtTerm').toUpperCase()}</div>
+            <hr style="border:0; border-top:1pt solid black; margin:10px 0;">
+
+            <div class="caption-table">
+                <div class="party-box">
+                    ${appData.petitioners.map(p => p.toUpperCase() || 'PETITIONER').join(',<br>')},<br>
+                    <i style="margin-left:20px;">Petitioner${appData.petitioners.length > 1 ? 's' : ''}</i>,<br>
+                    <div style="margin:10px 0 10px 40px;">v.</div>
+                    ${appData.respondents.map(r => r.toUpperCase() || 'RESPONDENT').join(',<br>')},<br>
+                    <i style="margin-left:20px;">Respondent${appData.respondents.length > 1 ? 's' : ''}.</i>
+                </div>
+                <div class="bracket-box">
+                    On Writ of Certiorari to the ${get('lowerCourt') || 'Lower Court'}
+                </div>
+            </div>
+
+            <div class="title-box">
+                ${bType === 'Amicus Curiae' 
+                  ? `BRIEF FOR THE ${get('firmName').toUpperCase() || 'AMICUS CURIAE'} AS AMICUS CURIAE SUPPORTING THE ${bType.toUpperCase()}`
+                  : `BRIEF FOR THE ${bType.toUpperCase()}`}
+            </div>
+
+            <div style="text-align:center; margin-top:1in;">
+                <b>Respectfully Submitted,</b><br><br>
+                <span class="sc-caps">${get('firmName') || 'Law School'}</span><br>
+                <div style="font-size:11pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>')}</div>
+            </div>
+
+            <div style="page-break-after: always;"></div>
+            <div class="section-header">QUESTIONS PRESENTED</div>
+            ${appData.questions.map((q, i) => `<p style="text-indent: 0.5in;"><b>${i+1}.</b> ${q}</p>`).join('')}
+
+            <div style="page-break-after: always;"></div>
+            <div class="section-header">TABLE OF AUTHORITIES</div>
+            <p><b>Cases:</b></p>
+            ${sortedCases.map(c => `<div style="padding-left:0.5in; text-indent:-0.2in;"><i>${c}</i></div>`).join('')}
+            <p><b>Statutes:</b></p>
+            ${sortedStats.map(s => `<div style="padding-left:0.5in;">${s}</div>`).join('')}
+
+            ${bType === 'Amicus Curiae' ? `
+                <div style="page-break-after: always;"></div>
+                <div class="section-header">INTEREST OF AMICUS CURIAE</div>
+                <p style="text-indent: 0.5in;">${get('amicusInterest')}</p>
+            ` : ''}
+
+            <div style="page-break-after: always;"></div>
+            <div class="section-header">SUMMARY OF ARGUMENT</div>
+            <p style="text-indent: 0.5in;">${get('summaryArg')}</p>
+
+            <div class="section-header">ARGUMENT</div>
+            <p style="white-space: pre-wrap; text-indent: 0.5in;">${get('argBody')}</p>
+
+            <div class="section-header">CONCLUSION</div>
+            <p style="text-indent: 0.5in;">${get('conclusionText')}</p>
+        `;
+        document.getElementById('preview-render').innerHTML = html;
+    }
+
+    function downloadPDF() {
+        html2pdf().from(document.getElementById('print-area')).set({
+            margin: 0.5, filename: 'Supreme_Court_Brief.pdf',
+            html2canvas: { scale: 3 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        }).save();
+    }
+
+    function exportProject() {
+        const text = {};
+        document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) text[el.id] = el.value; });
+        const blob = new Blob([JSON.stringify({ text, appData })], {type: "application/json"});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = "brief_project.json";
+        a.click();
+    }
+
+    function importProject(event) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const saved = JSON.parse(e.target.result);
+            appData = saved.appData;
+            for(let id in saved.text) { if(document.getElementById(id)) document.getElementById(id).value = saved.text[id]; }
+            renderFields();
+            updatePreview();
+        };
+        reader.readAsText(event.target.files[0]);
+    }
+
+    function handleCredentialResponse(r) { console.log("Google User Authenticated"); }
+
+    window.onload = () => { renderFields(); updatePreview(); };
+</script>
 </body>
 </html>
