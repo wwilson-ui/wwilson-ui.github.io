@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Civics Moot Court Brief Generator</title>
+    <title>Civics Moot Court Generator</title>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -13,72 +13,53 @@
 
 <header>
     <div class="logo">Civics Moot Court Generator</div>
-    
     <div id="google-signin-container">
-        <div id="g_id_onload" 
-             data-client_id="YOUR_GOOGLE_CLIENT_ID_HERE" 
-             data-callback="handleCredentialResponse">
-        </div>
+        <div id="g_id_onload" data-client_id="YOUR_CLIENT_ID" data-callback="handleCredentialResponse"></div>
         <div class="g_id_signin" data-type="standard"></div>
     </div>
 </header>
 
 <main class="app-container">
     <nav class="tab-sidebar">
-        <button class="tab-btn active" onclick="openTab('setup')">1. Project Setup</button>
-        <button class="tab-btn" onclick="openTab('cover')">2. Cover Page</button>
-        <button class="tab-btn" onclick="openTab('questions')">3. Questions</button>
-        <button class="tab-btn" onclick="openTab('authorities')">4. Authorities</button>
-        <button class="tab-btn" onclick="openTab('argument')">5. Legal Argument</button>
-        <button class="tab-btn" onclick="openTab('export')">6. Finish & Export</button>
-        
-        <div class="file-ops">
-            <button class="op-btn" onclick="exportData()">💾 Save Progress</button>
-            <label class="op-btn" style="text-align:center; display:block; margin-top:5px; cursor:pointer;">
-                📂 Load Progress
-                <input type="file" id="importFile" hidden onchange="importData(event)">
-            </label>
-        </div>
+        <button class="tab-btn active" onclick="switchTab('setup')">1. Setup</button>
+        <button class="tab-btn" onclick="switchTab('cover')">2. Cover Page</button>
+        <button class="tab-btn" onclick="switchTab('questions')">3. Questions</button>
+        <button class="tab-btn" onclick="switchTab('authorities')">4. Authorities</button>
+        <button class="tab-btn" onclick="switchTab('argument')">5. Argument</button>
+        <button class="tab-btn" onclick="switchTab('export')">6. Export</button>
     </nav>
 
-    <section class="input-panel">
+    <section class="input-panel" id="main-inputs">
         
         <div id="setup" class="tab-content active">
             <h2>Project Setup</h2>
             <label>Brief Type:</label>
-            <select id="docType" onchange="updatePreview()">
+            <select id="docType">
                 <option value="brief">Petitioner / Respondent Brief</option>
                 <option value="amicus">Amicus Curiae Submission</option>
             </select>
-            
             <label>Law Firm / Group Name:</label>
-            <input type="text" id="firmName" placeholder="e.g. Hamilton & Associates" oninput="updatePreview()">
-            
+            <input type="text" id="firmName" placeholder="e.g. Hamilton & Associates">
             <label>Term Date:</label>
-            <input type="text" id="termDate" placeholder="e.g. October Term, 2025" oninput="updatePreview()">
-            
+            <input type="text" id="termDate" placeholder="e.g. October Term, 2025">
             <label>Student Counsel Names:</label>
-            <p class="hint">Enter one name per line.</p>
-            <textarea id="studentNames" rows="4" placeholder="Student 1&#10;Student 2&#10;Student 3" oninput="updatePreview()"></textarea>
+            <textarea id="studentNames" rows="4" placeholder="Student 1&#10;Student 2&#10;Student 3"></textarea>
         </div>
 
         <div id="cover" class="tab-content">
-            <h2>Cover Page Details</h2>
+            <h2>Cover Page</h2>
             <label>Docket Number:</label>
-            <input type="text" id="docket" placeholder="No. 24-XXXX" oninput="updatePreview()">
-            
+            <input type="text" id="docket" placeholder="No. 24-XXXX">
             <label>Petitioner:</label>
-            <input type="text" id="petitioner" oninput="updatePreview()">
-            
+            <input type="text" id="petitioner" placeholder="Name of Petitioner">
             <label>Respondent:</label>
-            <input type="text" id="respondent" oninput="updatePreview()">
-            
+            <input type="text" id="respondent" placeholder="Name of Respondent">
             <label>Lower Court:</label>
-            <input type="text" id="lowerCourt" placeholder="e.g. United States Court of Appeals for the Fourth Circuit" oninput="updatePreview()">
+            <input type="text" id="lowerCourt" placeholder="e.g. United States Court of Appeals for the Fourth Circuit">
             
-            <div id="amicus-options" style="display:none; background:#e8f5e9; padding:10px; margin-top:10px; border-radius:4px;">
-                <label>Amicus Supporting:</label>
-                <select id="amicusSupport" onchange="updatePreview()">
+            <div id="amicus-options" class="hidden-group">
+                <label style="color:#1a237e;">Amicus Supporting:</label>
+                <select id="amicusSupport">
                     <option value="PETITIONER">Petitioner</option>
                     <option value="RESPONDENT">Respondent</option>
                     <option value="NEITHER PARTY">Neither Party</option>
@@ -88,67 +69,55 @@
 
         <div id="questions" class="tab-content">
             <h2>Questions Presented</h2>
-            <div id="questions-list">
-                </div>
+            <div id="questions-list"></div>
             <button class="add-btn" onclick="addQuestion()">+ Add Question</button>
         </div>
 
         <div id="authorities" class="tab-content">
-            <h2>Table of Authorities</h2>
-            <div class="auth-input-group">
+            <h2>Authorities</h2>
+            <div class="auth-box">
                 <select id="authType">
                     <option value="Cases">Case</option>
                     <option value="Statutes">Statute</option>
-                    <option value="Other">Other</option>
                 </select>
                 <input type="text" id="authName" placeholder="Name (e.g. Marbury v. Madison)">
-                <input type="text" id="authYear" placeholder="Year" style="width: 80px;">
-                <button onclick="addAuthority()">Add</button>
+                <input type="text" id="authYear" placeholder="Year">
+                <button class="small-btn" onclick="addAuthority()">Add</button>
             </div>
             <div id="auth-display-list"></div>
         </div>
 
         <div id="argument" class="tab-content">
             <h2>Legal Argument</h2>
-            
-            <div id="amicus-interest-field" style="display:none;">
+            <div id="amicus-interest-field" class="hidden-group">
                 <label>Interest of Amicus Curiae:</label>
-                <textarea id="interestAmicus" rows="3" oninput="updatePreview()"></textarea>
+                <textarea id="interestAmicus" rows="3"></textarea>
             </div>
-
             <label>Statement of the Case:</label>
-            <textarea id="statementCase" rows="3" oninput="updatePreview()"></textarea>
-            
+            <textarea id="statementCase" rows="3"></textarea>
             <label>Summary of Argument:</label>
-            <textarea id="summaryArg" rows="3" oninput="updatePreview()"></textarea>
+            <textarea id="summaryArg" rows="3"></textarea>
             
-            <h3>Argument Sections</h3>
-            <div id="argument-builder">
-                </div>
-            <div class="arg-buttons">
-                <button class="add-btn" onclick="addArgSection('heading')">+ Add Main Point (I, II...)</button>
-                <button class="add-btn" onclick="addArgSection('sub')">+ Add Sub-Point (A, B...)</button>
+            <h3>Argument Body</h3>
+            <div id="argument-builder"></div>
+            <div style="display:flex; gap:10px;">
+                <button class="add-btn" onclick="addArgSection('heading')">+ Main Point</button>
+                <button class="add-btn" onclick="addArgSection('sub')">+ Sub-Point</button>
             </div>
         </div>
 
         <div id="export" class="tab-content">
-            <h2>Finalize</h2>
+            <h2>Finish</h2>
             <label>Conclusion:</label>
-            <textarea id="conclusion" rows="3" oninput="updatePreview()" placeholder="For the foregoing reasons, the judgment should be reversed."></textarea>
-            
+            <textarea id="conclusion" rows="3" placeholder="The judgment should be reversed."></textarea>
             <br><hr><br>
             <button class="download-btn" onclick="generatePDF()">Download SCOTUS PDF</button>
-            
-            <div style="margin-top:20px; text-align:center;">
-                <a href="tos.html" target="_blank">Terms of Service</a>
-            </div>
         </div>
     </section>
 
     <section class="preview-panel">
         <div id="printable-area" class="paper">
-            <div id="preview-content">
-                </div>
+            <div id="preview-content"></div>
         </div>
     </section>
 </main>
