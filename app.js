@@ -1,82 +1,81 @@
-function updatePreview() {
-    // 1. Get Data from Form
-    const docType = document.getElementById('docType').value;
-    const docket = document.getElementById('docketNumber').value || "No. 00-000";
-    const petitioner = document.getElementById('petitionerName').value || "[Petitioner]";
-    const respondent = document.getElementById('respondentName').value || "[Respondent]";
-    const court = document.getElementById('lowerCourt').value || "[Lower Court Name]";
-    const lawFirm = document.getElementById('lawFirm').value || "[Law Firm Name]";
-    
-    // 2. Build the Cover Page HTML
-    let titleText = (docType === 'amicus') 
-        ? `BRIEF OF ${lawFirm} AS AMICUS CURIAE IN SUPPORT OF THE ${document.getElementById('amicusSupport').value}`
-        : `BRIEF FOR THE PETITIONER`;
+let questions = [];
+let authorities = [];
+let arguments = [];
 
+function openTab(evt, tabName) {
+    let contents = document.getElementsByClassName("tab-content");
+    for (let i = 0; i < contents.length; i++) contents[i].className = contents[i].className.replace(" active", "");
+    let buttons = document.getElementsByClassName("tab-btn");
+    for (let i = 0; i < buttons.length; i++) buttons[i].className = buttons[i].className.replace(" active", "");
+    document.getElementById(tabName).className += " active";
+    evt.currentTarget.className += " active";
+}
+
+function toggleAmicusFields() {
+    const isAmicus = document.getElementById('docType').value === 'amicus';
+    document.getElementById('amicus-support-div').style.display = isAmicus ? 'block' : 'none';
+    document.getElementById('amicus-interest-div').style.display = isAmicus ? 'block' : 'none';
+}
+
+function updatePreview() {
+    const val = (id) => document.getElementById(id).value;
+    const isAmicus = val('docType') === 'amicus';
+    
     let html = `
-        <div class="docket-number">${docket}</div>
-        <div class="court-name">In the Supreme Court of the United States</div>
-        
-        <div class="caption-container">
-            <div class="parties">
-                <div>${petitioner},</div>
-                <div class="v-spacer">v.</div>
-                <div>${respondent},</div>
-            </div>
-            <div class="bracket">
-                Petitioners.
-            </div>
+        <div class="docket">${val('docketNumber') || 'No. 24-XXXX'}</div>
+        <div class="court">In the Supreme Court of the United States</div>
+        <div class="caption">
+            <div style="flex:1">${val('petitionerName') || '[Petitioner]'},<br><i>Petitioner</i>,<br>v.<br>${val('respondentName') || '[Respondent]'},<br><i>Respondent</i>.</div>
+            <div class="bracket">On Writ of Certiorari to the ${val('lowerCourt') || '[Lower Court]'}</div>
+        </div>
+        <div class="title-box">
+            ${isAmicus ? 'BRIEF OF ' + val('lawFirm') + ' AS AMICUS CURIAE SUPPORTING ' + val('amicusSupport') : 'BRIEF FOR THE PETITIONER'}
+        </div>
+        <div style="text-align:center; margin-top:100px;">
+            ${val('studentNames').replace(/\n/g, '<br>')}
         </div>
 
-        <p style="text-align:center;">On Writ of Certiorari to the ${court}</p>
+        <div class="page-break"></div>
+        <h3 style="text-align:center">QUESTIONS PRESENTED</h3>
+        ${questions.map((q, i) => `<p><b>${i+1}.</b> ${q}</p>`).join('')}
 
-        <div class="brief-title">${titleText}</div>
+        <div class="page-break"></div>
+        <h3 style="text-align:center">TABLE OF CONTENTS</h3>
+        <p>Questions Presented .................................... i</p>
+        <p>Table of Authorities ................................... iii</p>
+        ${isAmicus ? '<p>Interest of Amicus Curiae ........................... 1</p>' : ''}
+        <p>Statement of the Case .................................. 2</p>
+        <p>Argument ............................................... 3</p>
+
+        <div class="page-break"></div>
+        <h3 style="text-align:center">TABLE OF AUTHORITIES</h3>
+        ${authorities.sort((a,b) => a.name.localeCompare(b.name)).map(a => `<p>${a.name} (${a.year}) ............. [Page]</p>`).join('')}
+        
+        <div class="page-break"></div>
+        <h3 style="text-align:center">ARGUMENT</h3>
+        <p>${val('summaryArgument')}</p>
     `;
-
-    // 3. Update the Preview Window
+    
     document.getElementById('preview-content').innerHTML = html;
 }
 
-// Function to switch tabs
-function openTab(tabId) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(tabId).classList.add('active');
-    event.currentTarget.classList.add('active');
-}
-
-
 function addQuestionField() {
-    const container = document.getElementById('questions-container');
-    const count = container.getElementsByClassName('question-entry').length + 1;
-    
-    const div = document.createElement('div');
-    div.className = 'question-entry';
-    div.innerHTML = `
-        <label>Question ${count}:</label>
-        <textarea class="question-input" onkeyup="updatePreview()"></textarea>
-    `;
-    container.appendChild(div);
+    const q = prompt("Enter the question:");
+    if(q) { questions.push(q); updatePreview(); }
 }
 
-// Update your existing updatePreview() function to include this logic:
-function updatePreview() {
-    // ... previous code for cover ...
+function registerAuthority() {
+    const name = document.getElementById('new-auth-name').value;
+    const year = document.getElementById('new-auth-year').value;
+    if(name) { authorities.push({name, year}); updatePreview(); }
+}
 
-    // Get Questions
-    const questions = document.querySelectorAll('.question-input');
-    let questionsHtml = '<div class="preview-page-break"></div><h3 style="text-align:center;">QUESTION PRESENTED</h3>';
-    
-    // Logic: If 1 question, don't number it. If multiple, number them.
-    if (questions.length === 1) {
-        questionsHtml += `<div class="question-text centered-block">${questions[0].value}</div>`;
-    } else {
-        questions.forEach((q, index) => {
-            if (q.value.trim() !== "") {
-                questionsHtml += `<div class="question-text"><strong>${index + 1}.</strong> ${q.value}</div><br>`;
-            }
-        });
-    }
-
-    // Append to preview (we will expand this as we add more tabs)
-    document.getElementById('preview-content').innerHTML = coverHtml + questionsHtml;
+function generatePDF() {
+    const element = document.getElementById('printable-content');
+    html2pdf().from(element).set({
+        margin: 0,
+        filename: 'Supreme_Court_Brief.pdf',
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    }).save();
 }
