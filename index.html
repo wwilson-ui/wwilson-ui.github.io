@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Civics Moot Court Brief Generator</title>
+    <title>Civics Moot Court Generator</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -17,45 +17,46 @@
         .app-container { display: flex; flex: 1; overflow: hidden; }
 
         /* Sidebar Navigation */
-        .sidebar { width: 220px; background: #fff; border-right: 1px solid #ccc; display: flex; flex-direction: column; padding: 15px; gap: 8px; }
-        .tab-btn { padding: 12px; border: none; background: #f0f0f0; text-align: left; cursor: pointer; border-radius: 6px; font-weight: 500; transition: 0.2s; }
+        .sidebar { width: 230px; background: #fff; border-right: 1px solid #ccc; display: flex; flex-direction: column; padding: 15px; gap: 8px; }
+        .tab-btn { padding: 12px; border: none; background: #f0f0f0; text-align: left; cursor: pointer; border-radius: 6px; font-weight: 500; transition: 0.2s; font-size: 0.9rem; }
         .tab-btn:hover { background: #e0e0e0; }
         .tab-btn.active { background: var(--legal-blue); color: white; }
         
+        .save-load-group { margin-top: auto; padding-top: 15px; border-top: 2px solid #eee; display: flex; flex-direction: column; gap: 8px; }
+        .sl-btn { background: #454545; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; text-align: center; }
+        .sl-btn:hover { background: #333; }
+
         /* Input Panel */
         .input-panel { flex: 1; background: white; padding: 30px; overflow-y: auto; border-right: 2px solid #444; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         
         /* Preview Panel */
-        .preview-panel { flex: 1.4; padding: 40px; overflow-y: auto; display: flex; justify-content: center; background: var(--bg-gray); }
+        .preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; display: flex; justify-content: center; background: var(--bg-gray); }
         .paper { width: 8.5in; min-height: 11in; background: white; padding: 1in; box-shadow: 0 0 20px rgba(0,0,0,0.5); font-family: 'Crimson Pro', serif; font-size: 12pt; line-height: 1.5; color: black; box-sizing: border-box; }
 
         /* UI Elements */
         label { display: block; font-weight: bold; font-size: 0.8rem; margin-top: 15px; color: #444; text-transform: uppercase; }
         input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
-        .btn-group { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .add-btn { background: var(--legal-blue); color: white; border: none; padding: 10px; cursor: pointer; border-radius: 4px; }
-        
-        /* THE PDF BUTTON (Always Visible in the Export Tab) */
-        .download-btn { background: #2e7d32; color: white; border: none; padding: 18px; width: 100%; font-size: 1.2rem; font-weight: bold; cursor: pointer; border-radius: 8px; margin-top: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .download-btn { background: #2e7d32; color: white; border: none; padding: 18px; width: 100%; font-size: 1.2rem; font-weight: bold; cursor: pointer; border-radius: 8px; margin-top: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         .download-btn:hover { background: #1b5e20; }
 
         /* Legal Formatting Classes */
         .docket { font-weight: bold; margin-bottom: 5px; }
         .court-header { text-align: center; font-weight: bold; text-transform: uppercase; margin: 30px 0; font-size: 1.1rem; }
-        .caption { display: flex; margin: 20px 0; border-top: 1px solid transparent; }
+        .caption { display: flex; margin: 20px 0; }
         .parties { flex: 1; padding-right: 15px; }
         .bracket { border-left: 2px solid black; padding-left: 15px; min-width: 160px; display: flex; align-items: center; font-style: italic; }
         .title-box { text-align: center; border-top: 2px solid black; border-bottom: 2px solid black; padding: 15px; margin: 30px 0; font-weight: bold; text-transform: uppercase; }
         .page-break { border-top: 1px dashed #ccc; margin: 40px 0; page-break-before: always; }
+        .section-head { text-align: center; font-weight: bold; text-transform: uppercase; margin-bottom: 15px; }
     </style>
 </head>
 <body>
 
 <header>
     <div style="font-weight: bold; font-size: 1.3rem;">⚖️ Moot Court Generator</div>
-    <div id="google-auth">Sign In to Save</div>
+    <div id="google-auth" style="font-size: 0.9rem;">Reviewing Progress...</div>
 </header>
 
 <main class="app-container">
@@ -63,12 +64,15 @@
         <button class="tab-btn active" onclick="showTab('setup')">1. Project Setup</button>
         <button class="tab-btn" onclick="showTab('cover')">2. Cover Page</button>
         <button class="tab-btn" onclick="showTab('questions')">3. Questions</button>
-        <button class="tab-btn" onclick="showTab('argument')">4. Legal Argument</button>
-        <button class="tab-btn" onclick="showTab('export')">5. Download PDF</button>
+        <button class="tab-btn" onclick="showTab('argument')">4. Argument</button>
+        <button class="tab-btn" onclick="showTab('export')">5. Conclusion</button>
         
-        <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid #ccc;">
-            <button class="tab-btn" style="width:100%; margin-bottom:5px;" onclick="saveLocal()">💾 Save Progress</button>
-            <button class="tab-btn" style="width:100%;" onclick="loadLocal()">📂 Load Progress</button>
+        <div class="save-load-group">
+            <button class="sl-btn" onclick="exportToFile()">💾 SAVE TO FILE</button>
+            <label class="sl-btn" style="display: block;">
+                📂 LOAD FROM FILE
+                <input type="file" id="importFile" hidden onchange="importFromFile(event)">
+            </label>
         </div>
     </nav>
 
@@ -86,16 +90,16 @@
             <label>Docket Number:</label>
             <input type="text" id="docket" placeholder="No. 24-101">
             <label>Petitioner:</label>
-            <input type="text" id="petitioner" placeholder="Who is bringing the case?">
+            <input type="text" id="petitioner">
             <label>Respondent:</label>
-            <input type="text" id="respondent" placeholder="Who is defending?">
+            <input type="text" id="respondent">
             <label>Lower Court:</label>
-            <input type="text" id="lowerCourt" placeholder="e.g. U.S. Court of Appeals for the Second Circuit">
+            <input type="text" id="lowerCourt" placeholder="e.g. U.S. Court of Appeals for the Ninth Circuit">
         </div>
 
         <div id="questions" class="tab-content">
             <h2>Questions Presented</h2>
-            <textarea id="questionsInput" rows="6" placeholder="1. Whether the Fourth Amendment..."></textarea>
+            <textarea id="questionsInput" rows="8" placeholder="Enter your questions here..."></textarea>
         </div>
 
         <div id="argument" class="tab-content">
@@ -107,38 +111,37 @@
         </div>
 
         <div id="export" class="tab-content">
-            <h2>Final Step</h2>
-            <p>Review your preview on the right. If everything looks correct, click the button below to generate your professional PDF.</p>
-            <button class="download-btn" onclick="exportPDF()">📥 DOWNLOAD AS PDF</button>
-            <button class="download-btn" style="background:#555; margin-top:10px;" onclick="window.print()">🖨️ PRINT DOCUMENT</button>
+            <h2>Conclusion & Export</h2>
+            <label>Final Conclusion:</label>
+            <textarea id="conclusion" rows="5" placeholder="e.g. For the reasons stated above, the judgment of the Court of Appeals should be reversed."></textarea>
+            
+            <button class="download-btn" onclick="exportPDF()">📥 DOWNLOAD PDF BRIEF</button>
+            <button class="download-btn" style="background:#555; margin-top:10px;" onclick="window.print()">🖨️ PRINT DIRECTLY</button>
         </div>
     </section>
 
     <section class="preview-panel">
         <div id="brief-canvas" class="paper">
-            <div id="render-target">
-                </div>
+            <div id="render-target"></div>
         </div>
     </section>
 </main>
 
 <script>
-    // 1. Tab Switching Logic
+    // 1. Tab Navigation
     function showTab(tabId) {
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
         
-        // Find the button that was clicked and mark it active
         const btns = document.querySelectorAll('.tab-btn');
         btns.forEach(btn => {
             if(btn.innerText.toLowerCase().includes(tabId)) btn.classList.add('active');
         });
     }
 
-    // 2. LIVE PREVIEW ENGINE (This is what was broken)
+    // 2. The Live Update Engine
     function updatePreview() {
-        // Safe value grabber
         const val = (id) => document.getElementById(id) ? document.getElementById(id).value : "";
 
         const html = `
@@ -169,55 +172,63 @@
             </div>
 
             <div class="page-break"></div>
-            <h3 style="text-align:center">QUESTIONS PRESENTED</h3>
+            <div class="section-head">QUESTIONS PRESENTED</div>
             <p style="white-space: pre-wrap;">${val('questionsInput') || '...'}</p>
 
             <div class="page-break"></div>
-            <h3 style="text-align:center">ARGUMENT</h3>
+            <div class="section-head">ARGUMENT</div>
             <p><b>SUMMARY OF ARGUMENT:</b> ${val('summary')}</p>
-            <hr>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
             <p style="white-space: pre-wrap;">${val('argBody')}</p>
+
+            <div class="page-break"></div>
+            <div class="section-head">CONCLUSION</div>
+            <p style="white-space: pre-wrap;">${val('conclusion')}</p>
         `;
 
         document.getElementById('render-target').innerHTML = html;
     }
 
-    // 3. EXPORT TO PDF
+    // 3. PDF Export
     function exportPDF() {
         const element = document.getElementById('brief-canvas');
         const opt = {
-            margin:       0.5,
-            filename:     'Moot_Court_Brief.pdf',
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2 },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            margin: 0.5,
+            filename: 'Moot_Court_Brief.pdf',
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
         };
         html2pdf().from(element).set(opt).save();
     }
 
-    // 4. Save/Load Logic
-    function saveLocal() {
+    // 4. Save/Load Functions (Restored)
+    function exportToFile() {
         const data = {};
         document.querySelectorAll('input, textarea').forEach(el => data[el.id] = el.value);
-        localStorage.setItem('mootCourtSave', JSON.stringify(data));
-        alert("Progress saved to this browser!");
+        const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "my_moot_court_work.json";
+        a.click();
     }
 
-    function loadLocal() {
-        const data = JSON.parse(localStorage.getItem('mootCourtSave'));
-        if (data) {
+    function importFromFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = JSON.parse(e.target.result);
             for (const id in data) {
                 if(document.getElementById(id)) document.getElementById(id).value = data[id];
             }
             updatePreview();
-            alert("Progress loaded!");
-        }
+        };
+        reader.readAsText(file);
     }
 
-    // Listen for any typing to update the preview
+    // Event listeners
     document.addEventListener('input', updatePreview);
-    
-    // Run once on start
     window.onload = updatePreview;
 </script>
 
