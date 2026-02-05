@@ -15,16 +15,41 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Set up all input listeners
-    document.getElementById('main-inputs')?.addEventListener('input', updatePreview);
-    document.getElementById('docType')?.addEventListener('change', handleDocTypeChange);
+    // Set up global input listener on the input panel
+    const inputPanel = document.querySelector('.input-panel');
+    if (inputPanel) {
+        inputPanel.addEventListener('input', function(e) {
+            if (e.target.matches('input, textarea, select')) {
+                updatePreview();
+            }
+        });
+        
+        inputPanel.addEventListener('change', function(e) {
+            if (e.target.matches('select')) {
+                if (e.target.id === 'docType') {
+                    handleDocTypeChange();
+                } else {
+                    updatePreview();
+                }
+            }
+        });
+    }
     
     // Set up button listeners
-    document.getElementById('add-question-btn')?.addEventListener('click', addQuestion);
-    document.getElementById('add-auth-btn')?.addEventListener('click', addAuthority);
-    document.getElementById('add-heading-btn')?.addEventListener('click', () => addArgumentSection('heading'));
-    document.getElementById('add-sub-btn')?.addEventListener('click', () => addArgumentSection('sub'));
-    document.getElementById('generate-pdf-btn')?.addEventListener('click', generatePDF);
+    const addQuestionBtn = document.getElementById('add-question-btn');
+    if (addQuestionBtn) addQuestionBtn.addEventListener('click', addQuestion);
+    
+    const addAuthBtn = document.getElementById('add-auth-btn');
+    if (addAuthBtn) addAuthBtn.addEventListener('click', addAuthority);
+    
+    const addHeadingBtn = document.getElementById('add-heading-btn');
+    if (addHeadingBtn) addHeadingBtn.addEventListener('click', () => addArgumentSection('heading'));
+    
+    const addSubBtn = document.getElementById('add-sub-btn');
+    if (addSubBtn) addSubBtn.addEventListener('click', () => addArgumentSection('sub'));
+    
+    const generatePdfBtn = document.getElementById('generate-pdf-btn');
+    if (generatePdfBtn) generatePdfBtn.addEventListener('click', generatePDF);
     
     // Initial render
     updatePreview();
@@ -34,8 +59,11 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
     
-    document.getElementById(tabId)?.classList.add('active');
-    document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
+    const targetTab = document.getElementById(tabId);
+    if (targetTab) targetTab.classList.add('active');
+    
+    const targetBtn = document.querySelector(`[data-tab="${tabId}"]`);
+    if (targetBtn) targetBtn.classList.add('active');
 }
 
 function handleDocTypeChange() {
@@ -52,7 +80,6 @@ function handleDocTypeChange() {
 function addQuestion() {
     questions.push('');
     renderQuestions();
-    updatePreview();
 }
 
 function renderQuestions() {
@@ -63,39 +90,44 @@ function renderQuestions() {
         <div class="dynamic-item">
             <button class="delete-x" onclick="removeQuestion(${i})">×</button>
             <label>Question ${i + 1}:</label>
-            <textarea data-question-index="${i}" rows="3">${q}</textarea>
+            <textarea rows="3">${q}</textarea>
         </div>
     `).join('');
     
-    // Add listeners to new textareas
-    container.querySelectorAll('textarea').forEach(ta => {
+    // Attach listeners to the new textareas
+    const textareas = container.querySelectorAll('textarea');
+    textareas.forEach((ta, index) => {
         ta.addEventListener('input', function() {
-            const idx = parseInt(this.getAttribute('data-question-index'));
-            questions[idx] = this.value;
+            questions[index] = this.value;
             updatePreview();
         });
     });
+    
+    updatePreview();
 }
 
 function removeQuestion(index) {
     questions.splice(index, 1);
     renderQuestions();
-    updatePreview();
 }
 
 function addAuthority() {
-    const name = document.getElementById('authName')?.value;
-    const year = document.getElementById('authYear')?.value;
-    const type = document.getElementById('authType')?.value;
+    const nameInput = document.getElementById('authName');
+    const yearInput = document.getElementById('authYear');
+    const typeSelect = document.getElementById('authType');
     
-    if (!name) return;
+    if (!nameInput || !nameInput.value.trim()) return;
     
-    authorities.push({ name, year, type });
-    document.getElementById('authName').value = '';
-    document.getElementById('authYear').value = '';
+    authorities.push({ 
+        name: nameInput.value, 
+        year: yearInput ? yearInput.value : '', 
+        type: typeSelect ? typeSelect.value : 'Cases'
+    });
+    
+    nameInput.value = '';
+    if (yearInput) yearInput.value = '';
     
     renderAuthorities();
-    updatePreview();
 }
 
 function renderAuthorities() {
@@ -103,23 +135,23 @@ function renderAuthorities() {
     if (!container) return;
     
     container.innerHTML = authorities.map((a, i) => `
-        <div class="dynamic-item">
+        <div class="dynamic-item" style="font-size: 0.9rem;">
             <button class="delete-x" onclick="removeAuthority(${i})">×</button>
-            <strong>${a.type}:</strong> ${a.name} (${a.year})
+            <strong>${a.type}:</strong> ${a.name} ${a.year ? '(' + a.year + ')' : ''}
         </div>
     `).join('');
+    
+    updatePreview();
 }
 
 function removeAuthority(index) {
     authorities.splice(index, 1);
     renderAuthorities();
-    updatePreview();
 }
 
 function addArgumentSection(type) {
     argumentSections.push({ type, title: '', body: '' });
     renderArgumentSections();
-    updatePreview();
 }
 
 function renderArgumentSections() {
@@ -127,32 +159,45 @@ function renderArgumentSections() {
     if (!container) return;
     
     container.innerHTML = argumentSections.map((sec, i) => `
-        <div class="dynamic-item" style="${sec.type === 'sub' ? 'margin-left: 30px; border-left: 4px solid #1a237e;' : ''}">
+        <div class="dynamic-item" style="${sec.type === 'sub' ? 'margin-left: 30px; border-left: 4px solid #1a237e; padding-left: 10px;' : ''}">
             <button class="delete-x" onclick="removeArgumentSection(${i})">×</button>
             <label>${sec.type === 'heading' ? 'Main Point' : 'Sub-Point'}:</label>
-            <input type="text" data-arg-index="${i}" data-arg-field="title" value="${sec.title}" placeholder="Title">
-            <textarea data-arg-index="${i}" data-arg-field="body" rows="3" placeholder="Text...">${sec.body}</textarea>
+            <input type="text" value="${sec.title}" placeholder="Title">
+            <textarea rows="3" placeholder="Text...">${sec.body}</textarea>
         </div>
     `).join('');
     
-    // Add listeners
-    container.querySelectorAll('input, textarea').forEach(el => {
-        el.addEventListener('input', function() {
-            const idx = parseInt(this.getAttribute('data-arg-index'));
-            const field = this.getAttribute('data-arg-field');
-            argumentSections[idx][field] = this.value;
-            updatePreview();
-        });
+    // Attach listeners
+    const items = container.querySelectorAll('.dynamic-item');
+    items.forEach((item, index) => {
+        const input = item.querySelector('input');
+        const textarea = item.querySelector('textarea');
+        
+        if (input) {
+            input.addEventListener('input', function() {
+                argumentSections[index].title = this.value;
+                updatePreview();
+            });
+        }
+        
+        if (textarea) {
+            textarea.addEventListener('input', function() {
+                argumentSections[index].body = this.value;
+                updatePreview();
+            });
+        }
     });
+    
+    updatePreview();
 }
 
 function removeArgumentSection(index) {
     argumentSections.splice(index, 1);
     renderArgumentSections();
-    updatePreview();
 }
 
 function romanize(num) {
+    if (!num || num < 1) return '';
     const lookup = {M:1000,CM:900,D:500,CD:400,C:100,XC:90,L:50,XL:40,X:10,IX:9,V:5,IV:4,I:1};
     let roman = '';
     for (let i in lookup) {
@@ -171,7 +216,10 @@ function getValue(id) {
 
 function updatePreview() {
     const previewContent = document.getElementById('preview-content');
-    if (!previewContent) return;
+    if (!previewContent) {
+        console.error('Preview content element not found!');
+        return;
+    }
     
     const isAmicus = getValue('docType') === 'amicus';
     
@@ -196,7 +244,7 @@ function updatePreview() {
 
         <div class="title-box">
             ${isAmicus 
-                ? `BRIEF OF ${getValue('firmName') || '[FIRM NAME]'} AS AMICUS CURIAE SUPPORTING ${getValue('amicusSupport')}` 
+                ? `BRIEF OF ${getValue('firmName') || '[FIRM NAME]'} AS AMICUS CURIAE SUPPORTING ${getValue('amicusSupport') || 'PETITIONER'}` 
                 : `BRIEF FOR THE PETITIONER`
             }
         </div>
@@ -220,9 +268,9 @@ function updatePreview() {
         <div class="center-head">TABLE OF AUTHORITIES</div>
         ${authorities.length === 0
             ? '<p><i>[No authorities registered]</i></p>'
-            : authorities.sort((a,b) => a.name.localeCompare(b.name)).map(a => `
+            : authorities.slice().sort((a,b) => a.name.localeCompare(b.name)).map(a => `
                 <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                    <span>${a.name} (${a.year})</span>
+                    <span>${a.name}${a.year ? ' (' + a.year + ')' : ''}</span>
                     <span>[Page]</span>
                 </div>
             `).join('')
@@ -257,11 +305,11 @@ function updatePreview() {
         if (sec.type === 'heading') {
             mainCount++;
             subCount = 0;
-            html += `<h4 style="margin-top:20px;">${romanize(mainCount)}. ${sec.title || '[Untitled]'}</h4><p>${sec.body}</p>`;
+            html += `<h4 style="margin-top:20px;">${romanize(mainCount)}. ${sec.title || '[Untitled]'}</h4><p>${sec.body || ''}</p>`;
         } else {
             subCount++;
             const letter = String.fromCharCode(64 + subCount);
-            html += `<div style="margin-left:30px; margin-top:10px;"><b>${letter}. ${sec.title || '[Untitled]'}</b><p>${sec.body}</p></div>`;
+            html += `<div style="margin-left:30px; margin-top:10px;"><b>${letter}. ${sec.title || '[Untitled]'}</b><p>${sec.body || ''}</p></div>`;
         }
     });
 
@@ -275,6 +323,11 @@ function updatePreview() {
 
 function generatePDF() {
     const element = document.getElementById('printable-area');
+    if (!element) {
+        alert('Error: Unable to generate PDF');
+        return;
+    }
+    
     html2pdf().from(element).set({
         margin: 0.5,
         filename: 'MootCourt_Brief.pdf',
