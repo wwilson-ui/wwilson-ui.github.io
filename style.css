@@ -37,3 +37,20 @@ header { background: #1a237e; color: white; padding: 1rem 2rem; display: flex; j
 /* Form Elements */
 label { display: block; margin-top: 15px; font-weight: bold; font-size: 0.9rem; color: #444; }
 input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; }
+
+
+footer {
+    background: #f8f9fa;
+    padding: 15px;
+    text-align: center;
+    border-top: 1px solid #ddd;
+    font-size: 0.9rem;
+}
+.footer-links a {
+    color: #1a237e;
+    text-decoration: none;
+    font-weight: bold;
+}
+.footer-links a:hover {
+    text-decoration: underline;
+}
