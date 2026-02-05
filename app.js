@@ -2,6 +2,15 @@ let questions = [];
 let authorities = [];
 let arguments = [];
 
+function handleCredentialResponse(response) {
+    // This is the "ID Token" Google sends back
+    console.log("Encoded JWT ID token: " + response.credential);
+    
+    // In a future update, we would send this token to a database 
+    // to save the student's progress automatically.
+    alert("Successfully signed in with Google! Future saves will be linked to your account.");
+}
+
 function openTab(evt, tabName) {
     let contents = document.getElementsByClassName("tab-content");
     for (let i = 0; i < contents.length; i++) contents[i].className = contents[i].className.replace(" active", "");
