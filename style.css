@@ -54,3 +54,29 @@ footer {
 .footer-links a:hover {
     text-decoration: underline;
 }
+
+
+.preview-page-break {
+    page-break-before: always;
+    border-top: 2px dashed #ccc; /* Visual indicator of a new page in the web view */
+    margin: 50px 0;
+}
+
+.question-text {
+    margin-top: 40px;
+    text-align: justify;
+}
+
+.centered-block {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px; /* Helps mimic the centered look on a page */
+}
+
+.instruction-text {
+    font-size: 0.85rem;
+    color: #666;
+    font-style: italic;
+    margin-bottom: 20px;
+}
