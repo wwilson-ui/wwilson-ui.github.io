@@ -22,7 +22,7 @@
         .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); font-weight: 700; }
         
         .save-load-container { margin-top: auto; padding-top: 20px; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-        .sl-btn { width: 90%; padding: 10px; background: #454545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; text-align: center; text-decoration: none; display: block; }
+        .sl-btn { width: 90%; padding: 10px; background: #454545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold; text-align: center; display: block; box-sizing: border-box; }
         .sl-btn:hover { background: #333; }
 
         /* INPUT PANELS */
@@ -31,12 +31,12 @@
         .tab-content.active { display: block; }
         
         .dynamic-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
-        .remove-btn { background: #ffeaec; color: #d32f2f; border: 1px solid #ffcdd2; border-radius: 4px; padding: 8px; cursor: pointer; font-weight: bold; }
+        .remove-btn { background: #ffeaec; color: #d32f2f; border: 1px solid #ffcdd2; border-radius: 4px; padding: 8px; cursor: pointer; font-weight: bold; flex-shrink: 0; }
         .add-btn { background: #f8f9fa; border: 2px dashed #ccc; color: #666; width: 100%; padding: 10px; margin-top: 10px; cursor: pointer; border-radius: 6px; font-weight: 600; }
 
-        /* PREVIEW & PAPER */
-        .preview-panel { flex: 1.4; padding: 40px; overflow-y: auto; display: flex; justify-content: center; }
-        .paper { width: 8.5in; min-height: 11in; background: white; padding: 1in; box-shadow: 0 0 25px rgba(0,0,0,0.4); font-family: 'Crimson Pro', serif; font-size: 12pt; line-height: 1.5; color: black; box-sizing: border-box; }
+        /* PREVIEW & PAPER - FIXED OVERFLOW */
+        .preview-panel { flex: 1.4; padding: 40px; overflow-y: auto; display: block; background: #525659; }
+        .paper { width: 8.5in; min-height: 11in; background: white; padding: 1in; margin: 0 auto 40px auto; box-shadow: 0 0 25px rgba(0,0,0,0.4); font-family: 'Crimson Pro', serif; font-size: 12pt; line-height: 1.5; color: black; box-sizing: border-box; }
 
         label { display: block; font-weight: 700; font-size: 0.75rem; margin-top: 20px; color: #444; text-transform: uppercase; }
         input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
@@ -49,7 +49,6 @@
         .title-box { text-align: center; border-top: 2px solid black; border-bottom: 2px solid black; padding: 15px; margin: 30px 0; font-weight: bold; text-transform: uppercase; }
         .page-break { border-top: 1px dashed #ccc; margin: 40px 0; page-break-before: always; }
         .section-center { text-align: center; font-weight: bold; text-transform: uppercase; margin-bottom: 20px; }
-        .case-cite { font-style: italic; }
     </style>
 </head>
 <body>
@@ -73,7 +72,7 @@
         
         <div class="save-load-container">
             <button class="sl-btn" onclick="exportProject()">SAVE PROGRESS</button>
-            <label class="sl-btn">
+            <label class="sl-btn" style="cursor:pointer;">
                 LOAD PROGRESS
                 <input type="file" id="importFile" hidden onchange="importProject(event)">
             </label>
@@ -92,45 +91,44 @@
             <label>Court Term:</label>
             <input type="text" id="courtTerm" placeholder="e.g. October Term, 2025" oninput="updatePreview()">
             <label>Law Firm or School Name:</label>
-            <input type="text" id="firmName" oninput="updatePreview()">
+            <input type="text" id="firmName" placeholder="e.g. Lincoln High School" oninput="updatePreview()">
             <label>Student Counsel Names:</label>
-            <textarea id="studentNames" rows="3" oninput="updatePreview()"></textarea>
+            <textarea id="studentNames" rows="3" placeholder="John Doe&#10;Jane Smith" oninput="updatePreview()"></textarea>
 
             <div id="amicus-interest-box" style="display:none; background:#e8eaf6; padding:15px; margin-top:15px; border-radius:6px;">
                 <label>Interest of Amicus Curiae (Bio/Qualifications):</label>
-                <textarea id="amicusInterest" rows="4" placeholder="Describe the interest of the amicus in this case..." oninput="updatePreview()"></textarea>
+                <textarea id="amicusInterest" rows="4" oninput="updatePreview()"></textarea>
             </div>
         </div>
 
         <div id="cover" class="tab-content">
             <h2>Cover Page</h2>
             <label>Docket Number:</label>
-            <input type="text" id="docketNum" oninput="updatePreview()">
+            <input type="text" id="docketNum" placeholder="No. 24-100" oninput="updatePreview()">
             <label>Petitioners:</label>
             <div id="petitioner-container"></div>
-            <button class="add-btn" onclick="addDynamicField('petitioner-container', 'petitioner')">+ Add Petitioner</button>
+            <button class="add-btn" onclick="addDynamicField('petitioner')">+ Add Petitioner</button>
             <label>Respondents:</label>
             <div id="respondent-container"></div>
-            <button class="add-btn" onclick="addDynamicField('respondent-container', 'respondent')">+ Add Respondent</button>
+            <button class="add-btn" onclick="addDynamicField('respondent')">+ Add Respondent</button>
             <label>On Writ of Certiorari To:</label>
             <input type="text" id="lowerCourt" oninput="updatePreview()">
         </div>
 
         <div id="authorities" class="tab-content">
             <h2>Table of Authorities</h2>
-            <p style="font-size:0.8rem; color:#666;">Add citations here. They will be alphabetized automatically in the brief.</p>
             <label>Cases:</label>
             <div id="case-container"></div>
-            <button class="add-btn" onclick="addDynamicField('case-container', 'case')">+ Add Case Reference</button>
+            <button class="add-btn" onclick="addDynamicField('case')">+ Add Case Reference</button>
             <label>Statutes / Other:</label>
             <div id="statute-container"></div>
-            <button class="add-btn" onclick="addDynamicField('statute-container', 'statute')">+ Add Statute</button>
+            <button class="add-btn" onclick="addDynamicField('statute')">+ Add Statute</button>
         </div>
 
         <div id="questions" class="tab-content">
             <h2>Questions Presented</h2>
-            <div id="questions-container"></div>
-            <button class="add-btn" onclick="addDynamicField('questions-container', 'question')">+ Add Question</button>
+            <div id="question-container"></div>
+            <button class="add-btn" onclick="addDynamicField('question')">+ Add Question</button>
         </div>
 
         <div id="argument" class="tab-content">
@@ -145,6 +143,7 @@
             <h2>Conclusion</h2>
             <textarea id="conclusionText" rows="6" oninput="updatePreview()"></textarea>
             <button class="export-btn" style="background:var(--legal-blue); color:white; padding:15px; width:100%; border:none; border-radius:6px; margin-top:20px; font-weight:bold; cursor:pointer;" onclick="downloadPDF()">📥 DOWNLOAD PDF</button>
+            <button class="export-btn" style="background:#555; color:white; padding:15px; width:100%; border:none; border-radius:6px; margin-top:10px; font-weight:bold; cursor:pointer;" onclick="window.print()">🖨️ DIRECT PRINT</button>
         </div>
     </section>
 
@@ -156,12 +155,17 @@
 </main>
 
 <script>
+    // Initialize with default empty fields
     let appData = {
-        petitioners: [""], respondents: [""], questions: [""],
-        cases: [""], statutes: [""]
+        petitioners: [""], 
+        respondents: [""], 
+        questions: [""],
+        cases: [""], 
+        statutes: [""]
     };
 
     function toTitleCase(str) {
+        if (!str) return "";
         return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
     }
 
@@ -172,14 +176,18 @@
         document.querySelector(`[onclick="showTab('${tabId}')"]`).classList.add('active');
     }
 
-    function addDynamicField(containerId, type) {
+    function addDynamicField(type) {
         appData[type + 's'].push("");
         renderDynamicFields();
         updatePreview();
     }
 
     function removeDynamicField(type, index) {
-        appData[type + 's'].splice(index, 1);
+        if (appData[type + 's'].length > 1) {
+            appData[type + 's'].splice(index, 1);
+        } else {
+            appData[type + 's'][0] = ""; // Clear instead of remove if it's the last one
+        }
         renderDynamicFields();
         updatePreview();
     }
@@ -196,7 +204,7 @@
             if(!container) return;
             container.innerHTML = appData[t+'s'].map((val, i) => `
                 <div class="dynamic-row">
-                    <input type="text" value="${val}" oninput="handleInputChange('${t}', ${i}, this.value)" placeholder="${toTitleCase(t)} citation/name">
+                    <input type="text" value="${val}" oninput="handleInputChange('${t}', ${i}, this.value)" placeholder="Enter information...">
                     <button class="remove-btn" onclick="removeDynamicField('${t}', ${i})">×</button>
                 </div>
             `).join('');
@@ -206,7 +214,11 @@
     function updatePreview() {
         const get = (id) => document.getElementById(id) ? document.getElementById(id).value : "";
         const bType = get('briefType');
-        document.getElementById('amicus-interest-box').style.display = (bType === 'Amicus Curiae') ? 'block' : 'none';
+        
+        // Show/Hide Amicus box
+        if(document.getElementById('amicus-interest-box')) {
+            document.getElementById('amicus-interest-box').style.display = (bType === 'Amicus Curiae') ? 'block' : 'none';
+        }
 
         const sortedCases = [...appData.cases].filter(x => x).sort();
         const sortedStats = [...appData.statutes].filter(x => x).sort();
@@ -225,50 +237,53 @@
                     ${appData.respondents.map(r => toTitleCase(r) || '<i>[Respondent]</i>').join(',<br>')},<br>
                     <i>Respondent${appData.respondents.length > 1 ? 's' : ''}.</i>
                 </div>
-                <div class="bracket-side">On Writ of Certiorari to the ${get('lowerCourt')}</div>
+                <div class="bracket-side">On Writ of Certiorari to the ${get('lowerCourt') || '[Lower Court]'}</div>
             </div>
 
             <div class="title-box">BRIEF FOR THE ${bType.toUpperCase()}</div>
 
             <div style="text-align:center; margin-top:60px;">
                 <b>Respectfully Submitted,</b><br>
-                ${get('firmName')}<br>
+                ${get('firmName') || '[Firm/School]'}<br>
                 <div style="font-size:10pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>')}</div>
             </div>
 
             <div class="page-break"></div>
             <div class="section-center">TABLE OF AUTHORITIES</div>
-            <b>Cases:</b><br>
-            ${sortedCases.map(c => `<div class="case-cite">${c}</div>`).join('')}
-            <br><b>Statutes:</b><br>
-            ${sortedStats.map(s => `<div>${s}</div>`).join('')}
+            <p><b>Cases:</b></p>
+            ${sortedCases.map(c => `<div style="font-style:italic; margin-bottom:5px;">${c}</div>`).join('')}
+            <p><b>Statutes:</b></p>
+            ${sortedStats.map(s => `<div style="margin-bottom:5px;">${s}</div>`).join('')}
 
             <div class="page-break"></div>
             <div class="section-center">QUESTIONS PRESENTED</div>
-            ${appData.questions.map((q, i) => `<p><b>${i+1}.</b> ${q}</p>`).join('')}
+            ${appData.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}
 
             ${bType === 'Amicus Curiae' ? `
                 <div class="page-break"></div>
                 <div class="section-center">INTEREST OF AMICUS CURIAE</div>
-                <p>${get('amicusInterest')}</p>
+                <p style="white-space: pre-wrap;">${get('amicusInterest')}</p>
             ` : ''}
 
             <div class="page-break"></div>
             <div class="section-center">ARGUMENT</div>
-            <p><b>SUMMARY:</b> ${get('summaryArg')}</p>
+            <p><b>SUMMARY OF ARGUMENT:</b> ${get('summaryArg')}</p>
             <p style="white-space: pre-wrap;">${get('argBody')}</p>
 
             <div class="page-break"></div>
             <div class="section-center">CONCLUSION</div>
-            <p>${get('conclusionText')}</p>
+            <p style="white-space: pre-wrap;">${get('conclusionText')}</p>
         `;
         document.getElementById('preview-render').innerHTML = html;
     }
 
     function downloadPDF() {
-        html2pdf().from(document.getElementById('print-area')).set({
-            margin: 0.5, filename: 'Moot_Court_Brief.pdf',
-            html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter' }
+        const element = document.getElementById('print-area');
+        html2pdf().from(element).set({
+            margin: 0.5,
+            filename: 'Moot_Court_Brief.pdf',
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
         }).save();
     }
 
@@ -283,6 +298,8 @@
     }
 
     function importProject(event) {
+        const file = event.target.files[0];
+        if(!file) return;
         const reader = new FileReader();
         reader.onload = (e) => {
             const saved = JSON.parse(e.target.result);
@@ -291,8 +308,16 @@
             renderDynamicFields();
             updatePreview();
         };
-        reader.readAsText(event.target.files[0]);
+        reader.readAsText(file);
     }
+
+    function handleCredentialResponse(response) { console.log("Login OK"); }
+
+    // Initial render
+    window.onload = () => {
+        renderDynamicFields();
+        updatePreview();
+    };
 </script>
 </body>
 </html>
