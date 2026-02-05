@@ -1,192 +1,296 @@
-// State variables to hold student data
+// STATE VARIABLES
 let questions = [];
 let authorities = [];
-let argumentSections = [];
+let args = [];
 
-// 1. ENSURE THE SCRIPT WAITS FOR THE PAGE
+// INITIALIZATION
 window.onload = function() {
-    console.log("App initialized.");
-    updatePreview(); // Initial call to show empty template
+    console.log("Moot Court App Initialized");
+    updatePreview(); // Run once on startup
 };
 
-// Tab Switching Logic
-function openTab(evt, tabName) {
-    let contents = document.getElementsByClassName("tab-content");
-    for (let i = 0; i < contents.length; i++) contents[i].classList.remove("active");
-    
-    let buttons = document.getElementsByClassName("tab-btn");
-    for (let i = 0; i < buttons.length; i++) buttons[i].classList.remove("active");
-    
-    document.getElementById(tabName).classList.add("active");
-    evt.currentTarget.classList.add("active");
+// TAB NAVIGATION
+function openTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    // Highlight the button (simple loop match)
+    const btns = document.querySelectorAll('.tab-btn');
+    btns.forEach(btn => {
+        if(btn.textContent.toLowerCase().includes(tabId) || 
+           (tabId === 'export' && btn.textContent.includes('Finish'))) {
+            btn.classList.add('active');
+        }
+    });
 }
 
-function toggleAmicusFields() {
-    const docType = document.getElementById('docType').value;
-    const isAmicus = (docType === 'amicus');
-    document.getElementById('amicus-support-div').style.display = isAmicus ? 'block' : 'none';
-    document.getElementById('amicus-interest-div').style.display = isAmicus ? 'block' : 'none';
+// DATA HANDLERS
+function addQuestion() {
+    questions.push("");
+    renderQuestions();
+    updatePreview();
 }
 
-function addStudentField() {
-    const container = document.getElementById('student-list');
-    const input = document.createElement('input');
-    input.type = "text";
-    input.className = "student-name-input";
-    input.placeholder = "Student Name";
-    input.onkeyup = updatePreview; // Ensure new fields also trigger updates
-    container.appendChild(input);
+function updateQuestion(index, value) {
+    questions[index] = value;
+    updatePreview();
 }
 
-function addQuestionField() {
-    const q = prompt("Enter the Constitutional Question:");
-    if (q) { 
-        questions.push(q); 
-        renderQuestionList();
-        updatePreview(); 
-    }
+function removeQuestion(index) {
+    questions.splice(index, 1);
+    renderQuestions();
+    updatePreview();
 }
 
-function renderQuestionList() {
-    const container = document.getElementById('questions-container');
+function renderQuestions() {
+    const container = document.getElementById('questions-list');
     container.innerHTML = questions.map((q, i) => `
-        <div class="arg-section-input"><b>Q${i+1}:</b> ${q}</div>
+        <div class="list-item-box">
+            <button class="delete-x" onclick="removeQuestion(${i})">X</button>
+            <label>Question ${i+1}:</label>
+            <textarea oninput="updateQuestion(${i}, this.value)">${q}</textarea>
+        </div>
     `).join('');
 }
 
-function registerAuthority() {
-    const nameInput = document.getElementById('new-auth-name');
-    const yearInput = document.getElementById('new-auth-year');
-    const typeInput = document.getElementById('new-auth-type');
-    
-    if (nameInput.value) {
-        authorities.push({ 
-            name: nameInput.value, 
-            year: yearInput.value, 
-            type: typeInput.value 
-        });
-        nameInput.value = "";
-        yearInput.value = "";
-        renderAuthList();
+function addAuthority() {
+    const type = document.getElementById('authType').value;
+    const name = document.getElementById('authName').value;
+    const year = document.getElementById('authYear').value;
+    if(name) {
+        authorities.push({type, name, year});
+        // Clear inputs
+        document.getElementById('authName').value = '';
+        document.getElementById('authYear').value = '';
+        renderAuthorities();
         updatePreview();
     }
 }
 
-function renderAuthList() {
-    const container = document.getElementById('auth-list-container');
-    container.innerHTML = authorities.map(a => `<div>• ${a.name} (${a.year})</div>`).join('');
+function removeAuthority(index) {
+    authorities.splice(index, 1);
+    renderAuthorities();
+    updatePreview();
 }
 
-function addArgumentSection(type) {
-    argumentSections.push({ type: type, title: "", body: "" });
-    renderArgumentInputs();
-}
-
-function renderArgumentInputs() {
-    const container = document.getElementById('argument-sections-container');
-    container.innerHTML = argumentSections.map((sec, i) => `
-        <div class="arg-section-input">
-            <input type="text" placeholder="${sec.type === 'heading' ? 'Main Point Title' : 'Sub-point Title'}" 
-                onkeyup="argumentSections[${i}].title = this.value; updatePreview()" value="${sec.title}">
-            <textarea placeholder="Legal reasoning..." 
-                onkeyup="argumentSections[${i}].body = this.value; updatePreview()">${sec.body}</textarea>
+function renderAuthorities() {
+    const container = document.getElementById('auth-display-list');
+    container.innerHTML = authorities.map((a, i) => `
+        <div class="list-item-box" style="font-size:0.8rem;">
+            <button class="delete-x" onclick="removeAuthority(${i})">X</button>
+            <strong>${a.type}:</strong> ${a.name} (${a.year})
         </div>
     `).join('');
 }
 
+function addArgSection(type) {
+    args.push({type: type, title: "", body: ""});
+    renderArgs();
+    updatePreview();
+}
+
+function updateArg(index, field, value) {
+    args[index][field] = value;
+    updatePreview();
+}
+
+function removeArg(index) {
+    args.splice(index, 1);
+    renderArgs();
+    updatePreview();
+}
+
+function renderArgs() {
+    const container = document.getElementById('argument-builder');
+    container.innerHTML = args.map((arg, i) => `
+        <div class="list-item-box" style="${arg.type === 'sub' ? 'margin-left:30px; border-left:4px solid #1a237e;' : ''}">
+            <button class="delete-x" onclick="removeArg(${i})">X</button>
+            <label>${arg.type === 'heading' ? 'Main Heading' : 'Sub-Point'}:</label>
+            <input type="text" placeholder="Title" value="${arg.title}" oninput="updateArg(${i}, 'title', this.value)">
+            <textarea placeholder="Text..." oninput="updateArg(${i}, 'body', this.value)">${arg.body}</textarea>
+        </div>
+    `).join('');
+}
+
+// HELPER: Roman Numerals
 function romanize(num) {
     const lookup = {M:1000,CM:900,D:500,CD:400,C:100,XC:90,L:50,XL:40,X:10,IX:9,V:5,IV:4,I:1};
     let roman = '';
-    for (let i in lookup) { while (num >= lookup[i]) { roman += i; num -= lookup[i]; } }
+    for (let i in lookup ) {
+      while ( num >= lookup[i] ) { roman += i; num -= lookup[i]; }
+    }
     return roman;
 }
 
-// THE MAIN ENGINE
+// --- CORE PREVIEW ENGINE ---
 function updatePreview() {
-    const getVal = (id) => {
-        const el = document.getElementById(id);
-        return el ? el.value : "";
-    };
+    try {
+        // Safe Value Getter
+        const val = (id) => document.getElementById(id) ? document.getElementById(id).value : "";
+        
+        // Logic Vars
+        const isAmicus = val('docType') === 'amicus';
+        document.getElementById('amicus-options').style.display = isAmicus ? 'block' : 'none';
+        document.getElementById('amicus-interest-field').style.display = isAmicus ? 'block' : 'none';
 
-    const isAmicus = getVal('docType') === 'amicus';
-    
-    // Collect Student Names correctly
-    const studentInputs = document.querySelectorAll('.student-name-input');
-    let studentsHtml = Array.from(studentInputs)
-        .map(i => i.value)
-        .filter(v => v !== "")
-        .join('<br>');
-
-    // Build the Cover Page
-    let html = `
-        <div class="docket">${getVal('docketNumber') || 'No. 24-XXXX'}</div>
-        <div class="court-header">In the Supreme Court of the United States</div>
-        <div class="caption-box">
-            <div class="parties">
-                ${getVal('petitionerName') || '[Petitioner]'},<br>
-                <div class="v-mark">v.</div>
-                ${getVal('respondentName') || '[Respondent]'},
+        // 1. COVER PAGE HTML
+        let html = `
+            <div class="docket-num">${val('docket') || 'No. 24-XXXX'}</div>
+            <div class="court-header">In the Supreme Court of the United States</div>
+            
+            <div class="caption-container">
+                <div class="parties">
+                    ${val('petitioner') || '[Petitioner Name]'},<br>
+                    <i>Petitioner</i>,<br>
+                    <div style="margin:10px 0;">v.</div>
+                    ${val('respondent') || '[Respondent Name]'},<br>
+                    <i>Respondent</i>.
+                </div>
+                <div class="bracket">
+                    On Writ of Certiorari to the ${val('lowerCourt') || '[Lower Court Name]'}
+                </div>
             </div>
-            <div class="bracket-side">
-                On Writ of Certiorari to the ${getVal('lowerCourt') || '[Lower Court]'}
+            
+            <div style="text-align:center; margin-bottom:20px;">${val('termDate') || ''}</div>
+
+            <div class="doc-title">
+                ${isAmicus 
+                  ? `BRIEF OF ${val('firmName')} AS AMICUS CURIAE SUPPORTING ${val('amicusSupport')}` 
+                  : `BRIEF FOR THE ${val('docType') === 'brief' ? 'PETITIONER' : 'RESPONDENT'}`
+                }
             </div>
-        </div>
-        <div class="title-block">
-            ${isAmicus ? 'BRIEF OF ' + (getVal('lawFirm') || '[Law Firm]') + ' AS AMICUS CURIAE SUPPORTING ' + getVal('amicusSupport') : 'BRIEF FOR THE PETITIONER'}
-        </div>
-        <div style="text-align:center; margin-top:50px;">
-            <b>Counsel for Filing Party:</b><br>${studentsHtml || '[Student Names]'}
-        </div>
 
-        <div class="page-break-indicator"></div>
-        <h3 style="text-align:center">QUESTIONS PRESENTED</h3>
-        ${questions.length > 0 ? questions.map((q, i) => `<p><b>${questions.length > 1 ? (i+1)+'.' : ''}</b> ${q}</p>`).join('') : '<p style="color:gray">[No questions entered yet]</p>'}
+            <div style="text-align:center; margin-top:50px;">
+                <b>Respectfully Submitted,</b><br><br>
+                ${val('firmName') || '[Law Firm]'}<br>
+                <div style="font-size:0.9rem; margin-top:10px; line-height:1.4;">
+                    ${val('studentNames').replace(/\n/g, '<br>')}
+                </div>
+            </div>
+        `;
 
-        <div class="page-break-indicator"></div>
-        <h3 style="text-align:center">TABLE OF AUTHORITIES</h3>
-        ${authorities.length > 0 ? authorities.sort((a,b) => a.name.localeCompare(b.name)).map(a => `<p>${a.name} (${a.year}) ................... [Page]</p>`).join('') : '<p style="color:gray">[No authorities registered]</p>'}
+        // 2. QUESTIONS PRESENTED
+        html += `<div class="page-break"></div><div class="center-heading">QUESTIONS PRESENTED</div>`;
+        if(questions.length > 0) {
+            questions.forEach((q, i) => {
+                html += `<p><b>${i+1}.</b> ${q}</p>`;
+            });
+        } else { html += `<p><i>[No questions entered]</i></p>`; }
 
-        <div class="page-break-indicator"></div>
-        <h3 style="text-align:center">ARGUMENT</h3>
-        ${getVal('summaryArgument') ? '<i>Summary: ' + getVal('summaryArgument') + '</i><hr>' : ''}
-    `;
-
-    // Add Argument Sections
-    let mainI = 0; 
-    let subA = 0;
-    argumentSections.forEach(sec => {
-        if (sec.type === 'heading') {
-            mainI++; 
-            subA = 0;
-            html += `<h4>${romanize(mainI)}. ${sec.title || '[Untitled Point]'}</h4><p>${sec.body}</p>`;
-        } else {
-            subA++;
-            html += `<div style="margin-left:30px;"><b>${String.fromCharCode(64 + subA)}. ${sec.title || '[Untitled Sub-point]'}</b><p>${sec.body}</p></div>`;
+        // 3. TABLE OF AUTHORITIES (Sorted)
+        html += `<div class="page-break"></div><div class="center-heading">TABLE OF AUTHORITIES</div>`;
+        if(authorities.length > 0) {
+            // Sort by name
+            const sorted = authorities.sort((a,b) => a.name.localeCompare(b.name));
+            sorted.forEach(a => {
+                html += `<div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span>${a.name} (${a.year})</span>
+                    <span>[Page]</span>
+                </div>`;
+            });
         }
-    });
 
-    // Conclusion
-    if (getVal('conclusionText')) {
-        html += `<div class="page-break-indicator"></div><h3 style="text-align:center">CONCLUSION</h3><p>${getVal('conclusionText')}</p>`;
+        // 4. ARGUMENT SECTION
+        html += `<div class="page-break"></div><div class="center-heading">ARGUMENT</div>`;
+        
+        if(isAmicus && val('interestAmicus')) {
+            html += `<h4>Interest of Amicus Curiae</h4><p>${val('interestAmicus')}</p>`;
+        }
+        
+        if(val('statementCase')) html += `<h4>Statement of the Case</h4><p>${val('statementCase')}</p>`;
+        if(val('summaryArg')) html += `<h4>Summary of Argument</h4><p>${val('summaryArg')}</p>`;
+
+        html += `<hr style="margin:20px 0;">`;
+
+        // Loop through dynamic arguments
+        let mainCount = 0;
+        let subCount = 0;
+        args.forEach(arg => {
+            if(arg.type === 'heading') {
+                mainCount++;
+                subCount = 0;
+                html += `<div class="arg-heading">${romanize(mainCount)}. ${arg.title}</div><p>${arg.body}</p>`;
+            } else {
+                subCount++;
+                // Convert 1 -> A, 2 -> B
+                let letter = String.fromCharCode(64 + subCount);
+                html += `<div class="arg-sub"><b>${letter}. ${arg.title}</b><p>${arg.body}</p></div>`;
+            }
+        });
+
+        // 5. CONCLUSION
+        if(val('conclusion')) {
+            html += `<div class="page-break"></div><div class="center-heading">CONCLUSION</div><p>${val('conclusion')}</p>`;
+        }
+
+        // INJECT INTO PAGE
+        document.getElementById('preview-content').innerHTML = html;
+
+    } catch (err) {
+        console.error("Preview Error:", err);
     }
-    
-    document.getElementById('preview-content').innerHTML = html;
 }
 
-// PDF Export
+// EXPORT FUNCTION
 function generatePDF() {
-    const element = document.getElementById('printable-content');
-    const opt = { 
-        margin: 0.5, 
-        filename: 'MootCourt_Brief.pdf', 
+    const element = document.getElementById('printable-area');
+    const opt = {
+        margin: 0.5,
+        filename: 'MootCourt_Brief.pdf',
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 }, 
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } 
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
     html2pdf().from(element).set(opt).save();
 }
 
-function handleCredentialResponse(response) { 
-    console.log("Encoded JWT ID token: " + response.credential); 
-    alert("Logged in to Google successfully!"); 
+// GOOGLE SIGN-IN HANDLER
+function handleCredentialResponse(response) {
+    console.log("Google Token Received: " + response.credential);
+    alert("Signed in successfully (Demo Mode)");
+}
+
+// LOCAL SAVE/LOAD (Simple JSON)
+function exportData() {
+    const data = {
+        questions, authorities, args,
+        formData: {}
+    };
+    // Save all inputs
+    document.querySelectorAll('input, textarea, select').forEach(el => {
+        if(el.id) data.formData[el.id] = el.value;
+    });
+    
+    const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "moot_court_project.civics";
+    a.click();
+}
+
+function importData(event) {
+    const file = event.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const data = JSON.parse(e.target.result);
+        
+        // Restore Arrays
+        questions = data.questions || [];
+        authorities = data.authorities || [];
+        args = data.args || [];
+        
+        // Restore Inputs
+        for (const [key, value] of Object.entries(data.formData)) {
+            if(document.getElementById(key)) document.getElementById(key).value = value;
+        }
+        
+        // Refresh UI
+        renderQuestions();
+        renderAuthorities();
+        renderArgs();
+        updatePreview();
+    };
+    reader.readAsText(file);
 }
