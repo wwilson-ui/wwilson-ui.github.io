@@ -12,66 +12,50 @@
 <body>
 
 <header>
-    <div class="logo">Civics Moot Court Generator</div>
-    <div id="google-signin-container">
-        <div id="g_id_onload" data-client_id="YOUR_CLIENT_ID" data-callback="handleCredentialResponse"></div>
-        <div class="g_id_signin" data-type="standard"></div>
-    </div>
+    <div class="logo">Moot Court Brief Generator</div>
+    <div id="g_id_onload" data-client_id="YOUR_ID" data-callback="handleCredentialResponse"></div>
+    <div class="g_id_signin" data-type="standard"></div>
 </header>
 
 <main class="app-container">
     <nav class="tab-sidebar">
-        <button class="tab-btn active" onclick="openTab('setup')">1. Setup</button>
-        <button class="tab-btn" onclick="openTab('cover')">2. Cover Page</button>
-        <button class="tab-btn" onclick="openTab('questions')">3. Questions</button>
-        <button class="tab-btn" onclick="openTab('authorities')">4. Authorities</button>
-        <button class="tab-btn" onclick="openTab('argument')">5. Argument</button>
-        <button class="tab-btn" onclick="openTab('export')">6. Export</button>
-        
-        <div class="file-ops">
-            <button class="op-btn" onclick="exportData()">💾 Save Progress</button>
-            <button class="op-btn" onclick="document.getElementById('importFile').click()">📂 Load Progress</button>
-            <input type="file" id="importFile" hidden onchange="importData(event)">
-        </div>
+        <button class="tab-btn active" onclick="showTab('setup')">1. Setup</button>
+        <button class="tab-btn" onclick="showTab('cover')">2. Cover</button>
+        <button class="tab-btn" onclick="showTab('questions')">3. Questions</button>
+        <button class="tab-btn" onclick="showTab('authorities')">4. Authorities</button>
+        <button class="tab-btn" onclick="showTab('argument')">5. Argument</button>
+        <button class="tab-btn" onclick="showTab('export')">6. Export</button>
     </nav>
 
     <section class="input-panel">
-        
         <div id="setup" class="tab-content active">
             <h2>Project Setup</h2>
-            <label>Brief Type:</label>
-            <select id="docType" onchange="updatePreview()">
-                <option value="brief">Petitioner / Respondent Brief</option>
-                <option value="amicus">Amicus Curiae Submission</option>
+            <label>Document Type:</label>
+            <select id="docType">
+                <option value="petitioner">Brief for Petitioner</option>
+                <option value="respondent">Brief for Respondent</option>
+                <option value="amicus">Amicus Curiae Brief</option>
             </select>
-            
-            <label>Law Firm / Group Name:</label>
-            <input type="text" id="firmName" placeholder="e.g. Hamilton & Associates">
-            
-            <label>Term Date:</label>
-            <input type="text" id="termDate" placeholder="e.g. October Term, 2025">
-            
-            <label>Student Counsel Names:</label>
-            <textarea id="studentNames" rows="4" placeholder="Student 1&#10;Student 2&#10;Student 3"></textarea>
+            <label>Law Firm / School Group:</label>
+            <input type="text" id="firmName" placeholder="e.g. Madison Law Society">
+            <label>Student Counsel Names (one per line):</label>
+            <textarea id="studentNames" rows="4"></textarea>
         </div>
 
         <div id="cover" class="tab-content">
             <h2>Cover Page</h2>
             <label>Docket Number:</label>
             <input type="text" id="docket" placeholder="No. 24-XXXX">
-            
-            <label>Petitioner:</label>
+            <label>Petitioner Name:</label>
             <input type="text" id="petitioner">
-            
-            <label>Respondent:</label>
+            <label>Respondent Name:</label>
             <input type="text" id="respondent">
-            
             <label>Lower Court:</label>
-            <input type="text" id="lowerCourt" placeholder="e.g. United States Court of Appeals for the Fourth Circuit">
+            <input type="text" id="lowerCourt" placeholder="e.g. U.S. Court of Appeals for the D.C. Circuit">
             
-            <div id="amicus-options" style="display:none; background:#e8f5e9; padding:10px; margin-top:10px; border-radius:4px;">
+            <div id="amicus-extras" class="amicus-only">
                 <label>Amicus Supporting:</label>
-                <select id="amicusSupport" onchange="updatePreview()">
+                <select id="amicusSupport">
                     <option value="PETITIONER">Petitioner</option>
                     <option value="RESPONDENT">Respondent</option>
                     <option value="NEITHER PARTY">Neither Party</option>
@@ -86,57 +70,43 @@
         </div>
 
         <div id="authorities" class="tab-content">
-            <h2>Authorities</h2>
-            <div class="auth-input-row">
-                <select id="authType">
-                    <option value="Cases">Case</option>
-                    <option value="Statutes">Statute</option>
-                </select>
-                <input type="text" id="authName" placeholder="Name">
-                <input type="text" id="authYear" placeholder="Year" style="width: 100px;">
+            <h2>Table of Authorities</h2>
+            <div class="auth-box">
+                <input type="text" id="authName" placeholder="Case Name (e.g. Roe v. Wade)">
+                <input type="text" id="authYear" placeholder="Year" style="width: 80px;">
                 <button onclick="addAuthority()">Add</button>
             </div>
             <div id="auth-list"></div>
         </div>
 
         <div id="argument" class="tab-content">
-            <h2>Legal Argument</h2>
-            
-            <div id="amicus-interest-section" style="display:none;">
+            <h2>Argument Sections</h2>
+            <div id="amicus-interest-box" class="amicus-only">
                 <label>Interest of Amicus Curiae:</label>
                 <textarea id="interestAmicus" rows="3"></textarea>
             </div>
-
-            <label>Statement of the Case:</label>
-            <textarea id="statementCase" rows="3"></textarea>
-            
             <label>Summary of Argument:</label>
             <textarea id="summaryArg" rows="3"></textarea>
             
-            <h3>Argument Sections</h3>
-            <div id="argument-sections"></div>
-            <div style="display: flex; gap: 10px;">
-                <button class="add-btn" onclick="addArgumentSection('heading')">+ Main Point (I, II...)</button>
-                <button class="add-btn" onclick="addArgumentSection('sub')">+ Sub-Point (A, B...)</button>
+            <div id="argument-list"></div>
+            <div style="display:flex; gap:10px;">
+                <button class="add-btn" onclick="addArg('heading')">+ Add Main Point (I, II)</button>
+                <button class="add-btn" onclick="addArg('sub')">+ Add Sub-Point (A, B)</button>
             </div>
         </div>
 
         <div id="export" class="tab-content">
-            <h2>Finalize</h2>
+            <h2>Final PDF</h2>
             <label>Conclusion:</label>
-            <textarea id="conclusion" rows="3" placeholder="For the foregoing reasons, the judgment should be reversed."></textarea>
-            
-            <button class="download-btn" onclick="generatePDF()">Download SCOTUS PDF</button>
-            
-            <div style="margin-top: 20px; text-align: center;">
-                <a href="tos.html" target="_blank">Terms of Service</a>
-            </div>
+            <textarea id="conclusionText" rows="3"></textarea>
+            <br>
+            <button class="download-btn" onclick="generatePDF()">Download Brief</button>
         </div>
     </section>
 
     <section class="preview-panel">
-        <div id="printable-area" class="paper">
-            <div id="preview-content"></div>
+        <div id="pdf-container" class="paper">
+            <div id="preview-render"></div>
         </div>
     </section>
 </main>
