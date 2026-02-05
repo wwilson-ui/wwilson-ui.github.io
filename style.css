@@ -1,0 +1,39 @@
+/* General App Layout */
+body { font-family: sans-serif; background: #f0f2f5; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+header { background: #1a237e; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+.app-container { display: flex; flex: 1; overflow: hidden; }
+
+/* Sidebar Tabs */
+.tab-sidebar { width: 250px; background: #fff; border-right: 1px solid #ccc; display: flex; flex-direction: column; padding: 10px; }
+.tab-btn { padding: 12px; margin-bottom: 5px; border: none; background: none; text-align: left; cursor: pointer; border-radius: 4px; }
+.tab-btn.active { background: #e8eaf6; color: #1a237e; font-weight: bold; border-left: 4px solid #1a237e; }
+
+/* Panels */
+.input-panel { flex: 1; padding: 2rem; overflow-y: auto; background: white; border-right: 1px solid #ccc; }
+.preview-panel { flex: 1.2; background: #525659; padding: 40px; overflow-y: auto; display: flex; justify-content: center; }
+
+/* THE LEGAL PAPER */
+.paper { 
+    width: 8.5in; 
+    min-height: 11in; 
+    background: white; 
+    padding: 1in 1.5in; /* Generous margins */
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    font-family: 'Crimson Pro', serif; /* Simulates Century Schoolbook */
+    font-size: 12pt;
+    line-height: 1.5;
+    color: #000;
+}
+
+/* Cover Page Specifics */
+.docket-number { font-weight: bold; margin-bottom: 20px; }
+.court-name { text-align: center; font-weight: bold; text-transform: uppercase; margin: 30px 0; }
+.caption-container { display: flex; margin: 20px 0; }
+.parties { flex: 1; padding-right: 10px; }
+.v-spacer { margin: 10px 0; font-style: italic; }
+.bracket { border-left: 2px solid black; padding-left: 15px; display: flex; align-items: center; min-width: 150px; }
+.brief-title { text-align: center; font-weight: bold; text-transform: uppercase; margin: 40px 0; border-top: 1px solid black; border-bottom: 1px solid black; padding: 10px 0; }
+
+/* Form Elements */
+label { display: block; margin-top: 15px; font-weight: bold; font-size: 0.9rem; color: #444; }
+input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; }
