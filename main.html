@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moot Court Brief Generator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <div class="logo">Civics Moot Court Brief Generator</div>
+        <div id="google-signin-container">
+            <div id="g_id_onload" data-client_id="YOUR_GOOGLE_CLIENT_ID" data-callback="handleCredentialResponse"></div>
+            <div class="g_id_signin" data-type="standard"></div>
+        </div>
+    </header>
+
+    <main class="app-container">
+        <nav class="tab-sidebar">
+            <button class="tab-btn active" onclick="openTab('setup')">1. Project Setup</button>
+            <button class="tab-btn" onclick="openTab('cover')">2. Cover Page</button>
+            <button class="tab-btn" onclick="openTab('questions')">3. Questions Presented</button>
+            <button class="tab-btn" onclick="openTab('authorities')">4. Table of Authorities</button>
+            <button class="tab-btn" onclick="openTab('argument')">5. Legal Argument</button>
+            <button class="tab-btn" onclick="openTab('review')">6. Review & Export</button>
+            
+            <div class="file-ops">
+                <button onclick="exportData()">💾 Save Progress (.civics)</button>
+                <button onclick="document.getElementById('importFile').click()">📂 Load Progress</button>
+                <input type="file" id="importFile" hidden onchange="importData(event)">
+            </div>
+        </nav>
+
+        <section class="input-panel">
+            <div id="setup" class="tab-content active">
+                <h2>Project Setup</h2>
+                <label>Type of Document:</label>
+                <select id="docType" onchange="updatePreview()">
+                    <option value="brief">Petitioner/Respondent Brief</option>
+                    <option value="amicus">Amicus Curiae Submission</option>
+                </select>
+
+                <label>Law Firm Name:</label>
+                <input type="text" id="lawFirm" placeholder="e.g., Liberty & Justice Associates" onkeyup="updatePreview()">
+
+                <label>Term Date:</label>
+                <input type="text" id="termDate" placeholder="e.g., October Term, 2024" onkeyup="updatePreview()">
+
+                <label>Student Counsel (Add names of all group members):</label>
+                <div id="student-list">
+                    <input type="text" class="student-name" placeholder="Name 1" onkeyup="updatePreview()">
+                </div>
+                <button class="add-btn" onclick="addStudentField()">+ Add Another Student</button>
+            </div>
+
+            </section>
+
+        <section class="preview-panel">
+            <div id="legal-paper" class="paper">
+                <div id="preview-content">
+                    <p style="text-align:center; color:#999;">Start typing to see your brief take shape...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <a href="#" onclick="showTos()">Terms of Service & Privacy Policy</a>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
