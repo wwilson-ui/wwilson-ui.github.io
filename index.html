@@ -14,15 +14,18 @@
         :root { --legal-blue: #1a237e; --ui-bg: #f8f9fa; --border-color: #dee2e6; }
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', system-ui, sans-serif; background: #525659; overflow: hidden; }
         
-        /* HEADER & GOOGLE BUTTON */
+        /* HEADER */
         header { background: var(--legal-blue); color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 100; }
-        .logo { font-size: 1.2rem; font-weight: bold; display: flex; align-items: center; gap: 10px; }
+        .logo { font-size: 1.2rem; font-weight: bold; }
+        
+        /* Google Button Container */
+        #google-btn-wrapper { min-width: 200px; display: flex; justify-content: flex-end; }
 
         .app-container { display: flex; flex: 1; overflow: hidden; }
 
         /* SIDEBAR */
         .sidebar { width: 250px; background: white; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 15px; }
-        .tab-btn { padding: 12px 15px; border: none; background: transparent; text-align: left; cursor: pointer; border-radius: 6px; margin-bottom: 5px; font-weight: 500; color: #495057; }
+        .tab-btn { padding: 12px 15px; border: none; background: transparent; text-align: left; cursor: pointer; border-radius: 6px; margin-bottom: 5px; font-weight: 500; color: #495057; font-size: 0.9rem; }
         .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); font-weight: 700; }
         .tab-btn:hover:not(.active) { background: #f1f3f5; }
 
@@ -34,7 +37,7 @@
         /* DYNAMIC FIELDS UI */
         .dynamic-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
         .dynamic-row input, .dynamic-row textarea { flex: 1; }
-        .remove-btn { background: #ffeaec; color: #d32f2f; border: 1px solid #ffcdd2; border-radius: 4px; padding: 8px; cursor: pointer; font-weight: bold; }
+        .remove-btn { background: #ffeaec; color: #d32f2f; border: 1px solid #ffcdd2; border-radius: 4px; padding: 8px 12px; cursor: pointer; font-weight: bold; }
         .add-btn { background: #f8f9fa; border: 2px dashed #ccc; color: #666; width: 100%; padding: 10px; margin-top: 10px; cursor: pointer; border-radius: 6px; font-weight: 600; }
         .add-btn:hover { border-color: var(--legal-blue); color: var(--legal-blue); }
 
@@ -47,16 +50,16 @@
         input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
         .amicus-box { background: #fff9c4; padding: 15px; border-radius: 6px; margin-top: 15px; border: 1px solid #fbc02d; }
 
-        /* PDF BUTTON */
-        .export-btn { background: #2e7d32; color: white; border: none; padding: 18px; width: 100%; font-size: 1.1rem; font-weight: bold; cursor: pointer; border-radius: 8px; margin-top: 20px; transition: 0.3s; }
-        .export-btn:hover { background: #1b5e20; transform: translateY(-2px); }
+        /* EXPORT BUTTONS */
+        .export-btn { background: #2e7d32; color: white; border: none; padding: 18px; width: 100%; font-size: 1.1rem; font-weight: bold; cursor: pointer; border-radius: 8px; margin-top: 20px; }
+        .export-btn:hover { background: #1b5e20; }
 
-        /* LEGAL TYPESETTING */
+        /* LEGAL LAYOUT */
         .docket { font-weight: bold; margin-bottom: 5px; }
         .court-header { text-align: center; font-weight: bold; text-transform: uppercase; margin: 25px 0; font-size: 1.2rem; }
-        .caption-table { display: flex; margin: 20px 0; align-items: center; }
-        .party-list { flex: 1; }
-        .bracket { border-left: 2px solid black; padding-left: 20px; min-width: 180px; font-style: italic; font-size: 11pt; }
+        .caption-container { display: flex; margin: 20px 0; border-top: 1px solid transparent; }
+        .party-side { flex: 1; }
+        .bracket-side { border-left: 2px solid black; padding-left: 20px; min-width: 180px; font-style: italic; font-size: 11pt; display: flex; align-items: center; }
         .title-box { text-align: center; border-top: 2px solid black; border-bottom: 2px solid black; padding: 15px; margin: 30px 0; font-weight: bold; text-transform: uppercase; }
         .page-break { border-top: 1px dashed #ccc; margin: 40px 0; page-break-before: always; }
         .section-center { text-align: center; font-weight: bold; text-transform: uppercase; margin-bottom: 20px; }
@@ -66,8 +69,24 @@
 
 <header>
     <div class="logo">⚖️ Moot Court Brief Generator</div>
-    <div id="g_id_onload" data-client_id="YOUR_CLIENT_ID" data-auto_prompt="false" data-callback="handleCredentialResponse"></div>
-    <div class="g_id_signin" data-type="standard" data-shape="pill" data-theme="outline" data-text="signin_with" data-size="medium" data-logo_alignment="left"></div>
+    
+    <div id="google-btn-wrapper">
+        <div id="g_id_onload"
+             data-client_id="YOUR_GOOGLE_CLIENT_ID"
+             data-context="signin"
+             data-ux_mode="popup"
+             data-callback="handleCredentialResponse"
+             data-auto_prompt="false">
+        </div>
+        <div class="g_id_signin"
+             data-type="standard"
+             data-shape="pill"
+             data-theme="outline"
+             data-text="signin_with"
+             data-size="medium"
+             data-logo_alignment="left">
+        </div>
+    </div>
 </header>
 
 <main class="app-container">
@@ -78,9 +97,9 @@
         <button class="tab-btn" onclick="showTab('argument')">4. Legal Argument</button>
         <button class="tab-btn" onclick="showTab('conclusion_tab')">5. Conclusion & Export</button>
         
-        <div style="margin-top: auto; padding-top: 20px;">
-            <button class="tab-btn" style="width:100%; background:#eee;" onclick="exportProject()">💾 Save Progress</button>
-            <label class="tab-btn" style="width:100%; background:#eee; display:block; text-align:center;">
+        <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid #eee;">
+            <button class="tab-btn" style="width:100%; background:#f1f3f5;" onclick="exportProject()">💾 Save Progress</button>
+            <label class="tab-btn" style="width:100%; background:#f1f3f5; display:block; text-align:center;">
                 📂 Load Progress
                 <input type="file" id="importFile" hidden onchange="importProject(event)">
             </label>
@@ -101,10 +120,10 @@
             <input type="text" id="courtTerm" placeholder="e.g. October Term, 2025" oninput="updatePreview()">
 
             <label>Law Firm or School Name:</label>
-            <input type="text" id="firmName" placeholder="e.g. Harvard Law Mock Trial" oninput="updatePreview()">
+            <input type="text" id="firmName" placeholder="e.g. Madison Law Society" oninput="updatePreview()">
 
             <label>Student Counsel Names:</label>
-            <textarea id="studentNames" rows="4" placeholder="Student 1&#10;Student 2&#10;Student 3" oninput="updatePreview()"></textarea>
+            <textarea id="studentNames" rows="4" placeholder="Name 1&#10;Name 2" oninput="updatePreview()"></textarea>
         </div>
 
         <div id="cover" class="tab-content">
@@ -112,16 +131,16 @@
             <label>Docket Number:</label>
             <input type="text" id="docketNum" placeholder="No. 24-XXXX" oninput="updatePreview()">
 
-            <label>Petitioners (One per field):</label>
+            <label>Petitioners:</label>
             <div id="petitioner-container"></div>
-            <button class="add-btn" onclick="addDynamicField('petitioner-container', 'petitioner')">+ Add Another Petitioner</button>
+            <button class="add-btn" onclick="addDynamicField('petitioner-container', 'petitioner')">+ Add Petitioner</button>
 
-            <label>Respondents (One per field):</label>
+            <label>Respondents:</label>
             <div id="respondent-container"></div>
-            <button class="add-btn" onclick="addDynamicField('respondent-container', 'respondent')">+ Add Another Respondent</button>
+            <button class="add-btn" onclick="addDynamicField('respondent-container', 'respondent')">+ Add Respondent</button>
 
-            <label>On Writ of Certiorari To:</label>
-            <input type="text" id="lowerCourt" placeholder="e.g. The United States Court of Appeals for the Eleventh Circuit" oninput="updatePreview()">
+            <label>Lower Court (Writ of Certiorari To):</label>
+            <input type="text" id="lowerCourt" placeholder="e.g. U.S. Court of Appeals for the D.C. Circuit" oninput="updatePreview()">
 
             <div id="amicus-options" class="amicus-box" style="display:none;">
                 <label>Amicus Supporting:</label>
@@ -135,9 +154,8 @@
 
         <div id="questions" class="tab-content">
             <h2>Questions Presented</h2>
-            <p style="font-size:0.85rem; color:#666;">Each box below will be automatically numbered (1, 2, 3...) in the brief.</p>
             <div id="questions-container"></div>
-            <button class="add-btn" onclick="addDynamicField('questions-container', 'question')">+ Add Another Question</button>
+            <button class="add-btn" onclick="addDynamicField('questions-container', 'question')">+ Add Question</button>
         </div>
 
         <div id="argument" class="tab-content">
@@ -146,17 +164,16 @@
             <textarea id="summaryArg" rows="5" oninput="updatePreview()"></textarea>
 
             <label>Main Argument Body:</label>
-            <textarea id="argBody" rows="15" placeholder="Type your full legal analysis here..." oninput="updatePreview()"></textarea>
+            <textarea id="argBody" rows="15" oninput="updatePreview()"></textarea>
         </div>
 
         <div id="conclusion_tab" class="tab-content">
-            <h2>Conclusion & Finalize</h2>
-            <label>Final Conclusion Statement:</label>
-            <textarea id="conclusionText" rows="6" placeholder="e.g. The judgment of the Court of Appeals should be reversed." oninput="updatePreview()"></textarea>
+            <h2>Conclusion</h2>
+            <label>Conclusion Statement:</label>
+            <textarea id="conclusionText" rows="6" oninput="updatePreview()"></textarea>
             
             <hr style="margin:30px 0;">
             <button class="export-btn" onclick="downloadPDF()">📥 DOWNLOAD PDF BRIEF</button>
-            <button class="export-btn" style="background:#555; margin-top:10px;" onclick="window.print()">🖨️ PRINT DIRECTLY</button>
         </div>
     </section>
 
@@ -168,14 +185,13 @@
 </main>
 
 <script>
-    // State Management for Dynamic Lists
+    // State for Dynamic Lists
     let appData = {
         petitioners: [""],
         respondents: [""],
         questions: [""]
     };
 
-    // Initialize the app
     window.onload = () => {
         renderDynamicFields();
         updatePreview();
@@ -212,27 +228,24 @@
     }
 
     function renderDynamicFields() {
-        // Render Petitioners
         document.getElementById('petitioner-container').innerHTML = appData.petitioners.map((val, i) => `
             <div class="dynamic-row">
-                <input type="text" value="${val}" oninput="handleInputChange('petitioner', ${i}, this.value)" placeholder="Name of Petitioner">
-                ${appData.petitioners.length > 1 ? `<button class="remove-btn" onclick="removeDynamicField('petitioner', ${i})">×</button>` : ''}
+                <input type="text" value="${val}" oninput="handleInputChange('petitioner', ${i}, this.value)" placeholder="Name">
+                <button class="remove-btn" onclick="removeDynamicField('petitioner', ${i})">×</button>
             </div>
         `).join('');
 
-        // Render Respondents
         document.getElementById('respondent-container').innerHTML = appData.respondents.map((val, i) => `
             <div class="dynamic-row">
-                <input type="text" value="${val}" oninput="handleInputChange('respondent', ${i}, this.value)" placeholder="Name of Respondent">
-                ${appData.respondents.length > 1 ? `<button class="remove-btn" onclick="removeDynamicField('respondent', ${i})">×</button>` : ''}
+                <input type="text" value="${val}" oninput="handleInputChange('respondent', ${i}, this.value)" placeholder="Name">
+                <button class="remove-btn" onclick="removeDynamicField('respondent', ${i})">×</button>
             </div>
         `).join('');
 
-        // Render Questions
         document.getElementById('questions-container').innerHTML = appData.questions.map((val, i) => `
             <div class="dynamic-row">
                 <textarea rows="2" oninput="handleInputChange('question', ${i}, this.value)" placeholder="Question ${i+1}">${val}</textarea>
-                ${appData.questions.length > 1 ? `<button class="remove-btn" onclick="removeDynamicField('question', ${i})">×</button>` : ''}
+                <button class="remove-btn" onclick="removeDynamicField('question', ${i})">×</button>
             </div>
         `).join('');
     }
@@ -241,7 +254,6 @@
         const get = (id) => document.getElementById(id) ? document.getElementById(id).value : "";
         const bType = get('briefType');
         
-        // Show Amicus options only if selected
         document.getElementById('amicus-options').style.display = (bType === 'Amicus Curiae') ? 'block' : 'none';
 
         let html = `
@@ -250,16 +262,16 @@
             <div style="text-align:center; font-weight:600;">${get('courtTerm') || '[TERM DATE]'}</div>
             <hr style="border:0; border-top:1px solid black; margin:10px 0;">
 
-            <div class="caption-table">
-                <div class="party-list">
+            <div class="caption-container">
+                <div class="party-side">
                     ${appData.petitioners.map(p => p || '<i>[Petitioner Name]</i>').join(',<br>')},<br>
-                    <div style="margin-left:20px; font-style:italic; font-size:10pt;">Petitioner${appData.petitioners.length > 1 ? 's' : ''},</div>
+                    <div style="margin-left:20px; font-style:italic;">Petitioner${appData.petitioners.length > 1 ? 's' : ''},</div>
                     <div style="margin:10px 40px">v.</div>
                     ${appData.respondents.map(r => r || '<i>[Respondent Name]</i>').join(',<br>')},<br>
-                    <div style="margin-left:20px; font-style:italic; font-size:10pt;">Respondent${appData.respondents.length > 1 ? 's' : ''}.</div>
+                    <div style="margin-left:20px; font-style:italic;">Respondent${appData.respondents.length > 1 ? 's' : ''}.</div>
                 </div>
-                <div class="bracket">
-                    On Writ of Certiorari to the ${get('lowerCourt') || '[Lower Court Name]'}
+                <div class="bracket-side">
+                    On Writ of Certiorari to the ${get('lowerCourt') || '[Lower Court]'}
                 </div>
             </div>
 
@@ -312,7 +324,7 @@
         const blob = new Blob([JSON.stringify({ text: textInputs, arrays: appData })], {type: "application/json"});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = "my_moot_court_brief.json";
+        a.download = "moot_court_save.json";
         a.click();
     }
 
@@ -330,7 +342,7 @@
         reader.readAsText(file);
     }
 
-    function handleCredentialResponse(response) { console.log("Encoded JWT ID token: " + response.credential); }
+    function handleCredentialResponse(response) { console.log("Google Login ID token: " + response.credential); }
 </script>
 
 </body>
