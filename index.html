@@ -13,7 +13,7 @@
 <body>
 
 <header>
-    <div style="font-weight:bold;">⚖️ SCOTUS Brief Generator Pro</div>
+    <div class="logo">⚖️ SCOTUS Brief Generator Pro</div>
     <div id="google-btn-wrapper">
         <div id="g_id_onload" 
              data-client_id="129113401099-ihpv7tunjjfeuovepgphcfibf4nqj25g.apps.googleusercontent.com" 
@@ -25,24 +25,29 @@
 
 <main class="app-container">
     <nav class="sidebar">
-        <div id="auth-status" style="font-size: 0.75rem; color: #666; margin-bottom: 15px;">Sign in to save multiple projects.</div>
+        <div id="auth-status" class="status-text">Sign in to save multiple projects.</div>
         
         <div id="project-selector-zone" style="display:none; margin-bottom:20px;">
             <label style="margin-top:0;">Load Saved Project:</label>
-            <select id="projectList" onchange="loadSelectedProject()"></select>
+            <div class="project-controls">
+                <select id="projectList" onchange="loadSelectedProject()"></select>
+                <button class="del-btn" onclick="dbDelete()" title="Delete Project">🗑️</button>
+            </div>
         </div>
 
-        <button class="tab-btn active" onclick="switchTab('setup')">1. Initial Setup</button>
-        <button class="tab-btn" onclick="switchTab('cover')">2. Cover Page</button>
-        <button class="tab-btn" onclick="switchTab('authorities')">3. Authorities</button>
-        <button class="tab-btn" onclick="switchTab('questions')">4. Questions</button>
-        <button class="tab-btn" onclick="switchTab('argument')">5. Argument</button>
-        <button class="tab-btn" onclick="switchTab('finalize')">6. Finalize & Print</button>
+        <div class="nav-links">
+            <button class="tab-btn active" onclick="switchTab('setup')">1. Initial Setup</button>
+            <button class="tab-btn" onclick="switchTab('cover')">2. Cover Page</button>
+            <button class="tab-btn" onclick="switchTab('authorities')">3. Authorities</button>
+            <button class="tab-btn" onclick="switchTab('questions')">4. Questions</button>
+            <button class="tab-btn" onclick="switchTab('argument')">5. Argument</button>
+            <button class="tab-btn" onclick="switchTab('finalize')">6. Finalize & Print</button>
+        </div>
         
         <div class="persistence-zone">
             <button class="action-btn btn-cloud" id="cloudBtn" onclick="dbSave()">☁️ Save to My Account</button>
             <button class="action-btn" onclick="localExport()">💾 Export .JSON File</button>
-            <label class="action-btn" style="text-align:center; display:block; background:#eee; cursor:pointer;">
+            <label class="action-btn import-label">
                 📂 Import .JSON File
                 <input type="file" id="importFile" hidden onchange="localImport(event)">
             </label>
@@ -80,10 +85,10 @@
             <input type="text" id="docketNum" placeholder="No. 26-1234" oninput="refresh()">
             <label>Petitioners:</label>
             <div id="petitioner-inputs"></div>
-            <button onclick="addDynamic('petitioner')">+ Add</button>
+            <button class="add-btn" onclick="addDynamic('petitioner')">+ Add Petitioner</button>
             <label>Respondents:</label>
             <div id="respondent-inputs"></div>
-            <button onclick="addDynamic('respondent')">+ Add</button>
+            <button class="add-btn" onclick="addDynamic('respondent')">+ Add Respondent</button>
             <label>Lower Court:</label>
             <input type="text" id="lowerCourt" oninput="refresh()">
         </div>
@@ -92,16 +97,16 @@
             <h2>Authorities</h2>
             <label>Cases:</label>
             <div id="case-inputs"></div>
-            <button onclick="addDynamic('case')">+ Add Case</button>
+            <button class="add-btn" onclick="addDynamic('case')">+ Add Case</button>
             <label>Statutes:</label>
             <div id="statute-inputs"></div>
-            <button onclick="addDynamic('statute')">+ Add Statute</button>
+            <button class="add-btn" onclick="addDynamic('statute')">+ Add Statute</button>
         </div>
 
         <div id="questions" class="tab-content">
             <h2>Questions Presented</h2>
             <div id="question-inputs"></div>
-            <button onclick="addDynamic('question')">+ Add Question</button>
+            <button class="add-btn" onclick="addDynamic('question')">+ Add Question</button>
         </div>
 
         <div id="argument" class="tab-content">
@@ -117,8 +122,8 @@
             <label>Conclusion Text:</label>
             <textarea id="conclusionText" rows="5" oninput="refresh()"></textarea>
             <div style="margin-top:30px; display:flex; flex-direction:column; gap:10px;">
-                <button class="action-btn" style="background:var(--legal-blue); color:white; height:50px;" onclick="downloadPDF()">📥 DOWNLOAD PDF BRIEF</button>
-                <button class="action-btn" style="background:#333; color:white; height:50px;" onclick="window.print()">🖨️ DIRECT PRINT (ALL PAGES)</button>
+                <button class="action-btn pdf-btn" onclick="downloadPDF()">📥 DOWNLOAD PDF BRIEF</button>
+                <button class="action-btn print-btn" onclick="window.print()">🖨️ DIRECT PRINT (ALL PAGES)</button>
             </div>
         </div>
 
