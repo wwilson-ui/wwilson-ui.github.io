@@ -1,34 +1,27 @@
-let data = { 
-    petitioners: [""], 
-    respondents: [""], 
-    questions: [""], 
-    cases: [""], 
-    statutes: [""] 
-};
+let data = { petitioners: [""], respondents: [""], questions: [""], cases: [""], statutes: [""] };
 let userKey = null;
 
-window.onload = () => { 
-    renderInputFields(); 
-    refresh(); 
-};
+window.onload = () => { renderInputFields(); refresh(); };
 
 function switchTab(id) {
     document.querySelectorAll('.tab-content, .tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById(id).classList.add('active');
-    document.querySelector(`[onclick="switchTab('${id}')"]`).classList.add('active');
+    // Simplified tab activation logic
+    const btns = document.querySelectorAll('.tab-btn');
+    btns.forEach(btn => {
+        if (btn.getAttribute('onclick').includes(id)) btn.classList.add('active');
+    });
 }
 
 function addDynamic(type) {
     data[type + 's'].push("");
-    renderInputFields(); 
-    refresh();
+    renderInputFields(); refresh();
 }
 
 function removeDynamic(type, idx) {
     if(data[type + 's'].length > 1) data[type + 's'].splice(idx, 1);
     else data[type + 's'][0] = "";
-    renderInputFields(); 
-    refresh();
+    renderInputFields(); refresh();
 }
 
 function renderInputFields() {
@@ -50,7 +43,7 @@ function refresh() {
     document.getElementById('amicus-box').style.display = (bType === 'Amicus Curiae') ? 'block' : 'none';
 
     let html = `
-        <div class="docket">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
+        <div class="docket" style="font-weight:bold; font-size:13pt;">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
         <div class="court-header">In the <span class="sc-caps">Supreme Court of the United States</span></div>
         <div style="text-align:center; font-weight:bold;">${get('courtTerm').toUpperCase()}</div>
         <hr style="border:0; border-top:1pt solid black; margin:10px 0;">
@@ -131,15 +124,21 @@ function updateProjectDropdown() {
 function dbSave() {
     const title = document.getElementById('projectTitle').value;
     if(!title) return alert("Please enter a Project Title first.");
-    
     const inputs = {};
     document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
-    
     const projects = JSON.parse(localStorage.getItem('briefs_' + userKey) || "{}");
     projects[title] = { data, inputs };
     localStorage.setItem('briefs_' + userKey, JSON.stringify(projects));
-    
-    alert("Project '" + title + "' saved to your account!");
+    alert("Project '" + title + "' saved!");
+    updateProjectDropdown();
+}
+
+function dbDelete() {
+    const title = document.getElementById('projectList').value;
+    if(!title || !confirm(`Delete "${title}"?`)) return;
+    const projects = JSON.parse(localStorage.getItem('briefs_' + userKey));
+    delete projects[title];
+    localStorage.setItem('briefs_' + userKey, JSON.stringify(projects));
     updateProjectDropdown();
 }
 
@@ -153,7 +152,6 @@ function loadSelectedProject() {
     renderInputFields(); refresh();
 }
 
-// --- LOCAL LOGIC ---
 function localExport() {
     const title = document.getElementById('projectTitle').value || "brief";
     const inputs = {};
