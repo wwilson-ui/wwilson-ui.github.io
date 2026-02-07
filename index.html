@@ -25,19 +25,21 @@
     <nav class="sidebar">
         <div id="auth-status" style="font-size: 0.75rem; color: #666; margin-bottom: 15px;">Sign in to save projects.</div>
         
-        <button class="tab-btn active" onclick="switchTab('setup')">1. Initial Setup</button>
-        <button class="tab-btn" onclick="switchTab('cover')">2. Cover Page</button>
-        <button class="tab-btn" onclick="switchTab('authorities')">3. Authorities</button>
-        <button class="tab-btn" onclick="switchTab('questions')">4. Questions</button>
-        <button class="tab-btn" onclick="switchTab('argument')">5. Argument</button>
-        <button class="tab-btn" onclick="switchTab('finalize')">6. Finalize & Print</button>
+        <div class="tabs-zone">
+            <button class="tab-btn active" onclick="switchTab('setup')">1. Initial Setup</button>
+            <button class="tab-btn" onclick="switchTab('cover')">2. Cover Page</button>
+            <button class="tab-btn" onclick="switchTab('authorities')">3. Authorities</button>
+            <button class="tab-btn" onclick="switchTab('questions')">4. Questions</button>
+            <button class="tab-btn" onclick="switchTab('argument')">5. Argument</button>
+            <button class="tab-btn" onclick="switchTab('finalize')">6. Finalize & Print</button>
+        </div>
         
         <div class="persistence-zone">
             <button class="action-btn" onclick="localExport()">💾 Export .JSON</button>
-            <label class="action-btn" style="cursor:pointer; margin-bottom:0;">
+            <label class="action-btn" for="importFile" style="cursor:pointer; margin-bottom:0;">
                 📂 Import .JSON
-                <input type="file" id="importFile" hidden onchange="localImport(event)">
             </label>
+            <input type="file" id="importFile" hidden onchange="localImport(event)">
         </div>
 
         <div class="sidebar-footer">
