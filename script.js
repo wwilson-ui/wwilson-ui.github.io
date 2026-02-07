@@ -35,20 +35,19 @@ function refresh() {
     const bType = get('briefType');
     document.getElementById('amicus-box').style.display = (bType === 'Amicus Curiae') ? 'block' : 'none';
 
-    // Helper to wrap content in a legal paper div with a page number
-    const pageWrap = (content, showNum = true) => `
-        <div class="paper">
+    const pageWrap = (content, noNumber = false) => `
+        <div class="paper ${noNumber ? 'no-number' : ''}">
             ${content}
-            ${showNum ? `<div class="page-number"></div>` : ''}
+            <div class="page-num-display"></div>
         </div>
     `;
 
-    // 1. Cover Page (No page number per standard practice)
+    // Cover Page
     const coverHTML = `
-        <div class="docket" style="font-weight:bold;">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
+        <div style="font-weight:bold;">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
         <div class="court-header">In the <span class="sc-caps">Supreme Court of the United States</span></div>
         <div style="text-align:center; font-weight:bold;">${get('courtTerm').toUpperCase()}</div>
-        <hr style="border:0; border-top:1pt solid black; margin:10px 0;">
+        <hr style="border:0; border-top:1.5pt solid black; margin:10px 0;">
         <div style="display:flex; margin:20px 0;">
             <div style="flex:1;">
                 ${data.petitioners.map(p => p.toUpperCase() || 'PETITIONER').join(',<br>')},<br>
@@ -69,13 +68,11 @@ function refresh() {
         </div>
     `;
 
-    // 2. Questions Presented
     const questionsHTML = `
         <div class="section-header">QUESTIONS PRESENTED</div>
         ${data.questions.map((q, i) => `<p style="text-indent:0.5in; margin-bottom:15px;"><b>${i+1}.</b> ${q}</p>`).join('')}
     `;
 
-    // 3. Authorities
     const authoritiesHTML = `
         <div class="section-header">TABLE OF AUTHORITIES</div>
         <p><b>Cases:</b></p>
@@ -84,7 +81,6 @@ function refresh() {
         ${data.statutes.filter(x=>x).sort().map(s => `<div style="padding-left:0.5in; margin-bottom:5px;">${s}</div>`).join('')}
     `;
 
-    // 4. Argument & Conclusion
     const argumentHTML = `
         <div class="section-header">SUMMARY OF ARGUMENT</div>
         <p style="text-indent: 0.5in;">${get('summaryArg')}</p>
@@ -95,26 +91,23 @@ function refresh() {
     `;
 
     document.getElementById('render-target').innerHTML = 
-        pageWrap(coverHTML, false) + 
+        pageWrap(coverHTML, true) + 
         pageWrap(questionsHTML) + 
         pageWrap(authoritiesHTML) + 
         pageWrap(argumentHTML);
 }
 
-// PDF DOWNLOAD WITH STRICT MARGINS
 function downloadPDF() {
     const element = document.getElementById('render-target');
-    const opt = {
-        margin: [0, 0, 0, 0], // We handle internal padding in CSS for higher precision
-        filename: 'SCOTUS_Brief.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+    html2pdf().from(element).set({
+        margin: 0, // Critical: Forces PDF to use the 0.75in CSS padding
+        filename: 'Brief.pdf',
+        html2canvas: { scale: 3, useCORS: true },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    html2pdf().set(opt).from(element).save();
+    }).save();
 }
 
-// --- AUTH & PERSISTENCE ---
+// Authentication & Save/Delete logic stays the same below...
 function onSignIn(resp) {
     const payload = JSON.parse(atob(resp.credential.split('.')[1]));
     userKey = payload.sub;
@@ -135,7 +128,7 @@ function updateProjectDropdown() {
 }
 function dbSave() {
     const title = document.getElementById('projectTitle').value;
-    if(!title) return alert("Enter a Project Title.");
+    if(!title) return alert("Enter Project Title.");
     const inputs = {};
     document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
     const projects = JSON.parse(localStorage.getItem('briefs_' + userKey) || "{}");
