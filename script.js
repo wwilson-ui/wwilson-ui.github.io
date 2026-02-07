@@ -41,55 +41,57 @@ function refresh() {
 
     const cover = `
         <div style="font-weight:bold;">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
-        <div class="court-header">In the <span class="sc-caps">Supreme Court of the United States</span></div>
-        <div style="text-align:center; font-weight:bold;">${get('courtTerm').toUpperCase()}</div>
-        <hr style="border:0; border-top:1.5pt solid black; margin:10px 0;">
+        <div class="court-header">In the <br> Supreme Court of the United States</div>
+        <div style="text-align:center; font-weight:bold; margin-bottom:10px;">${get('courtTerm').toUpperCase() || 'OCTOBER TERM 202X'}</div>
+        <hr>
         <div style="display:flex; margin:20px 0;">
-            <div style="flex:1;">
-                ${data.petitioners.map(p => p.toUpperCase() || 'PETITIONER').join(',<br>')}, <i>Petitioner</i>,<br>
-                <div style="margin:15px 40px;">v.</div>
-                ${data.respondents.map(r => r.toUpperCase() || 'RESPONDENT').join(',<br>')}, <i>Respondent</i>.
+            <div style="flex:1; padding-right:10px;">
+                ${data.petitioners.map(p => p.toUpperCase() || 'PETITIONER').join(',<br>')},<br> <i>Petitioner</i>,
+                <div style="margin:10px 40px;">v.</div>
+                ${data.respondents.map(r => r.toUpperCase() || 'RESPONDENT').join(',<br>')},<br> <i>Respondent</i>.
             </div>
-            <div style="border-left:1.5pt solid black; padding-left:20px; width:40%; font-style:italic;">
-                On Writ of Certiorari to the ${get('lowerCourt')}
+            <div style="border-left:1.5pt solid black; padding-left:20px; width:45%; font-style:italic; display:flex; align-items:center;">
+                On Writ of Certiorari to the ${get('lowerCourt') || 'the Lower Court'}
             </div>
         </div>
         <div class="title-box">BRIEF FOR THE ${get('briefType').toUpperCase()}</div>
         <div style="text-align:center; margin-top:1in;">
             <b>Respectfully Submitted,</b><br><br>
-            <span class="sc-caps">${get('firmName')}</span><br>
-            <div style="font-size:11pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>')}</div>
+            <span style="font-variant:small-caps;">${get('firmName') || 'FIRM NAME'}</span><br>
+            <div style="font-size:11pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>') || 'COUNSEL NAME'}</div>
         </div>`;
 
     const questions = `<div class="section-header">QUESTIONS PRESENTED</div>${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
     
     const authorities = `<div class="section-header">TABLE OF AUTHORITIES</div>
-        <p><b>Cases:</b></p>${data.cases.filter(x => x.trim()).sort().map(c => `<div><i>${c}</i></div>`).join('')}
-        <p style="margin-top:20px;"><b>Statutes:</b></p>${data.statutes.filter(x => x.trim()).sort().map(s => `<div>${s}</div>`).join('')}`;
+        <p><b>Cases:</b></p>${data.cases.filter(x => x.trim()).sort().map(c => `<div style="margin-bottom:5px;"><i>${c}</i></div>`).join('') || '...'}
+        <p style="margin-top:20px;"><b>Statutes:</b></p>${data.statutes.filter(x => x.trim()).sort().map(s => `<div style="margin-bottom:5px;">${s}</div>`).join('') || '...'}`;
 
-    const argument = `<div class="section-header">SUMMARY OF ARGUMENT</div><p>${get('summaryArg')}</p>
-        <div class="section-header">ARGUMENT</div><p style="white-space: pre-wrap;">${get('argBody')}</p>`;
+    const argument = `<div class="section-header">SUMMARY OF ARGUMENT</div><p style="text-indent:0.5in;">${get('summaryArg') || '...'}</p>
+        <div class="section-header">ARGUMENT</div><p style="white-space: pre-wrap; text-indent:0.5in;">${get('argBody') || '...'}</p>`;
 
-    const conclusion = `<div class="section-header">CONCLUSION</div><p>${get('conclusionText')}</p>
-        <div style="margin-top:60px; float:right; text-align:left; width:200px;">
-            Respectfully submitted,<br><br>____________________<br>${get('studentNames').split('\n')[0]}
-        </div>`;
+    const conclusion = `<div class="section-header">CONCLUSION</div><p style="text-indent:0.5in;">${get('conclusionText') || '...'}</p>
+        <div style="margin-top:60px; float:right; text-align:left; width:220px;">
+            Respectfully submitted,<br><br>____________________<br>${get('studentNames').split('\n')[0] || 'Counsel of Record'}
+        </div><div style="clear:both;"></div>`;
 
-    // The .replace removal of whitespace is critical for PDF engines
     document.getElementById('render-target').innerHTML = 
-        (makePage(cover) + makePage(questions) + makePage(authorities) + makePage(argument) + makePage(conclusion)).replace(/>\s+</g, '><');
+        makePage(cover) + makePage(questions) + makePage(authorities) + makePage(argument) + makePage(conclusion);
 }
 
 function downloadPDF() {
     const element = document.getElementById('render-target');
-    const opt = {
+    html2pdf().from(element).set({
         margin: 0,
-        filename: 'Brief.pdf',
-        html2canvas: { scale: 2, useCORS: true },
+        filename: 'SCOTUS_Brief.pdf',
+        html2canvas: { scale: 2 },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: 'avoid-all', before: '.paper' } // Force breaks only before each paper div
-    };
-    html2pdf().from(element).set(opt).save();
+        pagebreak: { mode: 'avoid-all', before: '.paper' }
+    }).save();
+}
+
+function showTOS() {
+    alert("Terms of Service: This tool is for drafting purposes only. Ensure all local court rules are followed before filing.");
 }
 
 function localExport() {
