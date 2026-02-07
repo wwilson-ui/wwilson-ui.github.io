@@ -54,20 +54,20 @@
             <h2>Project Setup</h2>
             <label>Project Title:</label>
             <input type="text" id="projectTitle" placeholder="e.g. Case 123 Final" oninput="refresh()">
-            <label>Brief Type:</label>
+            <label>Writing for:</label>
             <select id="briefType" onchange="refresh()">
                 <option value="Petitioner">Brief for Petitioner</option>
                 <option value="Respondent">Brief for Respondent</option>
                 <option value="Amicus Curiae">Brief for Amicus Curiae</option>
             </select>
             <label>Court Term:</label>
-            <input type="text" id="courtTerm" placeholder="October Term, 2025" oninput="refresh()">
-            <label>Firm/School Name:</label>
+            <input type="text" id="courtTerm" oninput="refresh()">
+            <label>Firm/School:</label>
             <input type="text" id="firmName" oninput="refresh()">
             <label>Counsel Names:</label>
             <textarea id="studentNames" rows="3" oninput="refresh()"></textarea>
-            <div id="amicus-box" style="display:none; margin-top:15px; background:#f0f4f8; padding:15px; border-radius:8px;">
-                <label>Interest of Amicus Curiae:</label>
+            <div id="amicus-box" style="display:none;">
+                <label>Interest of Amicus:</label>
                 <textarea id="amicusInterest" rows="4" oninput="refresh()"></textarea>
             </div>
         </div>
@@ -75,7 +75,7 @@
         <div id="cover" class="tab-content">
             <h2>Cover Details</h2>
             <label>Docket Number:</label>
-            <input type="text" id="docketNum" placeholder="No. 26-1234" oninput="refresh()">
+            <input type="text" id="docketNum" oninput="refresh()">
             <label>Petitioners:</label>
             <div id="petitioner-inputs"></div>
             <button onclick="addDynamic('petitioner')">+ Add</button>
@@ -95,7 +95,7 @@
         </div>
 
         <div id="questions" class="tab-content">
-            <h2>Questions Presented</h2>
+            <h2>Questions</h2>
             <div id="question-inputs"></div>
             <button onclick="addDynamic('question')">+ Add Question</button>
         </div>
@@ -109,17 +109,14 @@
         </div>
 
         <div id="finalize" class="tab-content">
-            <h2>Final Step</h2>
-            <textarea id="conclusionText" rows="5" oninput="refresh()"></textarea>
-            <div style="margin-top:30px; display:flex; flex-direction:column; gap:10px;">
-                <button class="action-btn" style="background:#1a237e; color:white; height:50px;" onclick="downloadPDF()">📥 DOWNLOAD PDF BRIEF</button>
-                <button class="action-btn" style="background:#333; color:white; height:50px;" onclick="window.print()">🖨️ DIRECT PRINT (ALL PAGES)</button>
+            <h2>Finalize</h2>
+            <label>Conclusion:</label>
+            <textarea id="conclusionText" rows="4" oninput="refresh()"></textarea>
+            <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+                <button class="action-btn" style="background:#1a237e; color:white;" onclick="downloadPDF()">📥 DOWNLOAD PDF BRIEF</button>
+                <button class="action-btn" style="background:#333; color:white;" onclick="window.print()">🖨️ DIRECT PRINT (ALL PAGES)</button>
             </div>
         </div>
-        
-        <footer class="tos-footer">
-            <p>© 2026 Moot Court Generator</p>
-        </footer>
     </section>
 
     <section class="preview-panel">
