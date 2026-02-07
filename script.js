@@ -11,7 +11,6 @@ window.onload = () => {
     refresh(); 
 };
 
-// --- AUTH LOGIC ---
 function onSignIn(response) {
     try {
         const payload = JSON.parse(atob(response.credential.split('.')[1]));
@@ -21,17 +20,14 @@ function onSignIn(response) {
     }
 }
 
-// --- TAB LOGIC ---
 function switchTab(id) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    
     document.getElementById(id).classList.add('active');
     const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(id));
     if (btn) btn.classList.add('active');
 }
 
-// --- DYNAMIC FIELD LOGIC ---
 function addDynamic(type) {
     data[type + 's'].push("");
     renderInputFields();
@@ -59,19 +55,17 @@ function renderInputFields() {
     });
 }
 
-// --- PREVIEW RENDERING ---
 function refresh() {
     const get = (id) => document.getElementById(id)?.value || "";
     let pageNum = 1;
 
-    // Helper to wrap content in a paper div with a footer
+    // FIX: Using inline-block and removing potential white-space gaps between pages
     const makePage = (content) => `
         <div class="paper">
-            ${content}
+            <div class="page-content">${content}</div>
             <div class="manual-footer">${pageNum++}</div>
         </div>`;
 
-    // 1. COVER PAGE
     const coverHTML = `
         <div style="font-weight:bold;">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
         <div class="court-header">In the <span class="sc-caps">Supreme Court of the United States</span></div>
@@ -95,31 +89,23 @@ function refresh() {
             <div style="font-size:11pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>') || 'COUNSEL NAME'}</div>
         </div>`;
 
-    // 2. QUESTIONS PRESENTED
     const questionsHTML = `
         <div class="section-header">QUESTIONS PRESENTED</div>
         ${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
     
-    // 3. TABLE OF AUTHORITIES
     const authoritiesHTML = `
         <div class="section-header">TABLE OF AUTHORITIES</div>
         <p style="text-decoration: underline; font-weight: bold;">Cases:</p>
-        ${data.cases.filter(x => x.trim() !== "").length > 0 
-            ? data.cases.filter(x => x).sort().map(c => `<div style="margin-bottom:8px; padding-left: 20px;"><i>${c}</i></div>`).join('') 
-            : '<div style="color: #999; padding-left: 20px;">...</div>'}
+        ${data.cases.filter(x => x.trim() !== "").sort().map(c => `<div style="margin-bottom:8px; padding-left: 20px;"><i>${c}</i></div>`).join('') || '<div style="padding-left: 20px;">...</div>'}
         <p style="text-decoration: underline; font-weight: bold; margin-top:25px;">Statutes:</p>
-        ${data.statutes.filter(x => x.trim() !== "").length > 0 
-            ? data.statutes.filter(x => x).sort().map(s => `<div style="margin-bottom:8px; padding-left: 20px;">${s}</div>`).join('') 
-            : '<div style="color: #999; padding-left: 20px;">...</div>'}`;
+        ${data.statutes.filter(x => x.trim() !== "").sort().map(s => `<div style="margin-bottom:8px; padding-left: 20px;">${s}</div>`).join('') || '<div style="padding-left: 20px;">...</div>'}`;
 
-    // 4. SUMMARY & ARGUMENT
     const argumentBodyHTML = `
         <div class="section-header">SUMMARY OF ARGUMENT</div>
         <p style="text-indent: 0.5in;">${get('summaryArg') || '...'}</p>
         <div class="section-header">ARGUMENT</div>
         <p style="white-space: pre-wrap; text-indent: 0.5in;">${get('argBody') || '...'}</p>`;
 
-    // 5. CONCLUSION (Dedicated Page)
     const conclusionHTML = `
         <div class="section-header">CONCLUSION</div>
         <p style="text-indent: 0.5in; margin-bottom: 40px;">${get('conclusionText') || '...'}</p>
@@ -131,16 +117,15 @@ function refresh() {
         </div>
         <div style="clear: both;"></div>`;
 
-    // Render to Target
+    // FIX: Removing any whitespace between tags to prevent ghost pages
     document.getElementById('render-target').innerHTML = 
-        makePage(coverHTML) + 
+        (makePage(coverHTML) + 
         makePage(questionsHTML) + 
         makePage(authoritiesHTML) +
         makePage(argumentBodyHTML) +
-        makePage(conclusionHTML);
+        makePage(conclusionHTML)).replace(/>\s+</g, '><');
 }
 
-// --- FILE & PRINT OPS ---
 function localExport() {
     const inputs = {};
     document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
@@ -159,19 +144,21 @@ function localImport(e) {
             data = pack.data;
             for(let id in pack.inputs) { if(document.getElementById(id)) document.getElementById(id).value = pack.inputs[id]; }
             renderInputFields(); refresh();
-        } catch(err) {
-            console.error("Import error:", err);
-        }
+        } catch(err) { console.error("Import error:", err); }
     };
     reader.readAsText(e.target.files[0]);
 }
 
+// FIX: Strictly defined page breaks and no margins for html2pdf
 function downloadPDF() {
     const element = document.getElementById('render-target');
-    html2pdf().from(element).set({
-        margin: 0, 
-        filename: 'Brief.pdf', 
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    }).save();
+    const opt = {
+        margin: 0,
+        filename: 'SCOTUS_Brief.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
+    };
+    html2pdf().from(element).set(opt).save();
 }
