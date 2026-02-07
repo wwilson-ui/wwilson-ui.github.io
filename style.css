@@ -1,30 +1,32 @@
 @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&display=swap');
 
-:root { 
-    --legal-blue: #1a237e; 
-}
+:root { --legal-blue: #1a237e; --border-color: #dee2e6; }
 
-body { 
-    margin: 0; display: flex; flex-direction: column; height: 100vh; 
-    font-family: 'Segoe UI', sans-serif; background: #525659; overflow: hidden; 
-}
+body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; background: #525659; overflow: hidden; }
 
-/* UI Elements */
 header { background: var(--legal-blue); color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; }
+
 .app-container { display: flex; flex: 1; overflow: hidden; }
-.sidebar { width: 280px; background: white; border-right: 1px solid #dee2e6; display: flex; flex-direction: column; padding: 15px; overflow-y: auto; }
+
+/* Sidebar UI - Back to standard */
+.sidebar { width: 280px; background: white; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 15px; overflow-y: auto; }
 .tab-btn { padding: 12px; border: none; background: transparent; text-align: left; cursor: pointer; border-radius: 6px; margin-bottom: 5px; font-weight: 600; color: #444; }
 .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); }
+
+.persistence-zone { margin-top: auto; padding-top: 15px; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
+.action-btn { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font-weight: bold; }
+.btn-cloud { background: var(--legal-blue); color: white; border: none; display: none; }
+
+/* Input Panel UI */
 .input-panel { flex: 1; background: white; padding: 30px; overflow-y: auto; border-right: 2px solid #333; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
-/* Preview & Paper Logic */
-.preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; background: #525659; }
+label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 18px; color: #666; text-transform: uppercase; }
+input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; box-sizing: border-box; }
 
-#render-target {
-    counter-reset: page-count; /* Initializes counter at the start of the document */
-}
+/* PREVIEW PANEL - Where the fix lives */
+.preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; background: #525659; }
 
 .paper { 
     width: 8.5in; 
@@ -42,26 +44,17 @@ header { background: var(--legal-blue); color: white; padding: 10px 25px; displa
     page-break-after: always;
 }
 
-/* Page Numbering Logic */
-.paper:not(.no-number) {
-    counter-increment: page-count;
-}
-
-.page-num-display {
+.manual-footer {
     position: absolute;
-    bottom: 0.5in;
+    bottom: 0.4in;
     left: 0;
     right: 0;
     text-align: center;
+    font-size: 10pt;
     font-family: 'Crimson Pro', serif;
-    font-size: 11pt;
 }
 
-.paper:not(.no-number) .page-num-display::after {
-    content: counter(page-count);
-}
-
-/* Typesetting */
+/* Legal Typesetting */
 .sc-caps { font-variant: small-caps; }
 .court-header { text-align: center; font-weight: bold; font-size: 14pt; text-transform: uppercase; margin: 30px 0; }
 .title-box { text-align: center; border-top: 1.5pt solid black; border-bottom: 1.5pt solid black; padding: 20px 10px; margin: 40px 0; font-weight: bold; text-transform: uppercase; }
@@ -71,5 +64,5 @@ header { background: var(--legal-blue); color: white; padding: 10px 25px; displa
     body, .app-container, .preview-panel { height: auto !important; overflow: visible !important; display: block !important; background: white !important; }
     header, .sidebar, .input-panel { display: none !important; }
     .paper { box-shadow: none !important; margin: 0 !important; border: none !important; width: 100% !important; }
-    @page { size: letter; margin: 0; } /* Let the .paper padding handle margins */
+    @page { size: letter; margin: 0; } /* Disables browser's "0" and "header/footer" */
 }
