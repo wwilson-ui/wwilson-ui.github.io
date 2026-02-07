@@ -8,31 +8,33 @@ header { background: var(--legal-blue); color: white; padding: 10px 25px; displa
 
 .app-container { display: flex; flex: 1; overflow: hidden; }
 
-/* Sidebar UI - Back to standard */
 .sidebar { width: 280px; background: white; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 15px; overflow-y: auto; }
 .tab-btn { padding: 12px; border: none; background: transparent; text-align: left; cursor: pointer; border-radius: 6px; margin-bottom: 5px; font-weight: 600; color: #444; }
 .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); }
 
 .persistence-zone { margin-top: auto; padding-top: 15px; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
 .action-btn { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font-weight: bold; }
-.btn-cloud { background: var(--legal-blue); color: white; border: none; display: none; }
 
-/* Input Panel UI */
 .input-panel { flex: 1; background: white; padding: 30px; overflow-y: auto; border-right: 2px solid #333; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
+/* FIX: Ensure inputs don't break layout */
+.input-panel input, .input-panel textarea, .input-panel select { 
+    width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; 
+    font-size: 1rem; box-sizing: border-box; display: block; 
+}
 label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 18px; color: #666; text-transform: uppercase; }
-input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; box-sizing: border-box; }
 
-/* PREVIEW PANEL - Where the fix lives */
+/* PREVIEW PANEL */
 .preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; background: #525659; }
 
+/* Pages with strict 3/4" margins */
 .paper { 
     width: 8.5in; 
     min-height: 11in; 
     background: white; 
-    padding: 0.75in !important; /* THE IDEAL MARGIN */
+    padding: 0.75in !important; 
     margin: 0 auto 30px auto; 
     box-shadow: 0 0 30px rgba(0,0,0,0.5); 
     font-family: 'Crimson Pro', serif; 
@@ -54,7 +56,6 @@ input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1
     font-family: 'Crimson Pro', serif;
 }
 
-/* Legal Typesetting */
 .sc-caps { font-variant: small-caps; }
 .court-header { text-align: center; font-weight: bold; font-size: 14pt; text-transform: uppercase; margin: 30px 0; }
 .title-box { text-align: center; border-top: 1.5pt solid black; border-bottom: 1.5pt solid black; padding: 20px 10px; margin: 40px 0; font-weight: bold; text-transform: uppercase; }
@@ -63,6 +64,6 @@ input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1
 @media print {
     body, .app-container, .preview-panel { height: auto !important; overflow: visible !important; display: block !important; background: white !important; }
     header, .sidebar, .input-panel { display: none !important; }
-    .paper { box-shadow: none !important; margin: 0 !important; border: none !important; width: 100% !important; }
-    @page { size: letter; margin: 0; } /* Disables browser's "0" and "header/footer" */
+    .paper { box-shadow: none !important; margin: 0 !important; border: none !important; width: 8.5in !important; }
+    @page { size: letter; margin: 0; }
 }
