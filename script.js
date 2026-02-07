@@ -1,49 +1,28 @@
-let data = { 
-    petitioners: [""], 
-    respondents: [""], 
-    questions: [""], 
-    cases: [""], 
-    statutes: [""] 
-};
+let data = { petitioners: [""], respondents: [""], questions: [""], cases: [""], statutes: [""] };
 
-window.onload = () => { 
-    renderInputFields(); 
-    refresh(); 
-};
+window.onload = () => { renderInputFields(); refresh(); };
 
 function onSignIn(response) {
-    try {
-        const payload = JSON.parse(atob(response.credential.split('.')[1]));
-        document.getElementById('auth-status').innerText = "Logged in as: " + payload.email;
-    } catch(e) {
-        console.error("Auth error:", e);
-    }
+    const payload = JSON.parse(atob(response.credential.split('.')[1]));
+    document.getElementById('auth-status').innerText = "User: " + payload.email;
 }
 
 function switchTab(id) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content, .tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(id));
     if (btn) btn.classList.add('active');
 }
 
-function addDynamic(type) {
-    data[type + 's'].push("");
-    renderInputFields();
-    refresh();
-}
-
+function addDynamic(type) { data[type + 's'].push(""); renderInputFields(); refresh(); }
 function removeDynamic(type, idx) {
     if (data[type + 's'].length > 1) data[type + 's'].splice(idx, 1);
     else data[type + 's'][0] = "";
-    renderInputFields();
-    refresh();
+    renderInputFields(); refresh();
 }
 
 function renderInputFields() {
-    const types = ['petitioner', 'respondent', 'question', 'case', 'statute'];
-    types.forEach(t => {
+    ['petitioner', 'respondent', 'question', 'case', 'statute'].forEach(t => {
         const container = document.getElementById(`${t}-inputs`);
         if (!container) return;
         container.innerHTML = data[t + 's'].map((val, i) => `
@@ -58,72 +37,59 @@ function renderInputFields() {
 function refresh() {
     const get = (id) => document.getElementById(id)?.value || "";
     let pageNum = 1;
+    const makePage = (content) => `<div class="paper">${content}<div class="manual-footer">${pageNum++}</div></div>`;
 
-    // FIX: Using inline-block and removing potential white-space gaps between pages
-    const makePage = (content) => `
-        <div class="paper">
-            <div class="page-content">${content}</div>
-            <div class="manual-footer">${pageNum++}</div>
-        </div>`;
-
-    const coverHTML = `
+    const cover = `
         <div style="font-weight:bold;">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
         <div class="court-header">In the <span class="sc-caps">Supreme Court of the United States</span></div>
-        <div style="text-align:center; font-weight:bold;">${get('courtTerm').toUpperCase() || 'OCTOBER TERM 202X'}</div>
+        <div style="text-align:center; font-weight:bold;">${get('courtTerm').toUpperCase()}</div>
         <hr style="border:0; border-top:1.5pt solid black; margin:10px 0;">
         <div style="display:flex; margin:20px 0;">
             <div style="flex:1;">
-                ${data.petitioners.map(p => p.toUpperCase() || 'PETITIONER').join(',<br>')},<br>
-                <i>Petitioner</i>,<br><div style="margin:15px 40px;">v.</div>
-                ${data.respondents.map(r => r.toUpperCase() || 'RESPONDENT').join(',<br>')},<br>
-                <i>Respondent</i>.
+                ${data.petitioners.map(p => p.toUpperCase() || 'PETITIONER').join(',<br>')}, <i>Petitioner</i>,<br>
+                <div style="margin:15px 40px;">v.</div>
+                ${data.respondents.map(r => r.toUpperCase() || 'RESPONDENT').join(',<br>')}, <i>Respondent</i>.
             </div>
             <div style="border-left:1.5pt solid black; padding-left:20px; width:40%; font-style:italic;">
-                On Writ of Certiorari to the ${get('lowerCourt') || 'the Lower Court'}
+                On Writ of Certiorari to the ${get('lowerCourt')}
             </div>
         </div>
         <div class="title-box">BRIEF FOR THE ${get('briefType').toUpperCase()}</div>
         <div style="text-align:center; margin-top:1in;">
             <b>Respectfully Submitted,</b><br><br>
-            <span class="sc-caps">${get('firmName') || 'FIRM NAME'}</span><br>
-            <div style="font-size:11pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>') || 'COUNSEL NAME'}</div>
+            <span class="sc-caps">${get('firmName')}</span><br>
+            <div style="font-size:11pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>')}</div>
         </div>`;
 
-    const questionsHTML = `
-        <div class="section-header">QUESTIONS PRESENTED</div>
-        ${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
+    const questions = `<div class="section-header">QUESTIONS PRESENTED</div>${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
     
-    const authoritiesHTML = `
-        <div class="section-header">TABLE OF AUTHORITIES</div>
-        <p style="text-decoration: underline; font-weight: bold;">Cases:</p>
-        ${data.cases.filter(x => x.trim() !== "").sort().map(c => `<div style="margin-bottom:8px; padding-left: 20px;"><i>${c}</i></div>`).join('') || '<div style="padding-left: 20px;">...</div>'}
-        <p style="text-decoration: underline; font-weight: bold; margin-top:25px;">Statutes:</p>
-        ${data.statutes.filter(x => x.trim() !== "").sort().map(s => `<div style="margin-bottom:8px; padding-left: 20px;">${s}</div>`).join('') || '<div style="padding-left: 20px;">...</div>'}`;
+    const authorities = `<div class="section-header">TABLE OF AUTHORITIES</div>
+        <p><b>Cases:</b></p>${data.cases.filter(x => x.trim()).sort().map(c => `<div><i>${c}</i></div>`).join('')}
+        <p style="margin-top:20px;"><b>Statutes:</b></p>${data.statutes.filter(x => x.trim()).sort().map(s => `<div>${s}</div>`).join('')}`;
 
-    const argumentBodyHTML = `
-        <div class="section-header">SUMMARY OF ARGUMENT</div>
-        <p style="text-indent: 0.5in;">${get('summaryArg') || '...'}</p>
-        <div class="section-header">ARGUMENT</div>
-        <p style="white-space: pre-wrap; text-indent: 0.5in;">${get('argBody') || '...'}</p>`;
+    const argument = `<div class="section-header">SUMMARY OF ARGUMENT</div><p>${get('summaryArg')}</p>
+        <div class="section-header">ARGUMENT</div><p style="white-space: pre-wrap;">${get('argBody')}</p>`;
 
-    const conclusionHTML = `
-        <div class="section-header">CONCLUSION</div>
-        <p style="text-indent: 0.5in; margin-bottom: 40px;">${get('conclusionText') || '...'}</p>
-        <div style="margin-top: 60px; float: right; width: 250px;">
-            <p>Respectfully submitted,</p>
-            <br><br>
-            <p>__________________________</p>
-            <p style="font-size: 11pt;">${get('studentNames').split('\n')[0] || 'Counsel of Record'}</p>
-        </div>
-        <div style="clear: both;"></div>`;
+    const conclusion = `<div class="section-header">CONCLUSION</div><p>${get('conclusionText')}</p>
+        <div style="margin-top:60px; float:right; text-align:left; width:200px;">
+            Respectfully submitted,<br><br>____________________<br>${get('studentNames').split('\n')[0]}
+        </div>`;
 
-    // FIX: Removing any whitespace between tags to prevent ghost pages
+    // The .replace removal of whitespace is critical for PDF engines
     document.getElementById('render-target').innerHTML = 
-        (makePage(coverHTML) + 
-        makePage(questionsHTML) + 
-        makePage(authoritiesHTML) +
-        makePage(argumentBodyHTML) +
-        makePage(conclusionHTML)).replace(/>\s+</g, '><');
+        (makePage(cover) + makePage(questions) + makePage(authorities) + makePage(argument) + makePage(conclusion)).replace(/>\s+</g, '><');
+}
+
+function downloadPDF() {
+    const element = document.getElementById('render-target');
+    const opt = {
+        margin: 0,
+        filename: 'Brief.pdf',
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak: { mode: 'avoid-all', before: '.paper' } // Force breaks only before each paper div
+    };
+    html2pdf().from(element).set(opt).save();
 }
 
 function localExport() {
@@ -139,26 +105,10 @@ function localExport() {
 function localImport(e) {
     const reader = new FileReader();
     reader.onload = (event) => {
-        try {
-            const pack = JSON.parse(event.target.result);
-            data = pack.data;
-            for(let id in pack.inputs) { if(document.getElementById(id)) document.getElementById(id).value = pack.inputs[id]; }
-            renderInputFields(); refresh();
-        } catch(err) { console.error("Import error:", err); }
+        const pack = JSON.parse(event.target.result);
+        data = pack.data;
+        for(let id in pack.inputs) { if(document.getElementById(id)) document.getElementById(id).value = pack.inputs[id]; }
+        renderInputFields(); refresh();
     };
     reader.readAsText(e.target.files[0]);
-}
-
-// FIX: Strictly defined page breaks and no margins for html2pdf
-function downloadPDF() {
-    const element = document.getElementById('render-target');
-    const opt = {
-        margin: 0,
-        filename: 'SCOTUS_Brief.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'] }
-    };
-    html2pdf().from(element).set(opt).save();
 }
