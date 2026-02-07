@@ -1,91 +1,237 @@
+/* 1. Reset & Global Styles */
 @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&display=swap');
 
-:root { --legal-blue: #1a237e; --border-color: #dee2e6; }
-
-body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; background: #525659; overflow: hidden; }
-
-header { background: var(--legal-blue); color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; height: 60px; }
-
-.app-container { display: flex; flex: 1; overflow: hidden; }
-
-/* SIDEBAR - Fixed Width */
-.sidebar { width: 280px; min-width: 280px; background: white; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 15px; overflow-y: auto; box-sizing: border-box; }
-.tab-btn { padding: 12px; border: none; background: transparent; text-align: left; cursor: pointer; border-radius: 6px; margin-bottom: 5px; font-weight: 600; color: #444; width: 100%; }
-.tab-btn.active { background: #e8eaf6; color: var(--legal-blue); }
-
-.persistence-zone { margin-top: auto; padding-top: 15px; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
-.action-btn { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font-weight: bold; font-size: 0.8rem; box-sizing: border-box; text-align: center; background: #fff; display: block; }
-.import-label { display: block; margin: 0; cursor: pointer; }
-
-.sidebar-footer { margin-top: 15px; text-align: center; padding-bottom: 10px; }
-
-/* INPUT PANEL - Center Column */
-.input-panel { flex: 1; min-width: 400px; background: white; padding: 30px; overflow-y: auto; border-right: 2px solid #333; box-sizing: border-box; }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-.input-panel input, .input-panel textarea, .input-panel select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; box-sizing: border-box; }
-label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 18px; color: #666; text-transform: uppercase; }
-
-/* PREVIEW PANEL - Right Column */
-.preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; background: #525659; }
-
-/* ... Keep the top of your CSS the same ... */
-
-.paper { 
-    width: 8.5in; 
-    height: 11in; /* FIXED HEIGHT */
-    background: white; 
-    padding: 1.25in !important; 
-    margin: 0 auto 30px auto; 
-    box-shadow: 0 0 30px rgba(0,0,0,0.5); 
-    font-family: 'Crimson Pro', serif; 
-    font-size: 12pt; 
-    line-height: 1.5; 
-    color: black; 
-    position: relative; 
-    box-sizing: border-box;
-    overflow: hidden; /* Prevents tiny overflows from creating new pages */
-    page-break-after: always;
+:root {
+    --legal-blue: #1a237e;
+    --border-color: #dee2e6;
+    --bg-gray: #525659;
 }
 
-/* ... Keep your fonts and variables ... */
-
-.paper { 
-    width: 8.5in; 
-    height: 10.97in; /* Slightly less than 11 to prevent ghost pages */
-    background: white; 
-    padding: 1.25in !important; 
-    margin: 0 auto 20px auto; 
-    box-shadow: 0 0 20px rgba(0,0,0,0.3); 
-    font-family: 'Crimson Pro', serif; 
-    font-size: 12pt; 
-    line-height: 1.5; 
-    color: black; 
-    position: relative; 
-    box-sizing: border-box;
+body {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg-gray);
     overflow: hidden;
 }
 
+/* 2. Layout Components */
+header {
+    background: var(--legal-blue);
+    color: white;
+    padding: 0 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 60px;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.app-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Sidebar Navigation */
+.sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: white;
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    overflow-y: auto;
+}
+
+.tab-btn {
+    padding: 12px 15px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 6px;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #444;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover { background: #f5f5f5; }
+.tab-btn.active {
+    background: #e8eaf6;
+    color: var(--legal-blue);
+}
+
+.persistence-zone {
+    margin-top: auto;
+    padding: 15px 0;
+    border-top: 1px solid #eee;
+}
+
+.action-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    font-weight: bold;
+    margin-bottom: 10px;
+    background: white;
+    display: block;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.import-label { margin-bottom: 0; }
+
+.sidebar-footer {
+    text-align: center;
+    padding: 10px 0;
+    font-size: 0.75rem;
+}
+
+/* Input Panel */
+.input-panel {
+    flex: 1;
+    min-width: 400px;
+    background: white;
+    padding: 30px;
+    overflow-y: auto;
+    border-right: 2px solid #333;
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+label {
+    display: block;
+    font-weight: 700;
+    font-size: 0.75rem;
+    margin-top: 20px;
+    color: #555;
+    text-transform: uppercase;
+}
+
+input, textarea, select {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+/* 3. Preview Panel & Paper Logic */
+.preview-panel {
+    flex: 1.5;
+    padding: 40px;
+    overflow-y: auto;
+    background: var(--bg-gray);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#render-target {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.paper { 
+    width: 8.5in; 
+    min-height: 11in; /* Allows content to expand in preview */
+    background: white; 
+    padding: 1.25in !important; 
+    margin-bottom: 30px; 
+    box-shadow: 0 0 20px rgba(0,0,0,0.4); 
+    font-family: 'Crimson Pro', serif; 
+    font-size: 12pt; 
+    line-height: 1.5; 
+    color: black; 
+    position: relative; 
+    box-sizing: border-box;
+    word-wrap: break-word;
+}
+
+/* 4. Legal Document Elements */
+.sc-caps { font-variant: small-caps; }
+
+.court-header {
+    text-align: center;
+    font-weight: bold;
+    font-size: 14pt;
+    text-transform: uppercase;
+    margin: 20px 0;
+}
+
+.title-box {
+    text-align: center;
+    border-top: 1.5pt solid black;
+    border-bottom: 1.5pt solid black;
+    padding: 15px 5px;
+    margin: 30px 0;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.section-header {
+    text-align: center;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin: 25px 0 15px 0;
+}
+
+.manual-footer {
+    position: absolute;
+    bottom: 0.6in;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 11pt;
+}
+
+/* 5. PRINT & PDF REPAIR */
 @media print {
-    /* Hide everything except the render-target */
-    body * { visibility: hidden; }
-    #render-target, #render-target * { visibility: visible; }
+    /* Hide the UI entirely */
+    header, .sidebar, .input-panel { display: none !important; }
     
+    body, .app-container, .preview-panel {
+        display: block !important;
+        background: white !important;
+        overflow: visible !important;
+        height: auto !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
     #render-target {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 8.5in;
+        width: 8.5in !important;
+        margin: 0 !important;
     }
 
     .paper { 
         margin: 0 !important; 
         box-shadow: none !important; 
+        width: 8.5in !important; 
+        height: 11in !important; /* Force exact page size for printer */
         page-break-after: always !important;
-        height: 11in !important; /* Reset to full height for physical printer */
+        overflow: hidden !important;
     }
-    
-    .paper:last-child { page-break-after: avoid !important; }
-    
-    @page { size: letter; margin: 0; }
+
+    .paper:last-child {
+        page-break-after: avoid !important;
+    }
+
+    @page {
+        size: letter;
+        margin: 0;
+    }
 }
