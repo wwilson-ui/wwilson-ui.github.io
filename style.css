@@ -81,16 +81,19 @@ header {
     align-items: center;
     justify-content: center;
     width: 100%;
-    height: 40px; /* Fixed height for uniformity */
+    height: 42px;               /* Fixed identical height */
     padding: 0; 
     border-radius: 6px;
     border: 1px solid #ccc;
     cursor: pointer;
-    font-weight: bold;
     background: white;
     box-sizing: border-box;
-    text-align: center;
-    font-size: 0.85rem;
+    
+    /* Font Sync */
+    font-family: inherit;       /* Forces same font type */
+    font-size: 0.9rem;          /* Forces same font size */
+    font-weight: 600;
+    text-transform: none;       /* Prevents automatic All-Caps */
     color: #333;
     transition: background 0.2s;
 }
