@@ -33,15 +33,15 @@
         <button class="tab-btn" onclick="switchTab('finalize')">6. Finalize & Print</button>
         
         <div class="persistence-zone">
-            <button class="action-btn" onclick="localExport()">💾 Export .JSON File</button>
-            <label class="action-btn import-label">
-                📂 Import .JSON File
+            <button class="action-btn" onclick="localExport()">💾 Export .JSON</button>
+            <label class="action-btn" style="cursor:pointer; margin-bottom:0;">
+                📂 Import .JSON
                 <input type="file" id="importFile" hidden onchange="localImport(event)">
             </label>
         </div>
 
         <div class="sidebar-footer">
-            <a href="javascript:void(0)" onclick="showTOS()" style="color:#999; text-decoration:none; font-size:0.7rem;">Terms of Service</a>
+            <a href="terms.html" target="_blank" style="color:#999; text-decoration:none; font-size:0.7rem;">Terms of Service</a>
         </div>
     </nav>
 
@@ -49,7 +49,7 @@
         <div id="setup" class="tab-content active">
             <h2>Project Setup</h2>
             <label>Project Title:</label>
-            <input type="text" id="projectTitle" placeholder="..." oninput="refresh()">
+            <input type="text" id="projectTitle" placeholder="Internal Project Name..." oninput="refresh()">
             <label>Writing for:</label>
             <select id="briefType" onchange="refresh()">
                 <option value="Petitioner">Brief for Petitioner</option>
@@ -57,58 +57,58 @@
                 <option value="Amicus Curiae">Brief for Amicus Curiae</option>
             </select>
             <label>Court Term:</label>
-            <input type="text" id="courtTerm" placeholder="..." oninput="refresh()">
+            <input type="text" id="courtTerm" placeholder="October Term 2025" oninput="refresh()">
             <label>Firm/School:</label>
-            <input type="text" id="firmName" placeholder="..." oninput="refresh()">
+            <input type="text" id="firmName" placeholder="Law Firm or University Name..." oninput="refresh()">
             <label>Counsel Names:</label>
-            <textarea id="studentNames" rows="3" placeholder="..." oninput="refresh()"></textarea>
+            <textarea id="studentNames" rows="3" placeholder="John Doe&#10;Jane Smith..." oninput="refresh()"></textarea>
         </div>
 
         <div id="cover" class="tab-content">
             <h2>Cover Details</h2>
             <label>Docket Number:</label>
-            <input type="text" id="docketNum" placeholder="..." oninput="refresh()">
+            <input type="text" id="docketNum" placeholder="No. 23-1234" oninput="refresh()">
             <label>Petitioners:</label>
             <div id="petitioner-inputs"></div>
-            <button class="action-btn" style="width:auto; padding:5px 15px;" onclick="addDynamic('petitioner')">+ Add Petitioner</button>
+            <button class="action-btn" style="width:auto; padding:5px 15px; font-size: 0.75rem;" onclick="addDynamic('petitioner')">+ Add Petitioner</button>
             <label>Respondents:</label>
             <div id="respondent-inputs"></div>
-            <button class="action-btn" style="width:auto; padding:5px 15px;" onclick="addDynamic('respondent')">+ Add Respondent</button>
+            <button class="action-btn" style="width:auto; padding:5px 15px; font-size: 0.75rem;" onclick="addDynamic('respondent')">+ Add Respondent</button>
             <label>Lower Court:</label>
-            <input type="text" id="lowerCourt" placeholder="..." oninput="refresh()">
+            <input type="text" id="lowerCourt" placeholder="U.S. Court of Appeals for the Ninth Circuit" oninput="refresh()">
         </div>
 
         <div id="authorities" class="tab-content">
             <h2>Authorities</h2>
             <label>Cases:</label>
             <div id="case-inputs"></div>
-            <button class="action-btn" style="width:auto; padding:5px 15px;" onclick="addDynamic('case')">+ Add Case</button>
+            <button class="action-btn" style="width:auto; padding:5px 15px; font-size: 0.75rem;" onclick="addDynamic('case')">+ Add Case</button>
             <label>Statutes:</label>
             <div id="statute-inputs"></div>
-            <button class="action-btn" style="width:auto; padding:5px 15px;" onclick="addDynamic('statute')">+ Add Statute</button>
+            <button class="action-btn" style="width:auto; padding:5px 15px; font-size: 0.75rem;" onclick="addDynamic('statute')">+ Add Statute</button>
         </div>
 
         <div id="questions" class="tab-content">
             <h2>Questions</h2>
             <div id="question-inputs"></div>
-            <button class="action-btn" style="width:auto; padding:5px 15px;" onclick="addDynamic('question')">+ Add Question</button>
+            <button class="action-btn" style="width:auto; padding:5px 15px; font-size: 0.75rem;" onclick="addDynamic('question')">+ Add Question</button>
         </div>
 
         <div id="argument" class="tab-content">
             <h2>Argument</h2>
-            <label>Summary:</label>
+            <label>Summary of Argument:</label>
             <textarea id="summaryArg" rows="4" placeholder="..." oninput="refresh()"></textarea>
-            <label>Body:</label>
+            <label>Argument Body:</label>
             <textarea id="argBody" rows="12" placeholder="..." oninput="refresh()"></textarea>
         </div>
 
         <div id="finalize" class="tab-content">
             <h2>Finalize</h2>
             <label>Conclusion:</label>
-            <textarea id="conclusionText" rows="4" placeholder="..." oninput="refresh()"></textarea>
+            <textarea id="conclusionText" rows="4" placeholder="For the reasons stated above..." oninput="refresh()"></textarea>
             <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
-                <button class="action-btn" style="background:#1a237e; color:white;" onclick="downloadPDF()">📥 DOWNLOAD PDF BRIEF</button>
-                <button class="action-btn" style="background:#333; color:white;" onclick="window.print()">🖨️ DIRECT PRINT</button>
+                <button class="action-btn" style="background:var(--legal-blue); color:white; border:none;" onclick="downloadPDF()">📥 DOWNLOAD PDF</button>
+                <button class="action-btn" style="background:#333; color:white; border:none;" onclick="window.print()">🖨️ DIRECT PRINT</button>
             </div>
         </div>
     </section>
