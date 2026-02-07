@@ -29,11 +29,13 @@ label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 18px; c
 /* PREVIEW PANEL - Right Column */
 .preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; background: #525659; }
 
+/* ... Keep the top of your CSS the same ... */
+
 .paper { 
     width: 8.5in; 
-    min-height: 11in; 
+    height: 11in; /* FIXED HEIGHT */
     background: white; 
-    padding: 1.25in !important; /* 1.25" MARGINS ON ALL SIDES */
+    padding: 1.25in !important; 
     margin: 0 auto 30px auto; 
     box-shadow: 0 0 30px rgba(0,0,0,0.5); 
     font-family: 'Crimson Pro', serif; 
@@ -42,7 +44,14 @@ label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 18px; c
     color: black; 
     position: relative; 
     box-sizing: border-box;
+    overflow: hidden; /* Prevents tiny overflows from creating new pages */
     page-break-after: always;
+}
+
+/* Remove margin for the last page so Direct Print doesn't add a blank one */
+.paper:last-child {
+    margin-bottom: 0;
+    page-break-after: avoid;
 }
 
 .manual-footer {
@@ -52,18 +61,21 @@ label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 18px; c
     right: 0;
     text-align: center;
     font-size: 11pt;
-    font-family: 'Crimson Pro', serif;
 }
 
-/* Legal Rendering */
-.sc-caps { font-variant: small-caps; }
-.court-header { text-align: center; font-weight: bold; font-size: 14pt; text-transform: uppercase; margin: 30px 0; }
-.title-box { text-align: center; border-top: 1.5pt solid black; border-bottom: 1.5pt solid black; padding: 20px 10px; margin: 40px 0; font-weight: bold; text-transform: uppercase; }
-.section-header { text-align: center; font-weight: bold; text-transform: uppercase; margin: 35px 0 20px 0; }
-
 @media print {
-    body, .app-container, .preview-panel { height: auto !important; overflow: visible !important; display: block !important; background: white !important; }
-    header, .sidebar, .input-panel { display: none !important; }
-    .paper { box-shadow: none !important; margin: 0 !important; border: none !important; width: 8.5in !important; }
-    @page { size: letter; margin: 0; }
+    body { background: white !important; }
+    .app-container, header, .sidebar, .input-panel { display: none !important; }
+    .preview-panel { display: block !important; padding: 0 !important; margin: 0 !important; background: white !important; }
+    .paper { 
+        margin: 0 !important; 
+        box-shadow: none !important; 
+        width: 8.5in !important; 
+        height: 11in !important;
+        page-break-after: always !important;
+    }
+    .paper:last-child {
+        page-break-after: avoid !important;
+    }
+    @page { margin: 0; size: letter; }
 }
