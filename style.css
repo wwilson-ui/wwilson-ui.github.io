@@ -48,34 +48,44 @@ label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 18px; c
     page-break-after: always;
 }
 
-/* Remove margin for the last page so Direct Print doesn't add a blank one */
-.paper:last-child {
-    margin-bottom: 0;
-    page-break-after: avoid;
-}
+/* ... Keep your fonts and variables ... */
 
-.manual-footer {
-    position: absolute;
-    bottom: 0.6in;
-    left: 0;
-    right: 0;
-    text-align: center;
-    font-size: 11pt;
+.paper { 
+    width: 8.5in; 
+    height: 10.97in; /* Slightly less than 11 to prevent ghost pages */
+    background: white; 
+    padding: 1.25in !important; 
+    margin: 0 auto 20px auto; 
+    box-shadow: 0 0 20px rgba(0,0,0,0.3); 
+    font-family: 'Crimson Pro', serif; 
+    font-size: 12pt; 
+    line-height: 1.5; 
+    color: black; 
+    position: relative; 
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 @media print {
-    body { background: white !important; }
-    .app-container, header, .sidebar, .input-panel { display: none !important; }
-    .preview-panel { display: block !important; padding: 0 !important; margin: 0 !important; background: white !important; }
+    /* Hide everything except the render-target */
+    body * { visibility: hidden; }
+    #render-target, #render-target * { visibility: visible; }
+    
+    #render-target {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 8.5in;
+    }
+
     .paper { 
         margin: 0 !important; 
         box-shadow: none !important; 
-        width: 8.5in !important; 
-        height: 11in !important;
         page-break-after: always !important;
+        height: 11in !important; /* Reset to full height for physical printer */
     }
-    .paper:last-child {
-        page-break-after: avoid !important;
-    }
-    @page { margin: 0; size: letter; }
+    
+    .paper:last-child { page-break-after: avoid !important; }
+    
+    @page { size: letter; margin: 0; }
 }
