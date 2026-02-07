@@ -1,21 +1,14 @@
+// Database Config (Replace with your keys from Supabase)
+const SUPABASE_URL = 'YOUR_PROJECT_URL';
+const SUPABASE_KEY = 'YOUR_ANON_KEY';
+const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
 let data = { petitioners: [""], respondents: [""], questions: [""], cases: [""], statutes: [""] };
 let userKey = null;
 
 window.onload = () => { renderInputFields(); refresh(); };
 
-function switchTab(id) {
-    document.querySelectorAll('.tab-content, .tab-btn').forEach(el => el.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => btn.getAttribute('onclick').includes(id));
-    if(activeBtn) activeBtn.classList.add('active');
-}
-
 function addDynamic(type) { data[type + 's'].push(""); renderInputFields(); refresh(); }
-function removeDynamic(type, idx) {
-    if(data[type + 's'].length > 1) data[type + 's'].splice(idx, 1);
-    else data[type + 's'][0] = "";
-    renderInputFields(); refresh();
-}
 
 function renderInputFields() {
     ['petitioner', 'respondent', 'question', 'case', 'statute'].forEach(t => {
@@ -23,7 +16,7 @@ function renderInputFields() {
         if(!container) return;
         container.innerHTML = data[t+'s'].map((val, i) => `
             <div style="display:flex; gap:5px; margin-bottom:5px;">
-                <input type="text" value="${val}" oninput="data['${t}s'][${i}]=this.value; refresh()">
+                <input type="text" value="${val}" placeholder="..." oninput="data['${t}s'][${i}]=this.value; refresh()">
                 <button onclick="removeDynamic('${t}', ${i})" style="background:none; border:none; cursor:pointer;">❌</button>
             </div>
         `).join('');
@@ -32,114 +25,54 @@ function renderInputFields() {
 
 function refresh() {
     const get = (id) => document.getElementById(id)?.value || "";
-    const bType = get('briefType');
-    document.getElementById('amicus-box').style.display = (bType === 'Amicus Curiae') ? 'block' : 'none';
+    let pageNum = 1; // Start counter
 
-    let pageNum = 1;
-    const makePage = (content, includeNum = true) => {
-        const footer = includeNum ? `<div class="manual-footer">${pageNum++}</div>` : '';
-        return `<div class="paper">${content}${footer}</div>`;
+    const makePage = (content) => {
+        return `<div class="paper">${content}<div class="manual-footer">${pageNum++}</div></div>`;
     };
 
-    const coverHTML = `
-        <div style="font-weight:bold;">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
-        <div class="court-header">In the <span class="sc-caps">Supreme Court of the United States</span></div>
-        <div style="text-align:center; font-weight:bold;">${get('courtTerm').toUpperCase()}</div>
-        <hr style="border:0; border-top:1.5pt solid black; margin:10px 0;">
-        <div style="display:flex; margin:20px 0;">
-            <div style="flex:1;">${data.petitioners.map(p => p.toUpperCase() || 'PETITIONER').join(',<br>')},<br><i>Petitioner${data.petitioners.length > 1 ? 's' : ''}</i>,<br><div style="margin:15px 40px;">v.</div>${data.respondents.map(r => r.toUpperCase() || 'RESPONDENT').join(',<br>')},<br><i>Respondent${data.respondents.length > 1 ? 's' : ''}.</i></div>
-            <div style="border-left:1.5pt solid black; padding-left:20px; width:40%; font-style:italic; display:flex; align-items:center;">On Writ of Certiorari to the ${get('lowerCourt') || 'the Lower Court'}</div>
-        </div>
-        <div class="title-box">BRIEF FOR THE ${bType.toUpperCase()}</div>
-        <div style="text-align:center; margin-top:1in;"><b>Respectfully Submitted,</b><br><br><span class="sc-caps">${get('firmName')}</span><br><div style="font-size:11pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>')}</div></div>
-    `;
+    // Re-building HTML sections...
+    const coverHTML = `<div class="court-header">In the <span class="sc-caps">Supreme Court of the United States</span></div>...`; 
+    // (Inject your full cover, questions, etc HTML here as per previous versions)
 
-    const questionsHTML = `<div class="section-header">QUESTIONS PRESENTED</div>${data.questions.map((q, i) => `<p style="text-indent:0.5in; margin-bottom:15px;"><b>${i+1}.</b> ${q}</p>`).join('')}`;
-    const authoritiesHTML = `<div class="section-header">TABLE OF AUTHORITIES</div><p><b>Cases:</b></p>${data.cases.filter(x=>x).sort().map(c => `<div style="padding-left:0.5in; text-indent:-0.2in; margin-bottom:5px;"><i>${c}</i></div>`).join('')}<p style="margin-top:20px;"><b>Statutes:</b></p>${data.statutes.filter(x=>x).sort().map(s => `<div style="padding-left:0.5in; margin-bottom:5px;">${s}</div>`).join('')}`;
-    const argumentHTML = `<div class="section-header">SUMMARY OF ARGUMENT</div><p style="text-indent: 0.5in;">${get('summaryArg')}</p><div class="section-header">ARGUMENT</div><p style="white-space: pre-wrap; text-indent: 0.5in;">${get('argBody')}</p><div class="section-header">CONCLUSION</div><p style="text-indent: 0.5in;">${get('conclusionText')}</p>`;
-
+    // FORCE RENDER
     document.getElementById('render-target').innerHTML = 
-        makePage(coverHTML, true) + 
-        makePage(questionsHTML, true) + 
-        makePage(authoritiesHTML, true) + 
-        makePage(argumentHTML, true);
+        makePage(coverHTML) + 
+        makePage(questionsHTML) + 
+        makePage(authoritiesHTML) + 
+        makePage(argumentHTML);
+}
+
+// DATABASE LOGIC (Supabase)
+async function dbSave() {
+    if(!userKey) return alert("Please sign in first.");
+    const title = document.getElementById('projectTitle').value;
+    const { error } = await supabase.from('briefs').upsert({ 
+        user_id: userKey, 
+        title: title, 
+        content: { data, inputs: getFormInputs() } 
+    });
+    if(error) alert("Error saving: " + error.message);
+    else alert("Saved to Database!");
+}
+
+async function loadSelectedProject() {
+    const title = document.getElementById('projectList').value;
+    const { data: records } = await supabase.from('briefs').select('*').eq('user_id', userKey).eq('title', title);
+    if(records.length) {
+        const saved = records[0].content;
+        data = saved.data;
+        // map saved.inputs back to DOM...
+        refresh();
+    }
 }
 
 function downloadPDF() {
     const element = document.getElementById('render-target');
     html2pdf().from(element).set({
-        margin: 0, 
-        filename: 'Brief.pdf',
-        html2canvas: { scale: 3, useCORS: true },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        margin: 0,
+        filename: 'SCOTUS-Brief.pdf',
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter' }
     }).save();
-}
-
-// Keep your Auth/Cloud/Save logic exactly as it was below...
-function onSignIn(resp) {
-    const payload = JSON.parse(atob(resp.credential.split('.')[1]));
-    userKey = payload.sub;
-    document.getElementById('auth-status').innerText = `Logged in: ${payload.email}`;
-    document.getElementById('cloudBtn').style.display = 'block';
-    document.getElementById('project-selector-zone').style.display = 'block';
-    updateProjectDropdown();
-}
-function updateProjectDropdown() {
-    const projects = JSON.parse(localStorage.getItem('briefs_') || "{}");
-    const select = document.getElementById('projectList');
-    if(!select) return;
-    select.innerHTML = '<option value="">-- Projects --</option>';
-    for (let title in projects) {
-        const opt = document.createElement('option');
-        opt.value = title; opt.innerText = title;
-        select.appendChild(opt);
-    }
-}
-function dbSave() {
-    const title = document.getElementById('projectTitle').value;
-    if(!title) return alert("Enter Project Title.");
-    const inputs = {};
-    document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
-    const projects = JSON.parse(localStorage.getItem('briefs_') || "{}");
-    projects[title] = { data, inputs };
-    localStorage.setItem('briefs_', JSON.stringify(projects));
-    updateProjectDropdown();
-    alert("Saved!");
-}
-function dbDelete() {
-    const title = document.getElementById('projectList').value;
-    if(!title || !confirm(`Delete "${title}"?`)) return;
-    const projects = JSON.parse(localStorage.getItem('briefs_'));
-    delete projects[title];
-    localStorage.setItem('briefs_', JSON.stringify(projects));
-    updateProjectDropdown();
-}
-function loadSelectedProject() {
-    const title = document.getElementById('projectList').value;
-    if(!title) return;
-    const projects = JSON.parse(localStorage.getItem('briefs_'));
-    const saved = projects[title];
-    data = saved.data;
-    for(let id in saved.inputs) { if(document.getElementById(id)) document.getElementById(id).value = saved.inputs[id]; }
-    renderInputFields(); refresh();
-}
-function localExport() {
-    const title = document.getElementById('projectTitle').value || "brief";
-    const inputs = {};
-    document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
-    const blob = new Blob([JSON.stringify({ data, inputs })], {type: "application/json"});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = title + ".json";
-    a.click();
-}
-function localImport(e) {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const pack = JSON.parse(event.target.result);
-        data = pack.data;
-        for(let id in pack.inputs) { if(document.getElementById(id)) document.getElementById(id).value = pack.inputs[id]; }
-        renderInputFields(); refresh();
-    };
-    reader.readAsText(e.target.files[0]);
 }
