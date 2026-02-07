@@ -33,16 +33,21 @@ header {
     overflow: hidden;
 }
 
-/* SIDEBAR & BUTTONS */
+/* SIDEBAR ANCHORED TO BOTTOM */
 .sidebar {
     width: 280px;
     min-width: 280px;
     background: white;
     border-right: 1px solid var(--border-color);
     display: flex;
-    flex-direction: column;
+    flex-direction: column; /* Allows vertical stacking */
     padding: 15px;
     box-sizing: border-box;
+}
+
+.tabs-zone {
+    display: flex;
+    flex-direction: column;
 }
 
 .tab-btn {
@@ -56,24 +61,28 @@ header {
     margin-bottom: 5px;
     font-weight: 600;
     color: #444;
-    transition: background 0.2s;
 }
 
 .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); }
 
+/* PUSHES BUTTONS TO BOTTOM */
 .persistence-zone {
-    margin-top: auto;
-    padding-top: 15px;
+    margin-top: auto; 
+    padding: 15px 0;
     border-top: 1px solid #eee;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
+/* UNIFIED BUTTON LOOK */
 .action-btn {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
-    padding: 12px;
+    height: 40px; /* Fixed height for uniformity */
+    padding: 0; 
     border-radius: 6px;
     border: 1px solid #ccc;
     cursor: pointer;
@@ -82,9 +91,13 @@ header {
     box-sizing: border-box;
     text-align: center;
     font-size: 0.85rem;
+    color: #333;
+    transition: background 0.2s;
 }
 
-/* INPUTS */
+.action-btn:hover { background: #f8f9fa; }
+
+/* INPUT PANEL */
 .input-panel {
     flex: 1;
     min-width: 400px;
@@ -131,7 +144,7 @@ input, textarea, select {
     min-height: 11in; 
     background: white; 
     padding: 1.25in !important; 
-    margin: 0 auto 30px auto; 
+    margin-bottom: 30px; 
     box-shadow: 0 0 20px rgba(0,0,0,0.4); 
     font-family: 'Crimson Pro', serif; 
     font-size: 12pt; 
@@ -141,7 +154,7 @@ input, textarea, select {
     box-sizing: border-box;
 }
 
-/* LEGAL ELEMENTS */
+/* DOCUMENT STYLING */
 .court-header {
     text-align: center;
     font-weight: bold;
@@ -155,7 +168,6 @@ hr {
     border: 0;
     border-top: 1.5pt solid black;
     margin: 15px 0;
-    display: block;
 }
 
 .title-box {
@@ -184,7 +196,7 @@ hr {
     font-size: 11pt;
 }
 
-.sidebar-footer { text-align: center; padding-top: 10px; }
+.sidebar-footer { text-align: center; padding: 10px 0; border-top: 1px solid #eee; }
 
 /* PRINTING */
 @media print {
