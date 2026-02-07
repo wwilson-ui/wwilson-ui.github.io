@@ -12,29 +12,27 @@ header { background: var(--legal-blue); color: white; padding: 10px 25px; displa
 .tab-btn { padding: 12px; border: none; background: transparent; text-align: left; cursor: pointer; border-radius: 6px; margin-bottom: 5px; font-weight: 600; color: #444; }
 .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); }
 
+/* FIXED: Persistence Buttons */
 .persistence-zone { margin-top: auto; padding-top: 15px; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
-.action-btn { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font-weight: bold; }
+.action-btn { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font-weight: bold; font-size: 0.8rem; box-sizing: border-box; text-align: center; background: #fff; }
+.import-label { display: block; margin: 0; } /* Fixes the stretching issue */
 
+.sidebar-footer { margin-top: 15px; text-align: center; }
+
+/* INPUT PANEL */
 .input-panel { flex: 1; background: white; padding: 30px; overflow-y: auto; border-right: 2px solid #333; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
+.input-panel input, .input-panel textarea, .input-panel select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; box-sizing: border-box; display: block; }
 
-/* FIX: Ensure inputs don't break layout */
-.input-panel input, .input-panel textarea, .input-panel select { 
-    width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; 
-    font-size: 1rem; box-sizing: border-box; display: block; 
-}
-label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 18px; color: #666; text-transform: uppercase; }
-
-/* PREVIEW PANEL */
+/* PREVIEW PANEL - 1.25" Margins */
 .preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; background: #525659; }
 
-/* Pages with strict 3/4" margins */
 .paper { 
     width: 8.5in; 
     min-height: 11in; 
     background: white; 
-    padding: 0.75in !important; 
+    padding: 1.25in !important; /* REQUESTED: 1.25" MARGIN */
     margin: 0 auto 30px auto; 
     box-shadow: 0 0 30px rgba(0,0,0,0.5); 
     font-family: 'Crimson Pro', serif; 
@@ -43,19 +41,18 @@ label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 18px; c
     color: black; 
     position: relative; 
     box-sizing: border-box;
-    page-break-after: always;
 }
 
 .manual-footer {
     position: absolute;
-    bottom: 0.4in;
+    bottom: 0.6in;
     left: 0;
     right: 0;
     text-align: center;
-    font-size: 10pt;
-    font-family: 'Crimson Pro', serif;
+    font-size: 11pt;
 }
 
+/* Legal Rendering */
 .sc-caps { font-variant: small-caps; }
 .court-header { text-align: center; font-weight: bold; font-size: 14pt; text-transform: uppercase; margin: 30px 0; }
 .title-box { text-align: center; border-top: 1.5pt solid black; border-bottom: 1.5pt solid black; padding: 20px 10px; margin: 40px 0; font-weight: bold; text-transform: uppercase; }
@@ -64,6 +61,6 @@ label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 18px; c
 @media print {
     body, .app-container, .preview-panel { height: auto !important; overflow: visible !important; display: block !important; background: white !important; }
     header, .sidebar, .input-panel { display: none !important; }
-    .paper { box-shadow: none !important; margin: 0 !important; border: none !important; width: 8.5in !important; }
+    .paper { box-shadow: none !important; margin: 0 !important; border: none !important; width: 8.5in !important; page-break-after: always; }
     @page { size: letter; margin: 0; }
 }
