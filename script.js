@@ -23,7 +23,7 @@ function renderInputFields() {
         if(!container) return;
         container.innerHTML = data[t+'s'].map((val, i) => `
             <div style="display:flex; gap:5px; margin-bottom:5px;">
-                <input type="text" value="${val}" oninput="data['${t}s'][${i}]=this.value; refresh()" placeholder="...">
+                <input type="text" value="${val}" oninput="data['${t}s'][${i}]=this.value; refresh()">
                 <button onclick="removeDynamic('${t}', ${i})" style="background:none; border:none; cursor:pointer;">❌</button>
             </div>
         `).join('');
@@ -35,14 +35,15 @@ function refresh() {
     const bType = get('briefType');
     document.getElementById('amicus-box').style.display = (bType === 'Amicus Curiae') ? 'block' : 'none';
 
-    const pageWrap = (content, noNumber = false) => `
-        <div class="paper ${noNumber ? 'no-number' : ''}">
-            ${content}
-            <div class="page-num-display"></div>
-        </div>
-    `;
+    let pageNum = 1;
 
-    // Cover Page
+    // Helper to create a page with an optional page number
+    const makePage = (content, includeNum = true) => {
+        const footer = includeNum ? `<div class="manual-footer">${pageNum++}</div>` : '';
+        return `<div class="paper">${content}${footer}</div>`;
+    };
+
+    // Page 1: Cover (No number)
     const coverHTML = `
         <div style="font-weight:bold;">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
         <div class="court-header">In the <span class="sc-caps">Supreme Court of the United States</span></div>
@@ -68,11 +69,13 @@ function refresh() {
         </div>
     `;
 
+    // Page 2: Questions
     const questionsHTML = `
         <div class="section-header">QUESTIONS PRESENTED</div>
         ${data.questions.map((q, i) => `<p style="text-indent:0.5in; margin-bottom:15px;"><b>${i+1}.</b> ${q}</p>`).join('')}
     `;
 
+    // Page 3: Authorities
     const authoritiesHTML = `
         <div class="section-header">TABLE OF AUTHORITIES</div>
         <p><b>Cases:</b></p>
@@ -81,6 +84,7 @@ function refresh() {
         ${data.statutes.filter(x=>x).sort().map(s => `<div style="padding-left:0.5in; margin-bottom:5px;">${s}</div>`).join('')}
     `;
 
+    // Page 4: Argument
     const argumentHTML = `
         <div class="section-header">SUMMARY OF ARGUMENT</div>
         <p style="text-indent: 0.5in;">${get('summaryArg')}</p>
@@ -91,23 +95,23 @@ function refresh() {
     `;
 
     document.getElementById('render-target').innerHTML = 
-        pageWrap(coverHTML, true) + 
-        pageWrap(questionsHTML) + 
-        pageWrap(authoritiesHTML) + 
-        pageWrap(argumentHTML);
+        makePage(coverHTML, false) + 
+        makePage(questionsHTML) + 
+        makePage(authoritiesHTML) + 
+        makePage(argumentHTML);
 }
 
 function downloadPDF() {
     const element = document.getElementById('render-target');
     html2pdf().from(element).set({
-        margin: 0, // Critical: Forces PDF to use the 0.75in CSS padding
+        margin: 0, // Forces use of our 0.75in CSS padding
         filename: 'Brief.pdf',
-        html2canvas: { scale: 3, useCORS: true },
+        html2canvas: { scale: 3 },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
     }).save();
 }
 
-// Authentication & Save/Delete logic stays the same below...
+// Authentication & Save/Delete logic stays the same...
 function onSignIn(resp) {
     const payload = JSON.parse(atob(resp.credential.split('.')[1]));
     userKey = payload.sub;
@@ -135,7 +139,6 @@ function dbSave() {
     projects[title] = { data, inputs };
     localStorage.setItem('briefs_' + userKey, JSON.stringify(projects));
     updateProjectDropdown();
-    alert("Saved!");
 }
 function dbDelete() {
     const title = document.getElementById('projectList').value;
