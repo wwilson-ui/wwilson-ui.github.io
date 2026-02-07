@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SCOTUS Brief Pro | Legal Generator</title>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,14 +13,14 @@
 <header>
     <div style="font-weight:bold;">⚖️ SCOTUS Brief Generator Pro</div>
     <div id="google-btn-wrapper">
-        <div id="g_id_onload" data-client_id="YOUR_GOOGLE_ID" data-callback="onSignIn"></div>
+        <div id="g_id_onload" data-client_id="129113401099-ihpv7tunjjfeuovepgphcfibf4nqj25g.apps.googleusercontent.com" data-callback="onSignIn"></div>
         <div class="g_id_signin" data-type="standard"></div>
     </div>
 </header>
 
 <main class="app-container">
     <nav class="sidebar">
-        <div id="auth-status" style="font-size: 0.75rem; color: #666; margin-bottom: 15px;">Sign in to save multiple projects.</div>
+        <div id="auth-status" style="font-size: 0.75rem; color: #666; margin-bottom: 15px;">Sign in to save projects.</div>
         
         <button class="tab-btn active" onclick="switchTab('setup')">1. Initial Setup</button>
         <button class="tab-btn" onclick="switchTab('cover')">2. Cover Page</button>
@@ -69,10 +67,10 @@
             <input type="text" id="docketNum" placeholder="..." oninput="refresh()">
             <label>Petitioners:</label>
             <div id="petitioner-inputs"></div>
-            <button onclick="addDynamic('petitioner')">+ Add</button>
+            <button class="action-btn" style="width:auto; padding:5px 15px;" onclick="addDynamic('petitioner')">+ Add Petitioner</button>
             <label>Respondents:</label>
             <div id="respondent-inputs"></div>
-            <button onclick="addDynamic('respondent')">+ Add</button>
+            <button class="action-btn" style="width:auto; padding:5px 15px;" onclick="addDynamic('respondent')">+ Add Respondent</button>
             <label>Lower Court:</label>
             <input type="text" id="lowerCourt" placeholder="..." oninput="refresh()">
         </div>
@@ -81,44 +79,41 @@
             <h2>Authorities</h2>
             <label>Cases:</label>
             <div id="case-inputs"></div>
-            <button onclick="addDynamic('case')">+ Add Case</button>
+            <button class="action-btn" style="width:auto; padding:5px 15px;" onclick="addDynamic('case')">+ Add Case</button>
             <label>Statutes:</label>
             <div id="statute-inputs"></div>
-            <button onclick="addDynamic('statute')">+ Add Statute</button>
+            <button class="action-btn" style="width:auto; padding:5px 15px;" onclick="addDynamic('statute')">+ Add Statute</button>
         </div>
 
         <div id="questions" class="tab-content">
-            <h2>Questions Presented</h2>
+            <h2>Questions</h2>
             <div id="question-inputs"></div>
-            <button onclick="addDynamic('question')">+ Add Question</button>
+            <button class="action-btn" style="width:auto; padding:5px 15px;" onclick="addDynamic('question')">+ Add Question</button>
         </div>
 
         <div id="argument" class="tab-content">
             <h2>Argument</h2>
-            <label>Summary of Argument:</label>
+            <label>Summary:</label>
             <textarea id="summaryArg" rows="4" placeholder="..." oninput="refresh()"></textarea>
-            <label>Full Argument Body:</label>
+            <label>Body:</label>
             <textarea id="argBody" rows="12" placeholder="..." oninput="refresh()"></textarea>
         </div>
 
         <div id="finalize" class="tab-content">
-            <h2>Finalize & Print</h2>
+            <h2>Finalize</h2>
             <label>Conclusion:</label>
             <textarea id="conclusionText" rows="4" placeholder="..." oninput="refresh()"></textarea>
             <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
                 <button class="action-btn" style="background:#1a237e; color:white;" onclick="downloadPDF()">📥 DOWNLOAD PDF BRIEF</button>
-                <button class="action-btn" style="background:#333; color:white;" onclick="window.print()">🖨️ DIRECT PRINT</button>
             </div>
         </div>
     </section>
 
     <section class="preview-panel">
-        <div id="render-target">
-            </div>
+        <div id="render-target"></div>
     </section>
 </main>
 
 <script src="script.js"></script>
-
 </body>
 </html>
