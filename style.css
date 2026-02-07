@@ -5,17 +5,11 @@
 }
 
 body { 
-    margin: 0; 
-    display: flex; 
-    flex-direction: column; 
-    height: 100vh; 
-    font-family: 'Segoe UI', sans-serif; 
-    background: #525659; 
-    overflow: hidden;
-    counter-reset: page; /* Initialize page counter */
+    margin: 0; display: flex; flex-direction: column; height: 100vh; 
+    font-family: 'Segoe UI', sans-serif; background: #525659; overflow: hidden; 
 }
 
-/* UI Structure */
+/* UI Elements */
 header { background: var(--legal-blue); color: white; padding: 10px 25px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; }
 .app-container { display: flex; flex: 1; overflow: hidden; }
 .sidebar { width: 280px; background: white; border-right: 1px solid #dee2e6; display: flex; flex-direction: column; padding: 15px; overflow-y: auto; }
@@ -25,16 +19,20 @@ header { background: var(--legal-blue); color: white; padding: 10px 25px; displa
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
-/* The Paper Sheet */
+/* Preview & Paper Logic */
 .preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; background: #525659; }
+
+#render-target {
+    counter-reset: page-count; /* Initializes counter at the start of the document */
+}
 
 .paper { 
     width: 8.5in; 
     min-height: 11in; 
     background: white; 
-    padding: 0.75in !important; /* STRICT 3/4" MARGIN */
+    padding: 0.75in !important; /* THE IDEAL MARGIN */
     margin: 0 auto 30px auto; 
-    box-shadow: 0 0 20px rgba(0,0,0,0.3); 
+    box-shadow: 0 0 30px rgba(0,0,0,0.5); 
     font-family: 'Crimson Pro', serif; 
     font-size: 12pt; 
     line-height: 1.5; 
@@ -42,37 +40,36 @@ header { background: var(--legal-blue); color: white; padding: 10px 25px; displa
     position: relative; 
     box-sizing: border-box;
     page-break-after: always;
-    counter-increment: page; /* Increments for every paper div */
 }
 
-/* Page Number Styling */
-.page-number {
+/* Page Numbering Logic */
+.paper:not(.no-number) {
+    counter-increment: page-count;
+}
+
+.page-num-display {
     position: absolute;
-    bottom: 0.4in;
+    bottom: 0.5in;
     left: 0;
     right: 0;
     text-align: center;
-    font-size: 10pt;
-}
-.page-number::after {
-    content: counter(page);
+    font-family: 'Crimson Pro', serif;
+    font-size: 11pt;
 }
 
-/* Legal Typesetting */
+.paper:not(.no-number) .page-num-display::after {
+    content: counter(page-count);
+}
+
+/* Typesetting */
 .sc-caps { font-variant: small-caps; }
 .court-header { text-align: center; font-weight: bold; font-size: 14pt; text-transform: uppercase; margin: 30px 0; }
 .title-box { text-align: center; border-top: 1.5pt solid black; border-bottom: 1.5pt solid black; padding: 20px 10px; margin: 40px 0; font-weight: bold; text-transform: uppercase; }
 .section-header { text-align: center; font-weight: bold; text-transform: uppercase; margin: 35px 0 20px 0; }
 
-label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 18px; color: #666; text-transform: uppercase; }
-input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; }
-.action-btn { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font-weight: bold; margin-top: 5px; }
-
-/* Print Settings */
 @media print {
-    body { background: white; }
+    body, .app-container, .preview-panel { height: auto !important; overflow: visible !important; display: block !important; background: white !important; }
     header, .sidebar, .input-panel { display: none !important; }
-    .preview-panel { padding: 0 !important; margin: 0 !important; overflow: visible !important; }
-    .paper { box-shadow: none !important; margin: 0 !important; width: 8.5in !important; border: none !important; }
-    @page { size: letter; margin: 0; }
+    .paper { box-shadow: none !important; margin: 0 !important; border: none !important; width: 100% !important; }
+    @page { size: letter; margin: 0; } /* Let the .paper padding handle margins */
 }
