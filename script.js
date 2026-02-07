@@ -73,7 +73,7 @@ function refresh() {
     const coverHTML = `
         <div style="font-weight:bold;">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
         <div class="court-header">In the <span class="sc-caps">Supreme Court of the United States</span></div>
-        <div style="text-align:center; font-weight:bold;">${get('courtTerm').toUpperCase()}</div>
+        <div style="text-align:center; font-weight:bold;">${get('courtTerm').toUpperCase() || 'OCTOBER TERM 202X'}</div>
         <hr style="border:0; border-top:1.5pt solid black; margin:10px 0;">
         <div style="display:flex; margin:20px 0;">
             <div style="flex:1;">
@@ -83,17 +83,20 @@ function refresh() {
                 <i>Respondent</i>.
             </div>
             <div style="border-left:1.5pt solid black; padding-left:20px; width:40%; font-style:italic;">
-                On Writ of Certiorari to the ${get('lowerCourt')}
+                On Writ of Certiorari to the ${get('lowerCourt') || 'the Lower Court'}
             </div>
         </div>
         <div class="title-box">BRIEF FOR THE ${get('briefType').toUpperCase()}</div>
         <div style="text-align:center; margin-top:1in;">
             <b>Respectfully Submitted,</b><br><br>
-            <span class="sc-caps">${get('firmName')}</span><br>
-            <div style="font-size:11pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>')}</div>
+            <span class="sc-caps">${get('firmName') || 'FIRM NAME'}</span><br>
+            <div style="font-size:11pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>') || 'COUNSEL NAME'}</div>
         </div>`;
 
-    const questionsHTML = `<div class="section-header">QUESTIONS PRESENTED</div>${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
+    const questionsHTML = `
+        <div class="section-header">QUESTIONS PRESENTED</div>
+        ${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}
+    `;
     
     const authoritiesHTML = `
         <div class="section-header">TABLE OF AUTHORITIES</div>
@@ -103,13 +106,14 @@ function refresh() {
         ${data.statutes.filter(x=>x).sort().map(s => `<div style="margin-bottom:5px; padding-left: 20px;">${s}</div>`).join('')}
     `;
 
+    // FIX: Included CONCLUSION here so it renders on the final page
     const argumentHTML = `
         <div class="section-header">SUMMARY OF ARGUMENT</div>
-        <p style="text-indent: 0.5in;">${get('summaryArg')}</p>
+        <p style="text-indent: 0.5in;">${get('summaryArg') || '...'}</p>
         <div class="section-header">ARGUMENT</div>
-        <p style="white-space: pre-wrap; text-indent: 0.5in;">${get('argBody')}</p>
+        <p style="white-space: pre-wrap; text-indent: 0.5in;">${get('argBody') || '...'}</p>
         <div class="section-header">CONCLUSION</div>
-        <p style="text-indent: 0.5in;">${get('conclusionText')}</p>
+        <p style="text-indent: 0.5in; font-style: italic;">${get('conclusionText') || '...'}</p>
     `;
 
     document.getElementById('render-target').innerHTML = 
@@ -143,7 +147,7 @@ function localImport(e) {
 
 function downloadPDF() {
     html2pdf().from(document.getElementById('render-target')).set({
-        margin: 0, filename: 'Brief.pdf', html2canvas: { scale: 2 },
+        margin: 0, filename: 'SCOTUS_Brief.pdf', html2canvas: { scale: 2 },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
     }).save();
 }
