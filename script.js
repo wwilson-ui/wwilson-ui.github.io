@@ -13,9 +13,12 @@ window.onload = () => {
 
 // --- AUTH LOGIC ---
 function onSignIn(response) {
-    const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    document.getElementById('auth-status').innerText = "Logged in as: " + payload.email;
-    console.log("User ID:", payload.sub);
+    try {
+        const payload = JSON.parse(atob(response.credential.split('.')[1]));
+        document.getElementById('auth-status').innerText = "Logged in as: " + payload.email;
+    } catch(e) {
+        console.error("Auth error:", e);
+    }
 }
 
 // --- TAB LOGIC ---
@@ -46,7 +49,7 @@ function renderInputFields() {
     const types = ['petitioner', 'respondent', 'question', 'case', 'statute'];
     types.forEach(t => {
         const container = document.getElementById(`${t}-inputs`);
-        if (!container) return; // Prevent crash if ID is missing
+        if (!container) return;
         container.innerHTML = data[t + 's'].map((val, i) => `
             <div style="display:flex; gap:5px; margin-bottom:5px;">
                 <input type="text" value="${val}" placeholder="..." oninput="data['${t}s'][${i}]=this.value; refresh()">
@@ -91,12 +94,32 @@ function refresh() {
         </div>`;
 
     const questionsHTML = `<div class="section-header">QUESTIONS PRESENTED</div>${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
-    const argumentHTML = `<div class="section-header">ARGUMENT</div><p style="white-space: pre-wrap;">${get('argBody')}</p>`;
+    
+    const authoritiesHTML = `
+        <div class="section-header">TABLE OF AUTHORITIES</div>
+        <p><b>Cases:</b></p>
+        ${data.cases.filter(x=>x).sort().map(c => `<div style="margin-bottom:5px; padding-left: 20px;"><i>${c}</i></div>`).join('')}
+        <p style="margin-top:20px;"><b>Statutes:</b></p>
+        ${data.statutes.filter(x=>x).sort().map(s => `<div style="margin-bottom:5px; padding-left: 20px;">${s}</div>`).join('')}
+    `;
 
-    document.getElementById('render-target').innerHTML = makePage(coverHTML) + makePage(questionsHTML) + makePage(argumentHTML);
+    const argumentHTML = `
+        <div class="section-header">SUMMARY OF ARGUMENT</div>
+        <p style="text-indent: 0.5in;">${get('summaryArg')}</p>
+        <div class="section-header">ARGUMENT</div>
+        <p style="white-space: pre-wrap; text-indent: 0.5in;">${get('argBody')}</p>
+        <div class="section-header">CONCLUSION</div>
+        <p style="text-indent: 0.5in;">${get('conclusionText')}</p>
+    `;
+
+    document.getElementById('render-target').innerHTML = 
+        makePage(coverHTML) + 
+        makePage(questionsHTML) + 
+        makePage(authoritiesHTML) +
+        makePage(argumentHTML);
 }
 
-// --- FILE OPS ---
+// --- FILE & PRINT OPS ---
 function localExport() {
     const inputs = {};
     document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
