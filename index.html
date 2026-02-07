@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SCOTUS Brief Pro | Legal Generator</title>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,23 +15,15 @@
 <header>
     <div style="font-weight:bold;">⚖️ SCOTUS Brief Generator Pro</div>
     <div id="google-btn-wrapper">
-        <div id="g_id_onload" data-client_id="YOUR_GOOGLE_CLIENT_ID" data-callback="onSignIn"></div>
+        <div id="g_id_onload" data-client_id="YOUR_GOOGLE_ID" data-callback="onSignIn"></div>
         <div class="g_id_signin" data-type="standard"></div>
     </div>
 </header>
 
 <main class="app-container">
     <nav class="sidebar">
-        <div id="auth-status" style="font-size: 0.75rem; color: #666; margin-bottom: 15px;">Sign in to save projects to the cloud.</div>
+        <div id="auth-status" style="font-size: 0.75rem; color: #666; margin-bottom: 15px;">Sign in to save multiple projects.</div>
         
-        <div id="project-selector-zone" style="display:none; margin-bottom:20px;">
-            <label style="margin-top:0;">Load Saved Project:</label>
-            <div style="display:flex; gap:5px;">
-                <select id="projectList" onchange="loadSelectedProject()" style="flex:1;"></select>
-                <button onclick="dbDelete()" style="border:none; background:#fee2e2; color:#dc2626; cursor:pointer; border-radius:4px; padding:0 8px;">🗑️</button>
-            </div>
-        </div>
-
         <button class="tab-btn active" onclick="switchTab('setup')">1. Initial Setup</button>
         <button class="tab-btn" onclick="switchTab('cover')">2. Cover Page</button>
         <button class="tab-btn" onclick="switchTab('authorities')">3. Authorities</button>
@@ -39,7 +32,6 @@
         <button class="tab-btn" onclick="switchTab('finalize')">6. Finalize & Print</button>
         
         <div class="persistence-zone">
-            <button class="action-btn btn-cloud" id="cloudBtn" onclick="dbSave()">☁️ Save to Database</button>
             <button class="action-btn" onclick="localExport()">💾 Export .JSON File</button>
             <label class="action-btn import-label">
                 📂 Import .JSON File
@@ -56,10 +48,62 @@
         <div id="setup" class="tab-content active">
             <h2>Project Setup</h2>
             <label>Project Title:</label>
-            <input type="text" id="projectTitle" placeholder="e.g. Smith v. Jones Final" oninput="refresh()">
-            </div>
+            <input type="text" id="projectTitle" placeholder="..." oninput="refresh()">
+            <label>Writing for:</label>
+            <select id="briefType" onchange="refresh()">
+                <option value="Petitioner">Brief for Petitioner</option>
+                <option value="Respondent">Brief for Respondent</option>
+                <option value="Amicus Curiae">Brief for Amicus Curiae</option>
+            </select>
+            <label>Court Term:</label>
+            <input type="text" id="courtTerm" placeholder="..." oninput="refresh()">
+            <label>Firm/School:</label>
+            <input type="text" id="firmName" placeholder="..." oninput="refresh()">
+            <label>Counsel Names:</label>
+            <textarea id="studentNames" rows="3" placeholder="..." oninput="refresh()"></textarea>
+        </div>
+
+        <div id="cover" class="tab-content">
+            <h2>Cover Details</h2>
+            <label>Docket Number:</label>
+            <input type="text" id="docketNum" placeholder="..." oninput="refresh()">
+            <label>Petitioners:</label>
+            <div id="petitioner-inputs"></div>
+            <button onclick="addDynamic('petitioner')">+ Add</button>
+            <label>Respondents:</label>
+            <div id="respondent-inputs"></div>
+            <button onclick="addDynamic('respondent')">+ Add</button>
+            <label>Lower Court:</label>
+            <input type="text" id="lowerCourt" placeholder="..." oninput="refresh()">
+        </div>
+
+        <div id="authorities" class="tab-content">
+            <h2>Authorities</h2>
+            <label>Cases:</label>
+            <div id="case-inputs"></div>
+            <button onclick="addDynamic('case')">+ Add Case</button>
+            <label>Statutes:</label>
+            <div id="statute-inputs"></div>
+            <button onclick="addDynamic('statute')">+ Add Statute</button>
+        </div>
+
+        <div id="questions" class="tab-content">
+            <h2>Questions Presented</h2>
+            <div id="question-inputs"></div>
+            <button onclick="addDynamic('question')">+ Add Question</button>
+        </div>
+
+        <div id="argument" class="tab-content">
+            <h2>Argument</h2>
+            <label>Summary of Argument:</label>
+            <textarea id="summaryArg" rows="4" placeholder="..." oninput="refresh()"></textarea>
+            <label>Full Argument Body:</label>
+            <textarea id="argBody" rows="12" placeholder="..." oninput="refresh()"></textarea>
+        </div>
+
         <div id="finalize" class="tab-content">
-            <h2>Final Steps</h2>
+            <h2>Finalize & Print</h2>
+            <label>Conclusion:</label>
             <textarea id="conclusionText" rows="4" placeholder="..." oninput="refresh()"></textarea>
             <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
                 <button class="action-btn" style="background:#1a237e; color:white;" onclick="downloadPDF()">📥 DOWNLOAD PDF BRIEF</button>
@@ -69,10 +113,12 @@
     </section>
 
     <section class="preview-panel">
-        <div id="render-target"></div>
+        <div id="render-target">
+            </div>
     </section>
 </main>
 
 <script src="script.js"></script>
+
 </body>
 </html>
