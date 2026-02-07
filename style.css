@@ -11,12 +11,11 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
     background: var(--bg-gray);
     overflow: hidden;
 }
 
-/* HEADER */
 header {
     background: var(--legal-blue);
     color: white;
@@ -34,7 +33,7 @@ header {
     overflow: hidden;
 }
 
-/* SIDEBAR */
+/* SIDEBAR & BUTTONS */
 .sidebar {
     width: 280px;
     min-width: 280px;
@@ -43,10 +42,11 @@ header {
     display: flex;
     flex-direction: column;
     padding: 15px;
-    overflow-y: auto;
+    box-sizing: border-box;
 }
 
 .tab-btn {
+    width: 100%;
     padding: 12px;
     border: none;
     background: transparent;
@@ -56,20 +56,32 @@ header {
     margin-bottom: 5px;
     font-weight: 600;
     color: #444;
+    transition: background 0.2s;
 }
 
 .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); }
 
+.persistence-zone {
+    margin-top: auto;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 .action-btn {
+    display: block;
     width: 100%;
-    padding: 10px;
+    padding: 12px;
     border-radius: 6px;
     border: 1px solid #ccc;
     cursor: pointer;
     font-weight: bold;
-    margin-bottom: 8px;
     background: white;
     box-sizing: border-box;
+    text-align: center;
+    font-size: 0.85rem;
 }
 
 /* INPUTS */
@@ -96,19 +108,22 @@ label {
 
 input, textarea, select {
     width: 100%;
-    padding: 8px;
+    padding: 10px;
     margin-top: 5px;
     border: 1px solid #ccc;
     border-radius: 4px;
     box-sizing: border-box;
 }
 
-/* PREVIEW & PAPER */
+/* PREVIEW */
 .preview-panel {
     flex: 1.5;
     padding: 40px;
     overflow-y: auto;
     background: var(--bg-gray);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .paper { 
@@ -120,19 +135,19 @@ input, textarea, select {
     box-shadow: 0 0 20px rgba(0,0,0,0.4); 
     font-family: 'Crimson Pro', serif; 
     font-size: 12pt; 
-    line-height: 1.4; 
+    line-height: 1.5; 
     color: black; 
     position: relative; 
     box-sizing: border-box;
 }
 
-/* LEGAL FORMATTING FIXED */
+/* LEGAL ELEMENTS */
 .court-header {
     text-align: center;
     font-weight: bold;
     font-size: 14pt;
     text-transform: uppercase;
-    margin: 15px 0;
+    margin-bottom: 5px;
     line-height: 1.2;
 }
 
@@ -140,7 +155,7 @@ hr {
     border: 0;
     border-top: 1.5pt solid black;
     margin: 15px 0;
-    display: block !important; /* Ensure it stays visible */
+    display: block;
 }
 
 .title-box {
@@ -148,7 +163,7 @@ hr {
     border-top: 1.5pt solid black;
     border-bottom: 1.5pt solid black;
     padding: 15px 10px;
-    margin: 30px 0;
+    margin: 25px 0;
     font-weight: bold;
     text-transform: uppercase;
 }
@@ -157,7 +172,7 @@ hr {
     text-align: center;
     font-weight: bold;
     text-transform: uppercase;
-    margin: 25px 0 15px 0;
+    margin: 30px 0 15px 0;
 }
 
 .manual-footer {
@@ -169,10 +184,12 @@ hr {
     font-size: 11pt;
 }
 
-/* PRINTING REPAIR */
+.sidebar-footer { text-align: center; padding-top: 10px; }
+
+/* PRINTING */
 @media print {
     body, .app-container, .preview-panel { display: block !important; height: auto !important; background: white !important; overflow: visible !important; }
     header, .sidebar, .input-panel { display: none !important; }
-    .paper { margin: 0 !important; box-shadow: none !important; page-break-after: always !important; }
+    .paper { margin: 0 !important; box-shadow: none !important; height: 11in !important; page-break-after: always !important; }
     .paper:last-child { page-break-after: avoid !important; }
 }
