@@ -1,10 +1,19 @@
-let data = { petitioners: [""], respondents: [""], questions: [""], cases: [""], statutes: [""] };
+let data = { 
+    petitioners: [""], 
+    respondents: [""], 
+    questions: [""], 
+    cases: [""], 
+    statutes: [""] 
+};
 
-window.onload = () => { renderInputFields(); refresh(); };
+window.onload = () => { 
+    renderInputFields(); 
+    refresh(); 
+};
 
 function onSignIn(response) {
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    document.getElementById('auth-status').innerText = "User: " + payload.email;
+    document.getElementById('auth-status').innerText = "Logged in as: " + payload.email;
 }
 
 function switchTab(id) {
@@ -14,11 +23,17 @@ function switchTab(id) {
     if (btn) btn.classList.add('active');
 }
 
-function addDynamic(type) { data[type + 's'].push(""); renderInputFields(); refresh(); }
+function addDynamic(type) {
+    data[type + 's'].push("");
+    renderInputFields();
+    refresh();
+}
+
 function removeDynamic(type, idx) {
     if (data[type + 's'].length > 1) data[type + 's'].splice(idx, 1);
     else data[type + 's'][0] = "";
-    renderInputFields(); refresh();
+    renderInputFields();
+    refresh();
 }
 
 function renderInputFields() {
@@ -39,44 +54,49 @@ function refresh() {
     let pageNum = 1;
     const makePage = (content) => `<div class="paper">${content}<div class="manual-footer">${pageNum++}</div></div>`;
 
-    const cover = `
+    // 1. COVER PAGE
+    const coverHTML = `
         <div style="font-weight:bold;">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
         <div class="court-header">In the <br> Supreme Court of the United States</div>
-        <div style="text-align:center; font-weight:bold; margin-bottom:10px;">${get('courtTerm').toUpperCase() || 'OCTOBER TERM 202X'}</div>
+        <div style="text-align:center; font-weight:bold;">${get('courtTerm').toUpperCase() || 'OCTOBER TERM 202X'}</div>
         <hr>
         <div style="display:flex; margin:20px 0;">
-            <div style="flex:1; padding-right:10px;">
+            <div style="flex:1; padding-right:15px;">
                 ${data.petitioners.map(p => p.toUpperCase() || 'PETITIONER').join(',<br>')},<br> <i>Petitioner</i>,
                 <div style="margin:10px 40px;">v.</div>
                 ${data.respondents.map(r => r.toUpperCase() || 'RESPONDENT').join(',<br>')},<br> <i>Respondent</i>.
             </div>
-            <div style="border-left:1.5pt solid black; padding-left:20px; width:45%; font-style:italic; display:flex; align-items:center;">
+            <div style="border-left:1.5pt solid black; padding-left:20px; width:45%; font-style:italic;">
                 On Writ of Certiorari to the ${get('lowerCourt') || 'the Lower Court'}
             </div>
         </div>
         <div class="title-box">BRIEF FOR THE ${get('briefType').toUpperCase()}</div>
         <div style="text-align:center; margin-top:1in;">
             <b>Respectfully Submitted,</b><br><br>
-            <span style="font-variant:small-caps;">${get('firmName') || 'FIRM NAME'}</span><br>
+            <span style="font-variant:small-caps; font-weight:bold;">${get('firmName') || 'FIRM NAME'}</span><br>
             <div style="font-size:11pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>') || 'COUNSEL NAME'}</div>
         </div>`;
 
-    const questions = `<div class="section-header">QUESTIONS PRESENTED</div>${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
+    // 2. QUESTIONS
+    const questionsHTML = `<div class="section-header">QUESTIONS PRESENTED</div>${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
     
-    const authorities = `<div class="section-header">TABLE OF AUTHORITIES</div>
+    // 3. AUTHORITIES
+    const authoritiesHTML = `<div class="section-header">TABLE OF AUTHORITIES</div>
         <p><b>Cases:</b></p>${data.cases.filter(x => x.trim()).sort().map(c => `<div style="margin-bottom:5px;"><i>${c}</i></div>`).join('') || '...'}
         <p style="margin-top:20px;"><b>Statutes:</b></p>${data.statutes.filter(x => x.trim()).sort().map(s => `<div style="margin-bottom:5px;">${s}</div>`).join('') || '...'}`;
 
-    const argument = `<div class="section-header">SUMMARY OF ARGUMENT</div><p style="text-indent:0.5in;">${get('summaryArg') || '...'}</p>
+    // 4. ARGUMENT
+    const argumentHTML = `<div class="section-header">SUMMARY OF ARGUMENT</div><p style="text-indent:0.5in;">${get('summaryArg') || '...'}</p>
         <div class="section-header">ARGUMENT</div><p style="white-space: pre-wrap; text-indent:0.5in;">${get('argBody') || '...'}</p>`;
 
-    const conclusion = `<div class="section-header">CONCLUSION</div><p style="text-indent:0.5in;">${get('conclusionText') || '...'}</p>
+    // 5. CONCLUSION
+    const conclusionHTML = `<div class="section-header">CONCLUSION</div><p style="text-indent:0.5in;">${get('conclusionText') || '...'}</p>
         <div style="margin-top:60px; float:right; text-align:left; width:220px;">
             Respectfully submitted,<br><br>____________________<br>${get('studentNames').split('\n')[0] || 'Counsel of Record'}
         </div><div style="clear:both;"></div>`;
 
     document.getElementById('render-target').innerHTML = 
-        makePage(cover) + makePage(questions) + makePage(authorities) + makePage(argument) + makePage(conclusion);
+        makePage(coverHTML) + makePage(questionsHTML) + makePage(authoritiesHTML) + makePage(argumentHTML) + makePage(conclusionHTML);
 }
 
 function downloadPDF() {
@@ -88,10 +108,6 @@ function downloadPDF() {
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
         pagebreak: { mode: 'avoid-all', before: '.paper' }
     }).save();
-}
-
-function showTOS() {
-    alert("Terms of Service: This tool is for drafting purposes only. Ensure all local court rules are followed before filing.");
 }
 
 function localExport() {
