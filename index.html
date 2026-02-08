@@ -22,31 +22,23 @@
 
 <main class="app-container">
     <nav class="sidebar">
-        <div id="auth-status" style="font-size: 0.75rem; color: #666; margin-bottom: 10px;">Checking system...</div>
+        <div id="auth-status" style="font-size: 0.75rem; color: #888; margin-bottom: 15px;">Initializing system...</div>
         
         <div class="tabs-zone">
-            <button class="tab-btn active" id="btn-setup" onclick="switchTab('setup')">1. Initial Setup</button>
-            <button class="tab-btn" id="btn-cover" onclick="switchTab('cover')">2. Cover Page</button>
-            <button class="tab-btn" id="btn-authorities" onclick="switchTab('authorities')">3. Authorities</button>
-            <button class="tab-btn" id="btn-questions" onclick="switchTab('questions')">4. Questions</button>
-            <button class="tab-btn" id="btn-argument" onclick="switchTab('argument')">5. Argument</button>
-            <button class="tab-btn" id="btn-finalize" onclick="switchTab('finalize')">6. Finalize & Print</button>
+            <button class="tab-btn active" onclick="switchTab('setup')">1. Initial Setup</button>
+            <button class="tab-btn" onclick="switchTab('cover')">2. Cover Page</button>
+            <button class="tab-btn" onclick="switchTab('authorities')">3. Authorities</button>
+            <button class="tab-btn" onclick="switchTab('questions')">4. Questions</button>
+            <button class="tab-btn" onclick="switchTab('argument')">5. Argument</button>
+            <button class="tab-btn" onclick="switchTab('finalize')">6. Finalize & Print</button>
         </div>
         
         <div class="persistence-zone">
             <button class="action-btn cloud-save-btn" onclick="saveToCloud()">☁️ Save to Cloud</button>
             <select id="cloud-projects" class="action-btn" onchange="loadSpecificProject(this.value)">
-                <option value="">📂 Load from Cloud...</option>
+                <option value="">📂 My Cloud Projects...</option>
             </select>
-            <button class="action-btn btn-danger" onclick="deleteProject()">🗑️ Delete Project</button>
-
-            <hr style="margin: 10px 0; border-top: 1px solid #eee;">
-
-            <button class="action-btn" onclick="localExport()">💾 Export .JSON</button>
-            <label class="action-btn" for="importFile" style="cursor:pointer; margin-bottom:0;">
-                <span>📂 Import .JSON</span>
-            </label>
-            <input type="file" id="importFile" hidden onchange="localImport(event)">
+            <button class="action-btn btn-danger" onclick="deleteProject()">🗑️ Delete Selected</button>
         </div>
 
         <div class="sidebar-footer">
@@ -58,7 +50,7 @@
         <div id="setup" class="tab-content active">
             <h2>Project Setup</h2>
             <label>Project Title:</label>
-            <input type="text" id="projectTitle" placeholder="Internal Project Name..." oninput="refresh()">
+            <input type="text" id="projectTitle" placeholder="e.g. Smith v. Jones Final" oninput="refresh()">
             <label>Writing for:</label>
             <select id="briefType" onchange="refresh()">
                 <option value="Petitioner">Brief for Petitioner</option>
@@ -67,9 +59,9 @@
             <label>Court Term:</label>
             <input type="text" id="courtTerm" placeholder="October Term 2025" oninput="refresh()">
             <label>Firm/School:</label>
-            <input type="text" id="firmName" placeholder="Law Firm or University Name..." oninput="refresh()">
+            <input type="text" id="firmName" placeholder="Law Firm or University..." oninput="refresh()">
             <label>Counsel Names:</label>
-            <textarea id="studentNames" rows="3" placeholder="John Doe..." oninput="refresh()"></textarea>
+            <textarea id="studentNames" rows="3" oninput="refresh()"></textarea>
         </div>
 
         <div id="cover" class="tab-content">
@@ -83,7 +75,7 @@
             <div id="respondent-inputs"></div>
             <button class="action-btn small-btn" onclick="addDynamic('respondent')">+ Add Respondent</button>
             <label>Lower Court:</label>
-            <input type="text" id="lowerCourt" placeholder="U.S. Court of Appeals..." oninput="refresh()">
+            <input type="text" id="lowerCourt" oninput="refresh()">
         </div>
 
         <div id="authorities" class="tab-content">
