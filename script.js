@@ -19,9 +19,17 @@ window.onload = () => {
     refresh(); 
 };
 
-function onSignIn(response) {
-    const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    document.getElementById('auth-status').innerText = "Logged in as: " + payload.email;
+async function onSignIn(response) {
+    try {
+        const payload = JSON.parse(atob(response.credential.split('.')[1]));
+        currentUser = payload.email;
+        document.getElementById('auth-status').innerText = "Logged in as: " + currentUser;
+        
+        // After signing in, try to load any existing projects for this user
+        loadFromCloud(); 
+    } catch(e) {
+        console.error("Auth error:", e);
+    }
 }
 
 function switchTab(id) {
@@ -152,4 +160,48 @@ function localImport(e) {
         renderInputFields(); refresh();
     };
     reader.readAsText(e.target.files[0]);
+}
+
+
+// --- CLOUD STORAGE LOGIC ---
+async function saveToCloud() {
+    if (!currentUser) return alert("Please sign in to save to the cloud.");
+
+    const inputs = {};
+    document.querySelectorAll('input, textarea, select').forEach(el => { 
+        if(el.id) inputs[el.id] = el.value; 
+    });
+
+    const { data: savedData, error } = await supabase
+        .from('briefs')
+        .upsert({ 
+            user_id: currentUser, 
+            project_title: inputs['projectTitle'] || 'Untitled Brief',
+            content_data: data, // Your petitioner/respondent arrays
+            input_fields: inputs // Your textareas and inputs
+        }, { onConflict: 'user_id, project_title' });
+
+    if (error) console.error("Save Error:", error);
+    else alert("Project saved to cloud!");
+}
+
+async function loadFromCloud() {
+    const { data: projects, error } = await supabase
+        .from('briefs')
+        .select('*')
+        .eq('user_id', currentUser);
+
+    if (error) {
+        console.error("Load Error:", error);
+    } else if (projects && projects.length > 0) {
+        // For now, let's just load the most recent project
+        const latest = projects[projects.length - 1];
+        data = latest.content_data;
+        for(let id in latest.input_fields) { 
+            if(document.getElementById(id)) document.getElementById(id).value = latest.input_fields[id]; 
+        }
+        renderInputFields(); 
+        refresh();
+        console.log("Loaded latest project: " + latest.project_title);
+    }
 }
