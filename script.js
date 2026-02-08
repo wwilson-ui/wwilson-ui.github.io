@@ -1,34 +1,42 @@
 // --- SUPABASE CONFIG ---
 const SUPABASE_URL = 'https://dfmugytablgldpkadfrl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AoeVLd5TSJMGyhAyDmXTng_5C-_C8nC';
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let supabase = null;
 
-// State variable to track the current user
-let currentUser = null;
 
-let data = { 
-    petitioners: [""], 
-    respondents: [""], 
-    questions: [""], 
-    cases: [""], 
-    statutes: [""] 
-};
+// --- const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);  ---
 
-window.onload = () => { 
-    renderInputFields(); 
-    refresh(); 
-};
 
-// Update your onSignIn to trigger the list fetch
-async function onSignIn(response) {
-    const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    currentUser = payload.email;
-    document.getElementById('auth-status').innerText = "User: " + currentUser;
-    fetchProjectList(); // Get the user's files immediately
+// Initialize Supabase safely
+try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch (e) {
+    console.warn("Supabase not yet configured.");
 }
 
+let currentUser = null;
+let data = { petitioners: [""], respondents: [""], questions: [""], cases: [""], statutes: [""] };
 
+// --- 2. INITIALIZATION ---
+window.onload = () => {
+    renderInputFields();
+    refresh();
+};
 
+async function onSignIn(response) {
+    try {
+        const payload = JSON.parse(atob(response.credential.split('.')[1]));
+        currentUser = payload.email;
+        document.getElementById('auth-status').innerText = "Logged in as: " + currentUser;
+        
+        if (supabase) await fetchProjectList();
+        refresh(); // Ensure preview stays visible
+    } catch(e) {
+        console.error("Auth error:", e);
+    }
+}
+
+// --- 3. UI LOGIC ---
 function switchTab(id) {
     document.querySelectorAll('.tab-content, .tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById(id).classList.add('active');
@@ -36,17 +44,11 @@ function switchTab(id) {
     if (btn) btn.classList.add('active');
 }
 
-function addDynamic(type) {
-    data[type + 's'].push("");
-    renderInputFields();
-    refresh();
-}
-
+function addDynamic(type) { data[type + 's'].push(""); renderInputFields(); refresh(); }
 function removeDynamic(type, idx) {
     if (data[type + 's'].length > 1) data[type + 's'].splice(idx, 1);
     else data[type + 's'][0] = "";
-    renderInputFields();
-    refresh();
+    renderInputFields(); refresh();
 }
 
 function renderInputFields() {
@@ -62,13 +64,13 @@ function renderInputFields() {
     });
 }
 
+// --- 4. PREVIEW REFRESH ---
 function refresh() {
     const get = (id) => document.getElementById(id)?.value || "";
     let pageNum = 1;
     const makePage = (content) => `<div class="paper">${content}<div class="manual-footer">${pageNum++}</div></div>`;
 
-    // 1. COVER PAGE
-    const coverHTML = `
+    const cover = `
         <div style="font-weight:bold;">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
         <div class="court-header">In the <br> Supreme Court of the United States</div>
         <div style="text-align:center; font-weight:bold;">${get('courtTerm').toUpperCase() || 'OCTOBER TERM 202X'}</div>
@@ -90,62 +92,79 @@ function refresh() {
             <div style="font-size:11pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>') || 'COUNSEL NAME'}</div>
         </div>`;
 
-    // 2. QUESTIONS
-    const questionsHTML = `<div class="section-header">QUESTIONS PRESENTED</div>${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
+    const questions = `<div class="section-header">QUESTIONS PRESENTED</div>${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
+    const authorities = `<div class="section-header">TABLE OF AUTHORITIES</div><p><b>Cases:</b></p>${data.cases.filter(x => x.trim()).sort().map(c => `<div><i>${c}</i></div>`).join('') || '...'}`;
+    const argument = `<div class="section-header">SUMMARY OF ARGUMENT</div><p>${get('summaryArg')}</p><div class="section-header">ARGUMENT</div><p style="white-space: pre-wrap;">${get('argBody')}</p>`;
+    const conclusion = `<div class="section-header">CONCLUSION</div><p>${get('conclusionText')}</p>`;
+
+    const target = document.getElementById('render-target');
+    if (target) {
+        target.innerHTML = makePage(cover) + makePage(questions) + makePage(authorities) + makePage(argument) + makePage(conclusion);
+    }
+}
+
+// --- 5. CLOUD & LOCAL PERSISTENCE ---
+async function saveToCloud() {
+    if (!currentUser || !supabase) return alert("Please sign in to use Cloud features.");
     
-    // 3. AUTHORITIES
-    const authoritiesHTML = `<div class="section-header">TABLE OF AUTHORITIES</div>
-        <p><b>Cases:</b></p>${data.cases.filter(x => x.trim()).sort().map(c => `<div style="margin-bottom:5px;"><i>${c}</i></div>`).join('') || '...'}
-        <p style="margin-top:20px;"><b>Statutes:</b></p>${data.statutes.filter(x => x.trim()).sort().map(s => `<div style="margin-bottom:5px;">${s}</div>`).join('') || '...'}`;
+    const title = document.getElementById('projectTitle').value || "Untitled Brief";
+    const inputs = {};
+    document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
 
-    // 4. ARGUMENT
-    const argumentHTML = `<div class="section-header">SUMMARY OF ARGUMENT</div><p style="text-indent:0.5in;">${get('summaryArg') || '...'}</p>
-        <div class="section-header">ARGUMENT</div><p style="white-space: pre-wrap; text-indent:0.5in;">${get('argBody') || '...'}</p>`;
+    const { error } = await supabase.from('briefs').upsert({ 
+        user_id: currentUser, project_title: title, content_data: data, input_fields: inputs, updated_at: new Date()
+    }, { onConflict: 'user_id, project_title' });
 
-    // 5. CONCLUSION
-    const conclusionHTML = `<div class="section-header">CONCLUSION</div><p style="text-indent:0.5in;">${get('conclusionText') || '...'}</p>
-        <div style="margin-top:60px; float:right; text-align:left; width:220px;">
-            Respectfully submitted,<br><br>____________________<br>${get('studentNames').split('\n')[0] || 'Counsel of Record'}
-        </div><div style="clear:both;"></div>`;
+    if (error) alert("Error: " + error.message);
+    else { alert("Saved!"); fetchProjectList(); }
+}
 
-    document.getElementById('render-target').innerHTML = 
-        makePage(coverHTML) + makePage(questionsHTML) + makePage(authoritiesHTML) + makePage(argumentHTML) + makePage(conclusionHTML);
+async function fetchProjectList() {
+    if (!currentUser || !supabase) return;
+    const { data: projects } = await supabase.from('briefs').select('project_title').eq('user_id', currentUser).order('updated_at', { ascending: false });
+    const dropdown = document.getElementById('cloud-projects');
+    dropdown.innerHTML = '<option value="">📂 Load from Cloud...</option>';
+    if (projects) projects.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.project_title; opt.textContent = p.project_title;
+        dropdown.appendChild(opt);
+    });
+}
+
+async function loadSpecificProject(title) {
+    if (!title || !supabase) return;
+    const { data: project } = await supabase.from('briefs').select('*').eq('user_id', currentUser).eq('project_title', title).single();
+    if (project) {
+        data = project.content_data;
+        for(let id in project.input_fields) { 
+            const el = document.getElementById(id); 
+            if(el) el.value = project.input_fields[id]; 
+        }
+        renderInputFields(); refresh();
+    }
+}
+
+async function deleteProject() {
+    const title = document.getElementById('cloud-projects').value;
+    if (!title || !confirm(`Delete "${title}" forever?`)) return;
+    const { error } = await supabase.from('briefs').delete().eq('user_id', currentUser).eq('project_title', title);
+    if (!error) { fetchProjectList(); refresh(); }
 }
 
 function downloadPDF() {
     const element = document.getElementById('render-target');
-    
-    // We temporarily hide the box-shadows so they don't create artifacts in the PDF
-    const papers = document.querySelectorAll('.paper');
-    papers.forEach(p => p.style.boxShadow = 'none');
-
-    const opt = {
-        margin: 0,
-        filename: 'SCOTUS_Brief.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-            scale: 2, 
-            useCORS: true, 
-            letterRendering: true 
-        },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: 'css', after: '.paper' } 
-    };
-
-    html2pdf().from(element).set(opt).save().then(() => {
-        // Restore shadows for the web preview after download starts
-        papers.forEach(p => p.style.boxShadow = '0 0 20px rgba(0,0,0,0.4)');
-    });
+    html2pdf().from(element).set({
+        margin: 0, filename: 'Brief.pdf', jsPDF: { unit: 'in', format: 'letter' },
+        pagebreak: { mode: 'avoid-all', before: '.paper' }
+    }).save();
 }
 
 function localExport() {
     const inputs = {};
     document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
     const blob = new Blob([JSON.stringify({ data, inputs })], {type: "application/json"});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = (document.getElementById('projectTitle').value || "brief") + ".json";
-    a.click();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = (document.getElementById('projectTitle').value || "brief") + ".json"; a.click();
 }
 
 function localImport(e) {
@@ -157,104 +176,4 @@ function localImport(e) {
         renderInputFields(); refresh();
     };
     reader.readAsText(e.target.files[0]);
-}
-
-
-// --- CLOUD STORAGE LOGIC ---
-
-// --- UPDATED CLOUD LOGIC ---
-
-// 1. Save or Update a project
-async function saveToCloud() {
-    if (!currentUser) return alert("Please sign in to save to the cloud.");
-    
-    const title = document.getElementById('projectTitle').value || "Untitled Brief";
-    const inputs = {};
-    document.querySelectorAll('input, textarea, select').forEach(el => { 
-        if(el.id) inputs[el.id] = el.value; 
-    });
-
-    const { error } = await supabase
-        .from('briefs')
-        .upsert({ 
-            user_id: currentUser, 
-            project_title: title,
-            content_data: data, 
-            input_fields: inputs,
-            updated_at: new Date()
-        }, { onConflict: 'user_id, project_title' });
-
-    if (error) {
-        alert("Error saving: " + error.message);
-    } else {
-        alert("Project '" + title + "' saved successfully!");
-        fetchProjectList(); // Refresh the dropdown
-    }
-}
-
-// 2. Fetch all projects for the logged-in user to fill the dropdown
-async function fetchProjectList() {
-    if (!currentUser) return;
-
-    const { data: projects, error } = await supabase
-        .from('briefs')
-        .select('project_title')
-        .eq('user_id', currentUser)
-        .order('updated_at', { ascending: false });
-
-    const dropdown = document.getElementById('cloud-projects');
-    dropdown.innerHTML = '<option value="">📂 Load from Cloud...</option>';
-
-    if (projects) {
-        projects.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.project_title;
-            opt.textContent = p.project_title;
-            dropdown.appendChild(opt);
-        });
-    }
-}
-
-// 3. Load a specific project when selected from the dropdown
-async function loadSpecificProject(title) {
-    if (!title) return;
-
-    const { data: projects, error } = await supabase
-        .from('briefs')
-        .select('*')
-        .eq('user_id', currentUser)
-        .eq('project_title', title)
-        .single();
-
-    if (projects) {
-        data = projects.content_data;
-        for(let id in projects.input_fields) { 
-            const el = document.getElementById(id);
-            if(el) el.value = projects.input_fields[id]; 
-        }
-        renderInputFields(); 
-        refresh();
-        alert("Loaded: " + title);
-    }
-}
-
-async function loadFromCloud() {
-    const { data: projects, error } = await supabase
-        .from('briefs')
-        .select('*')
-        .eq('user_id', currentUser);
-
-    if (error) {
-        console.error("Load Error:", error);
-    } else if (projects && projects.length > 0) {
-        // For now, let's just load the most recent project
-        const latest = projects[projects.length - 1];
-        data = latest.content_data;
-        for(let id in latest.input_fields) { 
-            if(document.getElementById(id)) document.getElementById(id).value = latest.input_fields[id]; 
-        }
-        renderInputFields(); 
-        refresh();
-        console.log("Loaded latest project: " + latest.project_title);
-    }
 }
