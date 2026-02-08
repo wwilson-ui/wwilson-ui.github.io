@@ -4,12 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SCOTUS Brief Pro | Legal Generator</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    
     <link rel="stylesheet" href="style.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -26,15 +22,15 @@
 
 <main class="app-container">
     <nav class="sidebar">
-        <div id="auth-status" style="font-size: 0.75rem; color: #666; margin-bottom: 15px;">Sign in to save projects.</div>
+        <div id="auth-status" style="font-size: 0.75rem; color: #666; margin-bottom: 10px;">Checking system...</div>
         
         <div class="tabs-zone">
-            <button class="tab-btn active" onclick="switchTab('setup')">1. Initial Setup</button>
-            <button class="tab-btn" onclick="switchTab('cover')">2. Cover Page</button>
-            <button class="tab-btn" onclick="switchTab('authorities')">3. Authorities</button>
-            <button class="tab-btn" onclick="switchTab('questions')">4. Questions</button>
-            <button class="tab-btn" onclick="switchTab('argument')">5. Argument</button>
-            <button class="tab-btn" onclick="switchTab('finalize')">6. Finalize & Print</button>
+            <button class="tab-btn active" id="btn-setup" onclick="switchTab('setup')">1. Initial Setup</button>
+            <button class="tab-btn" id="btn-cover" onclick="switchTab('cover')">2. Cover Page</button>
+            <button class="tab-btn" id="btn-authorities" onclick="switchTab('authorities')">3. Authorities</button>
+            <button class="tab-btn" id="btn-questions" onclick="switchTab('questions')">4. Questions</button>
+            <button class="tab-btn" id="btn-argument" onclick="switchTab('argument')">5. Argument</button>
+            <button class="tab-btn" id="btn-finalize" onclick="switchTab('finalize')">6. Finalize & Print</button>
         </div>
         
         <div class="persistence-zone">
@@ -130,6 +126,8 @@
     </section>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
