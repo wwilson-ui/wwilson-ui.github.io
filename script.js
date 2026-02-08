@@ -1,3 +1,11 @@
+// --- SUPABASE CONFIG ---
+const SUPABASE_URL = 'https://dfmugytablgldpkadfrl.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_AoeVLd5TSJMGyhAyDmXTng_5C-_C8nC';
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// State variable to track the current user
+let currentUser = null;
+
 let data = { 
     petitioners: [""], 
     respondents: [""], 
