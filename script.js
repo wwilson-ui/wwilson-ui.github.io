@@ -19,18 +19,15 @@ window.onload = () => {
     refresh(); 
 };
 
+// Update your onSignIn to trigger the list fetch
 async function onSignIn(response) {
-    try {
-        const payload = JSON.parse(atob(response.credential.split('.')[1]));
-        currentUser = payload.email;
-        document.getElementById('auth-status').innerText = "Logged in as: " + currentUser;
-        
-        // After signing in, try to load any existing projects for this user
-        loadFromCloud(); 
-    } catch(e) {
-        console.error("Auth error:", e);
-    }
+    const payload = JSON.parse(atob(response.credential.split('.')[1]));
+    currentUser = payload.email;
+    document.getElementById('auth-status').innerText = "User: " + currentUser;
+    fetchProjectList(); // Get the user's files immediately
 }
+
+
 
 function switchTab(id) {
     document.querySelectorAll('.tab-content, .tab-btn').forEach(el => el.classList.remove('active'));
@@ -164,25 +161,81 @@ function localImport(e) {
 
 
 // --- CLOUD STORAGE LOGIC ---
+
+// --- UPDATED CLOUD LOGIC ---
+
+// 1. Save or Update a project
 async function saveToCloud() {
     if (!currentUser) return alert("Please sign in to save to the cloud.");
-
+    
+    const title = document.getElementById('projectTitle').value || "Untitled Brief";
     const inputs = {};
     document.querySelectorAll('input, textarea, select').forEach(el => { 
         if(el.id) inputs[el.id] = el.value; 
     });
 
-    const { data: savedData, error } = await supabase
+    const { error } = await supabase
         .from('briefs')
         .upsert({ 
             user_id: currentUser, 
-            project_title: inputs['projectTitle'] || 'Untitled Brief',
-            content_data: data, // Your petitioner/respondent arrays
-            input_fields: inputs // Your textareas and inputs
+            project_title: title,
+            content_data: data, 
+            input_fields: inputs,
+            updated_at: new Date()
         }, { onConflict: 'user_id, project_title' });
 
-    if (error) console.error("Save Error:", error);
-    else alert("Project saved to cloud!");
+    if (error) {
+        alert("Error saving: " + error.message);
+    } else {
+        alert("Project '" + title + "' saved successfully!");
+        fetchProjectList(); // Refresh the dropdown
+    }
+}
+
+// 2. Fetch all projects for the logged-in user to fill the dropdown
+async function fetchProjectList() {
+    if (!currentUser) return;
+
+    const { data: projects, error } = await supabase
+        .from('briefs')
+        .select('project_title')
+        .eq('user_id', currentUser)
+        .order('updated_at', { ascending: false });
+
+    const dropdown = document.getElementById('cloud-projects');
+    dropdown.innerHTML = '<option value="">📂 Load from Cloud...</option>';
+
+    if (projects) {
+        projects.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.project_title;
+            opt.textContent = p.project_title;
+            dropdown.appendChild(opt);
+        });
+    }
+}
+
+// 3. Load a specific project when selected from the dropdown
+async function loadSpecificProject(title) {
+    if (!title) return;
+
+    const { data: projects, error } = await supabase
+        .from('briefs')
+        .select('*')
+        .eq('user_id', currentUser)
+        .eq('project_title', title)
+        .single();
+
+    if (projects) {
+        data = projects.content_data;
+        for(let id in projects.input_fields) { 
+            const el = document.getElementById(id);
+            if(el) el.value = projects.input_fields[id]; 
+        }
+        renderInputFields(); 
+        refresh();
+        alert("Loaded: " + title);
+    }
 }
 
 async function loadFromCloud() {
