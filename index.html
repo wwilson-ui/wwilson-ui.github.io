@@ -36,9 +36,14 @@
         
         <div class="persistence-zone">
             <button class="action-btn" style="background: var(--legal-blue); color: white; border:none;" onclick="saveToCloud()">☁️ Save to Cloud</button>
-            <select id="cloud-projects" class="action-btn" onchange="loadSpecificProject(this.value)">
-                <option value="">📂 Load from Cloud...</option>
-            </select>
+    
+            <div style="position:relative;">
+                <select id="cloud-projects" onchange="loadSpecificProject(this.value)">
+                    <option value="">📂 Load from Cloud...</option>
+                </select>
+            </div>
+
+            <button class="action-btn btn-danger" onclick="deleteProject()">🗑️ Delete Selected</button>
 
             <hr style="margin: 5px 0; border-top: 1px solid #eee;">
 
