@@ -101,13 +101,28 @@ function refresh() {
 
 function downloadPDF() {
     const element = document.getElementById('render-target');
-    html2pdf().from(element).set({
+    
+    // We temporarily hide the box-shadows so they don't create artifacts in the PDF
+    const papers = document.querySelectorAll('.paper');
+    papers.forEach(p => p.style.boxShadow = 'none');
+
+    const opt = {
         margin: 0,
         filename: 'SCOTUS_Brief.pdf',
-        html2canvas: { scale: 2 },
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+            scale: 2, 
+            useCORS: true, 
+            letterRendering: true 
+        },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: 'avoid-all', before: '.paper' }
-    }).save();
+        pagebreak: { mode: 'css', after: '.paper' } 
+    };
+
+    html2pdf().from(element).set(opt).save().then(() => {
+        // Restore shadows for the web preview after download starts
+        papers.forEach(p => p.style.boxShadow = '0 0 20px rgba(0,0,0,0.4)');
+    });
 }
 
 function localExport() {
