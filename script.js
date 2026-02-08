@@ -1,72 +1,43 @@
-/**
- * SCOTUS Brief Pro - Core Logic
- */
-
-// 1. DATA STATE
-let data = { 
-    petitioners: [""], respondents: [""], questions: [""], cases: [""], statutes: [""] 
-};
-let currentUser = null;
-let supabaseClient = null;
-
-// 2. SUPABASE INITIALIZATION
+// --- 1. CONFIGURATION ---
 const SUPABASE_URL = 'https://dfmugytablgldpkadfrl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AoeVLd5TSJMGyhAyDmXTng_5C-_C8nC';
 
+let supabaseClient = null;
 try {
-    // We check if the library is loaded from the CDN
     if (window.supabase) {
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        console.log("Supabase Client initialized.");
     }
-} catch (e) {
-    console.error("Database connection failed. App will run in offline mode.", e);
-}
+} catch (e) { console.error("Database connection failed."); }
 
-// 3. INITIAL LOAD
+let currentUser = null;
+let data = { 
+    petitioners: [""], respondents: [""], questions: [""], cases: [""], statutes: [""] 
+};
+
+// --- 2. INITIALIZATION ---
 window.onload = () => {
-    console.log("Application Loading...");
-    document.getElementById('auth-status').innerText = "System Ready (Offline)";
     renderInputFields();
     refresh();
 };
 
-// 4. TAB NAVIGATION (FAIL-SAFE)
-function switchTab(tabId) {
-    console.log("Switching to tab: " + tabId);
-    
-    // Hide all contents
-    const contents = document.getElementsByClassName('tab-content');
-    for (let i = 0; i < contents.length; i++) {
-        contents[i].classList.remove('active');
-    }
-    
-    // Remove active from all buttons
-    const buttons = document.getElementsByClassName('tab-btn');
-    for (let i = 0; i < buttons.length; i++) {
-        buttons[i].classList.remove('active');
-    }
-    
-    // Show selected
-    const targetTab = document.getElementById(tabId);
-    if (targetTab) targetTab.classList.add('active');
-    
-    // Highlight correct button
-    const activeBtn = document.getElementById('btn-' + tabId);
-    if (activeBtn) activeBtn.classList.add('active');
+function switchTab(id) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    // Find the button that was clicked via the event
+    if (event) event.currentTarget.classList.add('active');
 }
 
-// 5. PREVIEW REFRESH (FAIL-SAFE)
+// --- 3. LIVE PREVIEW ENGINE ---
 function refresh() {
-    const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : "";
-    let pageCount = 1;
-    const makePage = (content) => `<div class="paper">${content}<div class="manual-footer">${pageCount++}</div></div>`;
+    const get = (id) => document.getElementById(id)?.value || "";
+    let pageNum = 1;
+    const makePage = (content) => `<div class="paper">${content}<div class="manual-footer">${pageNum++}</div></div>`;
 
-    // Generate HTML
-    const coverHTML = `
-        <div style="font-weight:bold;">${getVal('docketNum').toUpperCase() || 'NO. 00-000'}</div>
+    const cover = `
+        <div style="font-weight:bold;">${get('docketNum').toUpperCase() || 'NO. 00-000'}</div>
         <div class="court-header">In the <br> Supreme Court of the United States</div>
-        <div style="text-align:center; font-weight:bold;">${getVal('courtTerm').toUpperCase() || 'OCTOBER TERM 202X'}</div>
+        <div style="text-align:center; font-weight:bold;">${get('courtTerm').toUpperCase() || 'OCTOBER TERM 202X'}</div>
         <hr>
         <div style="display:flex; margin:20px 0;">
             <div style="flex:1; padding-right:15px;">
@@ -75,34 +46,28 @@ function refresh() {
                 ${data.respondents.map(r => r.toUpperCase() || 'RESPONDENT').join(',<br>')},<br> <i>Respondent</i>.
             </div>
             <div style="border-left:1.5pt solid black; padding-left:20px; width:45%; font-style:italic;">
-                On Writ of Certiorari to the ${getVal('lowerCourt') || 'the Lower Court'}
+                On Writ of Certiorari to the ${get('lowerCourt') || 'the Lower Court'}
             </div>
         </div>
-        <div class="title-box">BRIEF FOR THE ${getVal('briefType').toUpperCase()}</div>
+        <div class="title-box">BRIEF FOR THE ${get('briefType').toUpperCase()}</div>
         <div style="text-align:center; margin-top:1in;">
             <b>Respectfully Submitted,</b><br><br>
-            <span style="font-variant:small-caps; font-weight:bold;">${getVal('firmName') || 'FIRM NAME'}</span><br>
-            <div style="font-size:11pt; margin-top:10px;">${getVal('studentNames').replace(/\n/g, '<br>') || 'COUNSEL NAME'}</div>
+            <span style="font-variant:small-caps; font-weight:bold;">${get('firmName') || 'FIRM NAME'}</span><br>
+            <div style="font-size:11pt; margin-top:10px;">${get('studentNames').replace(/\n/g, '<br>') || 'COUNSEL NAME'}</div>
         </div>`;
 
-    const questionsHTML = `<div class="section-header">QUESTIONS PRESENTED</div>${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
-    
-    const authoritiesHTML = `<div class="section-header">TABLE OF AUTHORITIES</div>
-        <p><b>Cases:</b></p>${data.cases.filter(x => x.trim()).sort().map(c => `<div><i>${c}</i></div>`).join('') || '...'}
-        <p style="margin-top:10px;"><b>Statutes:</b></p>${data.statutes.filter(x => x.trim()).sort().map(s => `<div>${s}</div>`).join('') || '...'}`;
+    const questions = `<div class="section-header">QUESTIONS PRESENTED</div>${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
+    const authorities = `<div class="section-header">TABLE OF AUTHORITIES</div><p><b>Cases:</b></p>${data.cases.filter(x => x.trim()).sort().map(c => `<div><i>${c}</i></div>`).join('') || '...'}`;
+    const argument = `<div class="section-header">SUMMARY OF ARGUMENT</div><p>${get('summaryArg')}</p><div class="section-header">ARGUMENT</div><p style="white-space: pre-wrap;">${get('argBody')}</p>`;
+    const conclusion = `<div class="section-header">CONCLUSION</div><p>${get('conclusionText')}</p>`;
 
-    const argumentHTML = `<div class="section-header">SUMMARY OF ARGUMENT</div><p>${getVal('summaryArg')}</p>
-        <div class="section-header">ARGUMENT</div><p style="white-space: pre-wrap;">${getVal('argBody')}</p>`;
-
-    const conclusionHTML = `<div class="section-header">CONCLUSION</div><p>${getVal('conclusionText')}</p>`;
-
-    const renderArea = document.getElementById('render-target');
-    if (renderArea) {
-        renderArea.innerHTML = makePage(coverHTML) + makePage(questionsHTML) + makePage(authoritiesHTML) + makePage(argumentHTML) + makePage(conclusionHTML);
+    const target = document.getElementById('render-target');
+    if (target) {
+        target.innerHTML = makePage(cover) + makePage(questions) + makePage(authorities) + makePage(argument) + makePage(conclusion);
     }
 }
 
-// 6. DYNAMIC INPUTS
+// --- 4. DYNAMIC INPUTS ---
 function addDynamic(type) { data[type + 's'].push(""); renderInputFields(); refresh(); }
 function removeDynamic(type, idx) {
     if (data[type + 's'].length > 1) data[type + 's'].splice(idx, 1);
@@ -123,56 +88,40 @@ function renderInputFields() {
     });
 }
 
-// 7. GOOGLE AUTH & CLOUD
-function onSignIn(response) {
-    try {
-        const payload = JSON.parse(atob(response.credential.split('.')[1]));
-        currentUser = payload.email;
-        document.getElementById('auth-status').innerText = "User: " + currentUser;
-        fetchProjectList();
-    } catch (e) { console.error("Sign-in error", e); }
+// --- 5. CLOUD OPERATIONS ---
+async function onSignIn(response) {
+    const payload = JSON.parse(atob(response.credential.split('.')[1]));
+    currentUser = payload.email;
+    document.getElementById('auth-status').innerText = "Logged in: " + currentUser;
+    fetchProjectList();
 }
 
 async function saveToCloud() {
-    // Check if we have an email and a connection
-    if (!currentUser) return alert("Please sign in with Google first!");
-    if (!supabaseClient) return alert("Database connection not found.");
-    
+    if (!currentUser || !supabaseClient) return alert("Please sign in first.");
     const title = document.getElementById('projectTitle').value || "Untitled Brief";
-    
-    // Collect all input values
     const inputs = {};
-    document.querySelectorAll('input, textarea, select').forEach(el => { 
-        if(el.id) inputs[el.id] = el.value; 
-    });
+    document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
 
-    // The Save Command
     const { error } = await supabaseClient.from('briefs').upsert({ 
-        user_id: currentUser, // This must match your email from the Google login
-        project_title: title,
-        content_data: data, 
-        input_fields: inputs,
-        updated_at: new Date()
+        user_id: currentUser, project_title: title, content_data: data, input_fields: inputs, updated_at: new Date()
     }, { onConflict: 'user_id, project_title' });
 
-    if (error) {
-        alert("Save failed: " + error.message);
-    } else {
-        alert("Success! '" + title + "' is saved to the cloud.");
-        fetchProjectList();
-    }
+    if (error) alert("Save failed: " + error.message);
+    else { alert("Saved successfully!"); fetchProjectList(); }
 }
 
 async function fetchProjectList() {
     if (!currentUser || !supabaseClient) return;
-    const { data: projects } = await supabaseClient.from('briefs').select('project_title').eq('user_id', currentUser);
+    const { data: projects } = await supabaseClient.from('briefs').select('project_title').eq('user_id', currentUser).order('updated_at', { ascending: false });
     const dropdown = document.getElementById('cloud-projects');
     dropdown.innerHTML = '<option value="">📂 Load from Cloud...</option>';
-    if (projects) projects.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.project_title; opt.textContent = p.project_title;
-        dropdown.appendChild(opt);
-    });
+    if (projects) {
+        projects.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.project_title; opt.textContent = p.project_title;
+            dropdown.appendChild(opt);
+        });
+    }
 }
 
 async function loadSpecificProject(title) {
@@ -189,18 +138,27 @@ async function loadSpecificProject(title) {
 
 async function deleteProject() {
     const title = document.getElementById('cloud-projects').value;
-    if (!title || !confirm("Delete project?")) return;
+    if (!title) return alert("Select a project to delete.");
+    if (!confirm(`Permanently delete "${title}"?`)) return;
+
     const { error } = await supabaseClient.from('briefs').delete().eq('user_id', currentUser).eq('project_title', title);
-    fetchProjectList();
+    if (!error) {
+        alert("Deleted.");
+        await fetchProjectList(); // Refresh the list immediately
+    } else {
+        alert("Delete failed.");
+    }
 }
 
-// 8. PDF & EXPORT
+// --- 6. EXPORT / PRINT ---
 function downloadPDF() {
     const element = document.getElementById('render-target');
+    const title = document.getElementById('projectTitle').value || "SCOTUS_Brief";
     html2pdf().from(element).set({
-        margin: 0, filename: 'SCOTUS_Brief.pdf',
+        margin: 0,
+        filename: `${title}.pdf`,
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: 'css', after: '.paper' }
+        pagebreak: { mode: ['css', 'legacy'] }
     }).save();
 }
 
