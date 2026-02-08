@@ -134,17 +134,33 @@ function onSignIn(response) {
 }
 
 async function saveToCloud() {
-    if (!currentUser || !supabaseClient) return alert("Please sign in first.");
+    // Check if we have an email and a connection
+    if (!currentUser) return alert("Please sign in with Google first!");
+    if (!supabaseClient) return alert("Database connection not found.");
+    
     const title = document.getElementById('projectTitle').value || "Untitled Brief";
+    
+    // Collect all input values
     const inputs = {};
-    document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
+    document.querySelectorAll('input, textarea, select').forEach(el => { 
+        if(el.id) inputs[el.id] = el.value; 
+    });
 
+    // The Save Command
     const { error } = await supabaseClient.from('briefs').upsert({ 
-        user_id: currentUser, project_title: title, content_data: data, input_fields: inputs, updated_at: new Date()
+        user_id: currentUser, // This must match your email from the Google login
+        project_title: title,
+        content_data: data, 
+        input_fields: inputs,
+        updated_at: new Date()
     }, { onConflict: 'user_id, project_title' });
 
-    if (error) alert("Save failed: " + error.message);
-    else { alert("Saved to Cloud!"); fetchProjectList(); }
+    if (error) {
+        alert("Save failed: " + error.message);
+    } else {
+        alert("Success! '" + title + "' is saved to the cloud.");
+        fetchProjectList();
+    }
 }
 
 async function fetchProjectList() {
