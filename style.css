@@ -7,10 +7,9 @@
     --danger-red: #c62828;
 }
 
-/* Base Layout */
 body {
     margin: 0; display: flex; flex-direction: column; height: 100vh;
-    font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-gray); overflow: hidden;
+    font-family: 'Segoe UI', sans-serif; background: var(--bg-gray); overflow: hidden;
 }
 
 header {
@@ -20,7 +19,6 @@ header {
 
 .app-container { display: flex; flex: 1; overflow: hidden; }
 
-/* Sidebar & Tabs */
 .sidebar {
     width: 280px; min-width: 280px; background: white;
     border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 15px; box-sizing: border-box;
@@ -33,19 +31,19 @@ header {
 
 .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); }
 
-/* Persistence Zone Styling */
 .persistence-zone { margin-top: auto; padding: 10px 0; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
 
-.action-btn, #cloud-projects {
+.action-btn {
     display: flex; align-items: center; justify-content: center;
     width: 100%; height: 42px; border-radius: 6px; border: 1px solid #ccc;
     cursor: pointer; font-weight: 600; background: white; box-sizing: border-box;
     font-family: inherit; font-size: 0.85rem; color: #333;
-    text-align: center; text-align-last: center; /* Centers text in dropdown */
 }
 
 .cloud-save-btn { background: var(--legal-blue); color: white; border: none; }
-.btn-danger { color: var(--danger-red); border-color: var(--danger-red); font-size: 0.75rem; height: 35px; }
+.btn-danger { color: var(--danger-red); border-color: var(--danger-red); font-size: 0.75rem; height: 32px; }
+.print-primary { background: var(--legal-blue); color: white; border: none; }
+.small-btn { width: auto; height: 30px; padding: 0 10px; font-size: 0.7rem; margin-top: 5px; }
 
 /* Input Panel */
 .input-panel { flex: 1; background: white; padding: 30px; overflow-y: auto; border-right: 2px solid #333; }
@@ -54,34 +52,40 @@ header {
 label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 15px; color: #666; text-transform: uppercase; }
 input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
 
-/* Preview & The "Paper" */
-.preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; background: var(--bg-gray); display: flex; flex-direction: column; align-items: center; }
+/* PREVIEW SYSTEM */
+.preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
 
 .paper { 
     width: 8.5in; 
-    height: 11in; /* Fixed height is key for PDF alignment */
+    height: 11in; 
     background: white; 
     padding: 1in !important; 
     margin-bottom: 30px; 
-    box-shadow: 0 0 20px rgba(0,0,0,0.4); 
+    box-shadow: 0 0 20px rgba(0,0,0,0.5); 
     font-family: 'Crimson Pro', serif; 
     font-size: 12pt; 
     line-height: 1.5; 
     color: black; 
     position: relative; 
     box-sizing: border-box;
-    overflow: hidden; /* Stops text from leaking into extra pages */
+    overflow: hidden; /* Prevents overflow pushing the footer */
 }
 
 .court-header { text-align: center; font-weight: bold; font-size: 14pt; text-transform: uppercase; line-height: 1.2; }
 hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
 .title-box { text-align: center; border-top: 1.5pt solid black; border-bottom: 1.5pt solid black; padding: 15px 10px; margin: 25px 0; font-weight: bold; text-transform: uppercase; }
-.section-header { text-align: center; font-weight: bold; text-transform: uppercase; margin: 30px 0 15px 0; }
-.manual-footer { position: absolute; bottom: 0.5in; left: 0; right: 0; text-align: center; font-size: 11pt; }
+.section-header { text-align: center; font-weight: bold; text-transform: uppercase; margin: 25px 0 10px 0; }
 
-/* Print Fixes */
+.manual-footer { 
+    position: absolute; 
+    bottom: 0.8in; /* Raised from 0.5in to ensure it doesn't jump pages */
+    left: 0; right: 0; 
+    text-align: center; 
+    font-size: 11pt; 
+}
+
 @media print {
     body, .app-container, .preview-panel { display: block !important; height: auto !important; background: white !important; }
     header, .sidebar, .input-panel { display: none !important; }
-    .paper { margin: 0 !important; box-shadow: none !important; page-break-after: always !important; border: none !important; }
+    .paper { margin: 0 !important; box-shadow: none !important; page-break-after: always !important; width: 8.5in !important; height: 11in !important; }
 }
