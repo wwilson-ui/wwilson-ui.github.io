@@ -35,6 +35,13 @@
         </div>
         
         <div class="persistence-zone">
+            <button class="action-btn" style="background: var(--legal-blue); color: white; border:none;" onclick="saveToCloud()">☁️ Save to Cloud</button>
+            <select id="cloud-projects" class="action-btn" onchange="loadSpecificProject(this.value)">
+                <option value="">📂 Load from Cloud...</option>
+            </select>
+
+            <hr style="margin: 5px 0; border-top: 1px solid #eee;">
+
             <button class="action-btn" onclick="localExport()">💾 Export .JSON</button>
             <label class="action-btn" for="importFile" style="cursor:pointer; margin-bottom:0;">
                 <span>📂 Import .JSON</span>
@@ -42,9 +49,9 @@
             <input type="file" id="importFile" hidden onchange="localImport(event)">
         </div>
 
-        <div class="sidebar-footer">
-            <a href="terms.html" target="_blank" style="color:#999; text-decoration:none; font-size:0.7rem;">Terms of Service</a>
-        </div>
+<div class="sidebar-footer">
+    <a href="terms.html" target="_blank" style="color:#999; text-decoration:none; font-size:0.7rem;">Terms of Service</a>
+</div>
     </nav>
 
     <section class="input-panel">
