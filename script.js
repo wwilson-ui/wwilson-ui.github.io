@@ -19,12 +19,31 @@ window.onload = () => {
     refresh();
 };
 
+
+
 function switchTab(id) {
+    // 1. Hide all tabs and deactivate all buttons
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    if (event) event.currentTarget.classList.add('active');
+
+    // 2. Show the selected tab
+    const targetTab = document.getElementById(id);
+    if (targetTab) {
+        targetTab.classList.add('active');
+    }
+
+    // 3. Highlight the clicked button
+    if (event && event.currentTarget) {
+        event.currentTarget.classList.add('active');
+    }
+
+    // 4. IMPORTANT: If the teacher opens Admin, load the case list
+    if (id === 'admin') {
+        renderAdminCaseList();
+    }
 }
+
+
 
 function toggleAmicusField() {
     const type = document.getElementById('briefType').value;
