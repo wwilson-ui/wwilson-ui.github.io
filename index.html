@@ -15,17 +15,17 @@
 
 <main class="app-container">
     <nav class="sidebar">
-        <div id="auth-status" style="font-size: 0.7rem; color: #888; margin-bottom: 15px;">Initializing...</div>
+        <div id="auth-status" style="font-size: 0.7rem; color: #888; margin-bottom: 10px;">Initializing...</div>
         
         <button class="tab-btn active" onclick="switchTab('setup', this)">1. Setup</button>
         <button class="tab-btn" onclick="switchTab('cover', this)">2. Cover & Parties</button>
-        <button class="tab-btn" onclick="switchTab('matter', this)">3. Front Matter</button>
+        <button class="tab-btn" onclick="switchTab('front', this)">3. Questions & Authorities</button>
         <button class="tab-btn" onclick="switchTab('body', this)">4. Argument & Interest</button>
         <button class="tab-btn" onclick="switchTab('export', this)">5. Export</button>
         
-        <div style="margin-top:auto;">
+        <div class="persistence-zone">
             <button class="action-btn cloud-save-btn" onclick="saveToCloud()">☁️ Save to Cloud</button>
-            <select id="cloud-projects" class="action-btn" style="margin: 8px 0;"></select>
+            <select id="cloud-projects" class="action-btn"></select>
             <div style="display: flex; gap: 5px;">
                 <button class="action-btn" style="flex: 1;" onclick="loadProject()">📥 Load</button>
                 <button class="action-btn btn-danger" style="flex: 1;" onclick="deleteProject()">🗑️ Delete</button>
@@ -39,7 +39,7 @@
 
     <section class="input-panel">
         <div id="setup" class="tab-content active">
-            <h2>Setup</h2>
+            <h2>Project Setup</h2>
             <label>Writing For</label>
             <select id="pType" onchange="toggleAmicus(); refresh()">
                 <option value="Petitioner">Brief for Petitioner</option>
@@ -62,38 +62,52 @@
             <input type="text" id="pTitle" oninput="refresh()">
             <label>Court Term</label>
             <input type="text" id="pTerm" placeholder="October Term 2025" oninput="refresh()">
+            <label>Law Firm / Organization</label>
+            <input type="text" id="pFirm" oninput="refresh()">
+            <label>Date of Filing</label>
+            <input type="text" id="pDate" placeholder="Month Day, Year" oninput="refresh()">
         </div>
 
         <div id="cover" class="tab-content">
-            <h2>Cover</h2>
+            <h2>Cover & Parties</h2>
             <label>Docket Number</label>
-            <input type="text" id="pDocket" oninput="refresh()">
-            <label>Petitioners (One per line)</label>
-            <textarea id="pPets" rows="2" oninput="refresh()"></textarea>
-            <label>Respondents (One per line)</label>
-            <textarea id="pResps" rows="2" oninput="refresh()"></textarea>
+            <input type="text" id="pDocket" placeholder="e.g. 24-656" oninput="refresh()">
+            
+            <label>Petitioners</label>
+            <div id="petitioner-list"></div>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addInput('petitioner')">+ Add Petitioner</button>
+
+            <label>Respondents</label>
+            <div id="respondent-list"></div>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addInput('respondent')">+ Add Respondent</button>
+
             <label>Lower Court</label>
             <input type="text" id="pCourt" oninput="refresh()">
         </div>
 
-        <div id="matter" class="tab-content">
+        <div id="front" class="tab-content">
             <h2>Front Matter</h2>
-            <label>Question Presented</label>
-            <textarea id="pQuest" rows="5" oninput="refresh()"></textarea>
-            <label>Authorities (Cases & Statutes)</label>
-            <textarea id="pAuth" rows="8" oninput="refresh()"></textarea>
+            <label>Questions Presented</label>
+            <div id="question-list"></div>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addInput('question')">+ Add Question</button>
+
+            <label>Table of Authorities (Cases)</label>
+            <div id="case-list"></div>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addInput('case')">+ Add Case</button>
         </div>
 
         <div id="body" class="tab-content">
-            <h2>Content</h2>
-            <label>Interest of Amicus Curiae</label>
-            <textarea id="pInterest" rows="5" oninput="refresh()"></textarea>
-            <label>Argument Body</label>
-            <textarea id="pArg" rows="10" oninput="refresh()"></textarea>
+            <h2>Argument & Interest</h2>
+            <label>Interest of Amicus Curiae / Introduction</label>
+            <textarea id="pInterest" rows="6" oninput="refresh()"></textarea>
+            <label>Full Argument Body</label>
+            <textarea id="pArg" rows="12" oninput="refresh()"></textarea>
             <label>Conclusion</label>
-            <textarea id="pConc" rows="3" oninput="refresh()"></textarea>
-            <label>Counsel Name</label>
-            <input type="text" id="pSign" oninput="refresh()">
+            <textarea id="pConc" rows="4" oninput="refresh()"></textarea>
+            
+            <label>Counsel / Signatories</label>
+            <div id="lawyer-list"></div>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addInput('lawyer')">+ Add Counsel</button>
         </div>
 
         <div id="export" class="tab-content">
