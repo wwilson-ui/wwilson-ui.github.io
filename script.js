@@ -269,3 +269,65 @@ async function addNewCase() {
 
 
 
+
+// --- TEACHER ADMIN LOGIC ---
+
+// 1. Add a new case to Supabase
+async function addNewCase() {
+    const name = document.getElementById('newCaseName').value.trim();
+    const link = document.getElementById('newCaseLink').value.trim();
+
+    if (!name || !link) return alert("Please provide both a Case Name and a Drive Link.");
+
+    const { error } = await supabaseClient
+        .from('active_cases')
+        .insert([{ case_name: name, drive_link: link }]);
+
+    if (error) {
+        console.error("Error adding case:", error);
+        alert("Failed to add case. Check your Supabase table 'active_cases'.");
+    } else {
+        document.getElementById('newCaseName').value = "";
+        document.getElementById('newCaseLink').value = "";
+        alert("Case successfully added!");
+        loadCases(); // Refresh the student dropdown
+        renderAdminCaseList(); // Refresh the teacher's list
+    }
+}
+
+// 2. Display the list of cases with "Delete" buttons for the teacher
+async function renderAdminCaseList() {
+    const listDiv = document.getElementById('manage-cases-list');
+    const { data: cases, error } = await supabaseClient.from('active_cases').select('*').order('case_name');
+
+    if (error) return listDiv.innerHTML = "Error loading cases.";
+    if (cases.length === 0) return listDiv.innerHTML = "No cases added yet.";
+
+    listDiv.innerHTML = cases.map(c => `
+        <div style="display:flex; justify-content:between; align-items:center; padding:10px; border-bottom:1px solid #ddd;">
+            <div style="flex-grow:1;">
+                <strong>${c.case_name}</strong><br>
+                <span style="font-size:0.8rem; color:blue;">${c.drive_link}</span>
+            </div>
+            <button onclick="deleteCase(${c.id})" style="background:red; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">Delete</button>
+        </div>
+    `).join("");
+}
+
+// 3. Delete a case
+async function deleteCase(id) {
+    if (!confirm("Are you sure? This will remove the case from the student dropdown menu.")) return;
+    
+    const { error } = await supabaseClient.from('active_cases').delete().eq('id', id);
+    if (!error) {
+        renderAdminCaseList();
+        loadCases();
+    }
+}
+
+// Ensure the list renders when you click the Admin tab
+const originalSwitchTab = switchTab;
+switchTab = function(id) {
+    originalSwitchTab(id);
+    if (id === 'admin') renderAdminCaseList();
+};
