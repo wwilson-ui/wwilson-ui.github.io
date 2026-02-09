@@ -1,3 +1,69 @@
+// Add this at the VERY top of your script.js
+(function() {
+    emailjs.init("EGTTkqjyh5AuglVne"); // Paste your Public Key here
+})();
+
+async function submitToCourt() {
+    const v = (id) => document.getElementById(id)?.value || "";
+    
+    // 1. Validation Pop-up
+    const confirmed = confirm("Have you fully reviewed the file to be sure that it is finalized and ready for submission?");
+    
+    if (!confirmed) {
+        switchTab('argument'); // If no, take them back to the argument tab
+        return;
+    }
+
+    // 2. Prepare Dynamic Subject Line using your existing data object
+    // It looks for the first Petitioner and first Respondent in your lists
+    const pet = data.petitioners[0] || "Petitioner";
+    const res = data.respondents[0] || "Respondent";
+    const term = v('courtTerm') || "October Term";
+    
+    const subjectLine = `${pet} v. ${res} (${term})`;
+    const projectTitle = v('projectTitle') || "Legal Brief";
+
+    // 3. Generate PDF and Send
+    const element = document.getElementById('render-target');
+    
+    try {
+        // Create the PDF blob
+        const pdfBlob = await html2pdf().from(element).set({
+            margin: 0,
+            filename: `${projectTitle}.pdf`,
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        }).output('blob');
+
+        // Convert to Base64 for EmailJS
+        const reader = new FileReader();
+        reader.readAsDataURL(pdfBlob);
+        reader.onloadend = function() {
+            const base64data = reader.result.split(',')[1];
+
+            const templateParams = {
+                subject: subjectLine,
+                project_title: projectTitle,
+                content_attachment: base64data // Matches the {{content_attachment}} in your template
+            };
+
+            emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams)
+                .then(() => {
+                    alert("Success! The brief has been submitted and emailed to wwilson@mtps.us");
+                }, (error) => {
+                    alert("Email failed to send. Please download the PDF and email it manually.");
+                    console.error("EmailJS Error:", error);
+                });
+        };
+    } catch (err) {
+        alert("Error generating PDF. Please try 'Direct Print' instead.");
+        console.error(err);
+    }
+}
+
+
+
+
 const SUPABASE_URL = 'https://dfmugytablgldpkadfrl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AoeVLd5TSJMGyhAyDmXTng_5C-_C8nC';
 
