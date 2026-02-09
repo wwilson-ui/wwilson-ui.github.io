@@ -32,6 +32,13 @@
             <button class="tab-btn" onclick="switchTab('argument')">5. Argument</button>
             <button class="tab-btn" onclick="switchTab('finalize')">6. Finalize & Print</button>
         </div>
+
+
+
+        <button class="tab-btn" onclick="switchTab('docket')">🏛️ Court Docket</button>
+        <button class="tab-btn admin-only" id="admin-tab-btn" style="display:none;" onclick="switchTab('admin')">⚙️ Teacher Admin</button>
+
+        
         
         <div class="persistence-zone">
             <button class="action-btn cloud-save-btn" onclick="saveToCloud()">☁️ Save to Cloud</button>
@@ -134,7 +141,7 @@
     </div>
 </div>
 
-<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>    </section>
+</section>
 
     <section class="preview-panel">
         <div id="render-target"></div>
