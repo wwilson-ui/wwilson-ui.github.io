@@ -20,23 +20,31 @@ header {
 .app-container { display: flex; flex: 1; overflow: hidden; }
 
 .sidebar {
-    width: 280px; min-width: 280px; background: white;
+    width: 290px; min-width: 290px; background: white;
     border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 15px; box-sizing: border-box;
 }
 
-/* UI Alignment Fixes */
-.tab-btn, .action-btn {
-    width: 100%; height: 40px; border-radius: 6px; border: 1px solid #ccc;
-    cursor: pointer; font-weight: 600; background: #fff; box-sizing: border-box;
-    display: flex; align-items: center; justify-content: center; font-size: 0.85rem;
+.tab-btn {
+    width: 100%; padding: 12px; border: none; background: transparent;
+    text-align: left; cursor: pointer; border-radius: 6px; margin-bottom: 5px; font-weight: 600; color: #444;
 }
-.tab-btn { border: none; justify-content: flex-start; margin-bottom: 4px; color: #444; }
+
 .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); }
 
-.cloud-save-btn { background: var(--legal-blue) !important; color: white !important; border: none; }
-.btn-danger { color: var(--danger) !important; border-color: var(--danger) !important; }
+/* Buttons Alignment Fix */
+.persistence-zone { margin-top: auto; padding: 10px 0; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
 
-.sidebar-footer { text-align: center; padding: 15px 0; width: 100%; border-top: 1px solid #eee; margin-top: auto; }
+.action-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 40px; border-radius: 6px; border: 1px solid #ccc;
+    cursor: pointer; font-weight: 600; background: white; box-sizing: border-box;
+    font-family: inherit; font-size: 0.85rem; color: #333;
+}
+
+.cloud-save-btn { background: var(--legal-blue); color: white; border: none; }
+.btn-danger { color: var(--danger); border-color: var(--danger); }
+
+.sidebar-footer { width: 100%; text-align: center; padding-top: 10px; }
 
 /* Input Panel */
 .input-panel { flex: 1; background: white; padding: 30px; overflow-y: auto; border-right: 2px solid #333; }
@@ -56,7 +64,7 @@ input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1
     page-break-after: always;
 }
 
-/* Fix for extra blank page */
+/* FIX: Kill extra page at the end */
 .paper:last-child { page-break-after: avoid !important; margin-bottom: 0 !important; }
 
 .court-header { text-align: center; font-weight: bold; font-size: 14pt; text-transform: uppercase; line-height: 1.2; }
@@ -65,6 +73,6 @@ input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1
 @media print {
     body, .app-container { overflow: visible !important; height: auto !important; display: block !important; }
     header, .sidebar, .input-panel { display: none !important; }
-    .preview-panel { position: absolute; left: 0; top: 0; margin: 0; padding: 0; overflow: visible !important; }
-    .paper { margin: 0 !important; box-shadow: none !important; width: 8.5in !important; height: 11in !important; }
+    .preview-panel { position: absolute; left: 0; top: 0; margin: 0; padding: 0; overflow: visible !important; width: 100% !important; }
+    .paper { margin: 0 !important; box-shadow: none !important; width: 8.5in !important; height: 11in !important; overflow: visible !important; }
 }
