@@ -25,13 +25,31 @@ function switchTab(id) {
     if (event) event.currentTarget.classList.add('active');
 }
 
+function toggleAmicusField() {
+    const type = document.getElementById('briefType').value;
+    const amicusSection = document.getElementById('amicus-extras');
+    amicusSection.style.display = (type === "Amicus Curiae") ? "block" : "none";
+}
+
 function refresh() {
     const v = (id) => document.getElementById(id)?.value || "";
     let pNum = 1;
     const makePage = (html) => `<div class="paper">${html}<div class="manual-footer">${pNum++}</div></div>`;
 
+    // 1. DOCKET NUMBER LOGIC
+    let docket = v('docketNum').trim();
+    if (docket && !docket.toUpperCase().startsWith("CASE NO.:")) {
+        docket = "Case No.: " + docket;
+    }
+
+    // 2. BRIEF TITLE LOGIC (Including Amicus)
+    let briefTypeTitle = `BRIEF FOR THE ${v('briefType').toUpperCase()}`;
+    if (v('briefType') === "Amicus Curiae") {
+        briefTypeTitle = `BRIEF OF ${v('amicusName').toUpperCase() || '[AMICUS NAME]'} AS AMICUS CURIAE ${v('amicusSupport').toUpperCase()}`;
+    }
+
     const coverHtml = `
-        <div style="font-weight:bold;">${v('docketNum').toUpperCase() || 'NO. 00-000'}</div>
+        <div style="font-weight:bold;">${docket.toUpperCase() || 'CASE NO. 00-000'}</div>
         <div class="court-header" style="margin-top: 0.5in;">In the <br> Supreme Court of the United States</div>
         <div style="text-align:center; font-weight:bold;">${v('courtTerm').toUpperCase() || 'OCTOBER TERM 202X'}</div>
         <hr style="border:none; border-top:1.5pt solid black; margin:20px 0;">
@@ -45,13 +63,14 @@ function refresh() {
                 On Writ of Certiorari to the ${v('lowerCourt') || 'the Lower Court'}
             </div>
         </div>
-        <div class="title-box">BRIEF FOR THE ${v('briefType').toUpperCase()}</div>
+        <div class="title-box">${briefTypeTitle}</div>
         <div style="text-align:center; margin-top:0.8in;">
             <b>Respectfully Submitted,</b><br><br>
             <span style="font-variant:small-caps; font-weight:bold;">${v('firmName') || 'FIRM NAME'}</span><br>
             <div style="font-size:11pt; margin-top:10px;">${v('studentNames').replace(/\n/g, '<br>') || 'COUNSEL NAME'}</div>
         </div>`;
 
+    // Sections (Questions, Authorities, Argument, Conclusion)
     const questionsHtml = `<div class="section-header">QUESTIONS PRESENTED</div>${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
     const authoritiesHtml = `<div class="section-header">TABLE OF AUTHORITIES</div><p><b>Cases:</b></p>${data.cases.filter(x => x.trim()).sort().map(c => `<div><i>${c}</i></div>`).join('') || '...'}<p style="margin-top:10px;"><b>Statutes:</b></p>${data.statutes.filter(x => x.trim()).sort().map(s => `<div>${s}</div>`).join('') || '...'}`;
     const argumentHtml = `<div class="section-header">SUMMARY OF ARGUMENT</div><p>${v('summaryArg')}</p><div class="section-header">ARGUMENT</div><p style="white-space: pre-wrap;">${v('argBody')}</p>`;
@@ -62,6 +81,9 @@ function refresh() {
         target.innerHTML = makePage(coverHtml) + makePage(questionsHtml) + makePage(authoritiesHtml) + makePage(argumentHtml) + makePage(conclusionHtml);
     }
 }
+
+// ... Dynamic Inputs & Cloud Operations stay exactly the same as previous step ...
+// (Omitted here for brevity, keep the fetchProjectList, loadSelectedProject, and deleteSelectedProject from the previous script)
 
 function addDynamic(type) { data[type + 's'].push(""); renderInputFields(); refresh(); }
 function removeDynamic(type, idx) {
@@ -117,6 +139,8 @@ async function loadSelectedProject() {
     if (p) {
         data = p.content_data;
         for(let id in p.input_fields) { if(document.getElementById(id)) document.getElementById(id).value = p.input_fields[id]; }
+        // Ensure Amicus field shows up if that was the saved type
+        toggleAmicusField();
         renderInputFields(); refresh(); alert("Loaded: " + title);
     }
 }
