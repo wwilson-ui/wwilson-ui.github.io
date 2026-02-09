@@ -1,165 +1,114 @@
-const SUPABASE_URL = 'https://dfmugytablgldpkadfrl.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_AoeVLd5TSJMGyhAyDmXTng_5C-_C8nC';
-
-let supabaseClient = null;
-let currentUser = null;
-let data = { 
-    petitioners: [""], respondents: [""], questions: [""], cases: [""], statutes: [""] 
-};
+const SB_URL = 'https://dfmugytablgldpkadfrl.supabase.co';
+const SB_KEY = 'sb_publishable_AoeVLd5TSJMGyhAyDmXTng_5C-_C8nC';
+let supabase = null;
+let userEmail = null;
 
 window.onload = () => {
-    try {
-        if (window.supabase) {
-            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            document.getElementById('auth-status').innerText = "System Ready (Cloud Active)";
-        }
-    } catch (e) { console.error(e); }
-    renderInputFields();
+    try { supabase = window.supabase.createClient(SB_URL, SB_KEY); } catch(e){}
     refresh();
 };
 
-function switchTab(id) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    if (event) event.currentTarget.classList.add('active');
+function toggleAmicus() {
+    const isAmicus = document.getElementById('pType').value === 'Amicus Curiae';
+    document.getElementById('amicus-extras').style.display = isAmicus ? 'block' : 'none';
 }
 
-function toggleAmicusField() {
-    const type = document.getElementById('briefType').value;
-    const amicusSection = document.getElementById('amicus-extras');
-    amicusSection.style.display = (type === "Amicus Curiae") ? "block" : "none";
+function switchTab(id, btn) {
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    btn.classList.add('active');
 }
 
 function refresh() {
     const v = (id) => document.getElementById(id)?.value || "";
-    let pNum = 1;
-    const makePage = (html) => `<div class="paper">${html}<div class="manual-footer">${pNum++}</div></div>`;
+    const makePage = (html, pNum) => `<div class="paper">${html}<div class="manual-footer">${pNum}</div></div>`;
 
-    // 1. DOCKET NUMBER LOGIC
-    let docket = v('docketNum').trim();
-    if (docket && !docket.toUpperCase().startsWith("CASE NO.:")) {
-        docket = "Case No.: " + docket;
+    // 1. DOCKET PREFIX LOGIC
+    let dNum = v('pDocket').trim();
+    if (dNum && !dNum.toUpperCase().startsWith("CASE NO")) {
+        dNum = "Case No.: " + dNum;
     }
 
-    // 2. BRIEF TITLE LOGIC (Including Amicus)
-    let briefTypeTitle = `BRIEF FOR THE ${v('briefType').toUpperCase()}`;
-    if (v('briefType') === "Amicus Curiae") {
-        briefTypeTitle = `BRIEF OF ${v('amicusName').toUpperCase() || '[AMICUS NAME]'} AS AMICUS CURIAE ${v('amicusSupport').toUpperCase()}`;
+    // 2. BRIEF TITLE LOGIC
+    let bTitle = `BRIEF FOR THE ${v('pType').toUpperCase()}`;
+    if (v('pType') === 'Amicus Curiae') {
+        bTitle = `BRIEF OF ${v('pAmicusName').toUpperCase() || '[NAME]'} AS AMICUS CURIAE SUPPORTING ${v('pAmicusSupport').toUpperCase()}`;
     }
 
     const coverHtml = `
-        <div style="font-weight:bold;">${docket.toUpperCase() || 'CASE NO. 00-000'}</div>
-        <div class="court-header" style="margin-top: 0.5in;">In the <br> Supreme Court of the United States</div>
-        <div style="text-align:center; font-weight:bold;">${v('courtTerm').toUpperCase() || 'OCTOBER TERM 202X'}</div>
+        <div style="font-weight:bold;">${dNum.toUpperCase() || 'NOS. 00-000'}</div>
+        <div class="court-header" style="margin-top: 0.6in;">In the <br> Supreme Court of the United States</div>
+        <div style="text-align:center; font-weight:bold;">${v('pTerm').toUpperCase() || 'OCTOBER TERM 202X'}</div>
         <hr style="border:none; border-top:1.5pt solid black; margin:20px 0;">
-        <div style="display:flex; margin:20px 0;">
+        <div style="display:flex;">
             <div style="flex:1; padding-right:15px;">
-                ${data.petitioners.map(p => p.toUpperCase() || 'PETITIONER').join(',<br>')},<br> <i>Petitioner</i>,
-                <div style="margin:10px 40px;">v.</div>
-                ${data.respondents.map(r => r.toUpperCase() || 'RESPONDENT').join(',<br>')},<br> <i>Respondent</i>.
+                ${v('pPets').replace(/\n/g, '<br>') || 'PETITIONERS'},<br><i>Petitioners</i>,<br>v.<br>${v('pResps').replace(/\n/g, '<br>') || 'RESPONDENTS'},<br><i>Respondents</i>.
             </div>
-            <div style="border-left:1.5pt solid black; padding-left:20px; width:45%; font-style:italic;">
-                On Writ of Certiorari to the ${v('lowerCourt') || 'the Lower Court'}
+            <div style="width:45%; border-left:1.5pt solid black; padding-left:15px; font-style:italic;">
+                On Writ of Certiorari to the ${v('pCourt') || 'Court of Appeals'}
             </div>
         </div>
-        <div class="title-box">${briefTypeTitle}</div>
-        <div style="text-align:center; margin-top:0.8in;">
-            <b>Respectfully Submitted,</b><br><br>
-            <span style="font-variant:small-caps; font-weight:bold;">${v('firmName') || 'FIRM NAME'}</span><br>
-            <div style="font-size:11pt; margin-top:10px;">${v('studentNames').replace(/\n/g, '<br>') || 'COUNSEL NAME'}</div>
-        </div>`;
+        <div style="margin-top:0.5in; text-align:center; border-top:1.5pt solid black; border-bottom:1.5pt solid black; padding:15px; font-weight:bold;">${bTitle}</div>
+        <div style="margin-top:0.5in; text-align:right;">Respectfully Submitted,<br><b>${v('pSign')}</b></div>`;
 
-    // Sections (Questions, Authorities, Argument, Conclusion)
-    const questionsHtml = `<div class="section-header">QUESTIONS PRESENTED</div>${data.questions.map((q, i) => `<p><b>${i+1}.</b> ${q || '...'}</p>`).join('')}`;
-    const authoritiesHtml = `<div class="section-header">TABLE OF AUTHORITIES</div><p><b>Cases:</b></p>${data.cases.filter(x => x.trim()).sort().map(c => `<div><i>${c}</i></div>`).join('') || '...'}<p style="margin-top:10px;"><b>Statutes:</b></p>${data.statutes.filter(x => x.trim()).sort().map(s => `<div>${s}</div>`).join('') || '...'}`;
-    const argumentHtml = `<div class="section-header">SUMMARY OF ARGUMENT</div><p>${v('summaryArg')}</p><div class="section-header">ARGUMENT</div><p style="white-space: pre-wrap;">${v('argBody')}</p>`;
-    const conclusionHtml = `<div class="section-header">CONCLUSION</div><p>${v('conclusionText')}</p>`;
+    const qHtml = `<div style="text-align:center; font-weight:bold; margin-bottom:20px;">QUESTION PRESENTED</div><p>${v('pQuest')}</p>`;
+    const authHtml = `<div style="text-align:center; font-weight:bold; margin-bottom:20px;">TABLE OF AUTHORITIES</div><div style="white-space:pre-wrap;">${v('pAuth')}</div>`;
+    
+    const bodyHtml = `
+        <div style="text-align:center; font-weight:bold; margin-bottom:20px;">INTEREST OF AMICUS CURIAE</div><p>${v('pInterest')}</p>
+        <div style="text-align:center; font-weight:bold; margin:30px 0 20px 0;">ARGUMENT</div><p style="white-space:pre-wrap;">${v('pArg')}</p>
+        <div style="text-align:center; font-weight:bold; margin:30px 0 20px 0;">CONCLUSION</div><p>${v('pConc')}</p>
+        <div style="text-align:right; margin-top:50px;">Respectfully Submitted,<br><b>${v('pSign')}</b></div>`;
 
-    const target = document.getElementById('render-target');
-    if (target) {
-        target.innerHTML = makePage(coverHtml) + makePage(questionsHtml) + makePage(authoritiesHtml) + makePage(argumentHtml) + makePage(conclusionHtml);
-    }
+    document.getElementById('render-target').innerHTML = 
+        makePage(coverHtml, '') + 
+        makePage(qHtml, 'i') + 
+        makePage(authHtml, 'ii') + 
+        makePage(bodyHtml, '1');
 }
 
-// ... Dynamic Inputs & Cloud Operations stay exactly the same as previous step ...
-// (Omitted here for brevity, keep the fetchProjectList, loadSelectedProject, and deleteSelectedProject from the previous script)
-
-function addDynamic(type) { data[type + 's'].push(""); renderInputFields(); refresh(); }
-function removeDynamic(type, idx) {
-    if (data[type + 's'].length > 1) data[type + 's'].splice(idx, 1);
-    else data[type + 's'][0] = "";
-    renderInputFields(); refresh();
-}
-
-function renderInputFields() {
-    ['petitioner', 'respondent', 'question', 'case', 'statute'].forEach(t => {
-        const container = document.getElementById(`${t}-inputs`);
-        if (!container) return;
-        container.innerHTML = data[t + 's'].map((val, i) => `
-            <div style="display:flex; gap:5px; margin-bottom:5px;">
-                <input type="text" value="${val}" oninput="data['${t}s'][${i}]=this.value; refresh()">
-                <button onclick="removeDynamic('${t}', ${i})" style="border:none; background:none; cursor:pointer;">❌</button>
-            </div>
-        `).join('');
-    });
-}
-
-function onSignIn(response) {
-    const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    currentUser = payload.email;
-    document.getElementById('auth-status').innerText = "Logged in: " + currentUser;
-    fetchProjectList();
+// PERSISTENCE LOGIC
+function onSignIn(resp) {
+    userEmail = JSON.parse(atob(resp.credential.split('.')[1])).email;
+    document.getElementById('auth-status').innerText = "Logged in: " + userEmail;
+    fetchProjects();
 }
 
 async function saveToCloud() {
-    if (!currentUser || !supabaseClient) return alert("Please sign in first.");
-    const title = document.getElementById('projectTitle').value || "Untitled";
-    const inputs = {};
-    document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
-    const { error } = await supabaseClient.from('briefs').upsert({ user_id: currentUser, project_title: title, content_data: data, input_fields: inputs, updated_at: new Date() }, { onConflict: 'user_id, project_title' });
-    if (error) alert(error.message); else { alert("Saved!"); fetchProjectList(); }
+    if(!userEmail) return alert("Please sign in first.");
+    const fields = {}; document.querySelectorAll('input, textarea, select').forEach(i => fields[i.id] = i.value);
+    await supabase.from('briefs').upsert({ user_id: userEmail, project_title: document.getElementById('pTitle').value || 'Untitled', input_fields: fields }, { onConflict: 'user_id, project_title' });
+    alert("Saved!"); fetchProjects();
 }
 
-async function fetchProjectList() {
-    if (!currentUser || !supabaseClient) return;
-    const { data: projects } = await supabaseClient.from('briefs').select('project_title').eq('user_id', currentUser).order('updated_at', { ascending: false });
+async function fetchProjects() {
+    const { data } = await supabase.from('briefs').select('project_title').eq('user_id', userEmail);
     const drop = document.getElementById('cloud-projects');
-    drop.innerHTML = '<option value="">📂 Select a Project...</option>';
-    if (projects) projects.forEach(p => {
-        const o = document.createElement('option'); o.value = p.project_title; o.textContent = p.project_title;
-        drop.appendChild(o);
-    });
+    drop.innerHTML = '<option value="">📂 Select Project...</option>';
+    data?.forEach(p => { const o = document.createElement('option'); o.value = p.project_title; o.innerText = p.project_title; drop.appendChild(o); });
 }
 
-async function loadSelectedProject() {
+async function loadProject() {
     const title = document.getElementById('cloud-projects').value;
-    if (!title) return alert("Select a project first.");
-    const { data: p } = await supabaseClient.from('briefs').select('*').eq('user_id', currentUser).eq('project_title', title).single();
-    if (p) {
-        data = p.content_data;
+    const { data: p } = await supabase.from('briefs').select('*').eq('user_id', userEmail).eq('project_title', title).single();
+    if(p) {
         for(let id in p.input_fields) { if(document.getElementById(id)) document.getElementById(id).value = p.input_fields[id]; }
-        // Ensure Amicus field shows up if that was the saved type
-        toggleAmicusField();
-        renderInputFields(); refresh(); alert("Loaded: " + title);
+        toggleAmicus(); refresh();
     }
 }
 
-async function deleteSelectedProject() {
+async function deleteProject() {
     const title = document.getElementById('cloud-projects').value;
-    if (!title || !confirm(`Delete "${title}"?`)) return;
-    const { error } = await supabaseClient.from('briefs').delete().eq('user_id', currentUser).eq('project_title', title);
-    if (!error) { alert("Deleted."); fetchProjectList(); }
+    if(confirm("Delete?")) { await supabase.from('briefs').delete().eq('user_id', userEmail).eq('project_title', title); fetchProjects(); }
 }
 
 function downloadPDF() {
     const element = document.getElementById('render-target');
-    const title = document.getElementById('projectTitle').value || "Brief";
-    const opt = {
-        margin: 0, filename: `${title}.pdf`,
-        html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
+    html2pdf().from(element).set({
+        margin: 0, filename: 'brief.pdf',
+        html2canvas: { scale: 2, scrollX: 0, scrollY: 0, width: 816, windowWidth: 816 },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] }
-    };
-    html2pdf().from(element).set(opt).save();
+    }).save();
 }
