@@ -182,6 +182,39 @@
     </div>
 </div>
 
+
+
+
+
+        <div id="admin" class="tab-content">
+            <div class="admin-header">
+                <h2>⚖️ Teacher Case Manager</h2>
+                <p>Add cases here to populate the dropdown menu for students.</p>
+            </div>
+
+            <div class="admin-card">
+                <h3>Add New Case</h3>
+                <div class="admin-form-group">
+                    <label>Case Name (e.g., Cooksey v. MTPS)</label>
+                    <input type="text" id="newCaseName" placeholder="Enter case name...">
+                </div>
+                <div class="admin-form-group">
+                    <label>Google Drive Brief Link</label>
+                    <input type="text" id="newCaseLink" placeholder="Paste the shared Google Drive URL here...">
+                </div>
+                <button class="action-btn" style="background: var(--legal-blue); color: white;" onclick="addNewCase()">Add Case to Student List</button>
+            </div>
+
+            <div class="admin-card" style="margin-top: 20px;">
+                <h3>Existing Cases</h3>
+                <div id="manage-cases-list">
+                    <p style="color: #666;">Loading active cases...</p>
+                </div>
+            </div>
+        </div>
+
+        
+
 </section>
 
     <section class="preview-panel">
