@@ -33,11 +33,9 @@ header {
 
 .persistence-zone { margin-top: auto; padding: 10px 0; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
 
-/* Unified Button Sizes */
 .action-btn {
     display: flex; align-items: center; justify-content: center;
-    width: 100%; height: 40px; /* Fixed height for all buttons */
-    border-radius: 6px; border: 1px solid #ccc;
+    width: 100%; height: 40px; border-radius: 6px; border: 1px solid #ccc;
     cursor: pointer; font-weight: 600; background: white; box-sizing: border-box;
     font-family: inherit; font-size: 0.85rem; color: #333;
 }
@@ -45,14 +43,8 @@ header {
 .cloud-save-btn { background: var(--legal-blue); color: white; border: none; }
 .btn-danger { color: var(--danger-red); border-color: var(--danger-red); }
 
-/* TOS Centering */
-.sidebar-footer {
-    width: 100%;
-    text-align: center;
-    padding-top: 10px;
-}
+.sidebar-footer { width: 100%; text-align: center; padding-top: 10px; }
 
-/* Input Panel */
 .input-panel { flex: 1; background: white; padding: 30px; overflow-y: auto; border-right: 2px solid #333; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
@@ -75,6 +67,13 @@ input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1
     color: black; 
     position: relative; 
     box-sizing: border-box;
+    page-break-after: always;
+}
+
+/* The Nuke: Prevents blank page after the final document page */
+.paper:last-child {
+    page-break-after: auto !important;
+    margin-bottom: 0 !important;
 }
 
 .court-header { text-align: center; font-weight: bold; font-size: 14pt; text-transform: uppercase; line-height: 1.2; }
@@ -90,20 +89,9 @@ hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
     font-size: 11pt; 
 }
 
-/* PRINT FIX: Forces all pages to show */
 @media print {
-    body, .app-container { overflow: visible !important; height: auto !important; display: block !important; }
+    body, .app-container { overflow: visible !important; height: auto !important; }
     header, .sidebar, .input-panel { display: none !important; }
-    .preview-panel { 
-        position: absolute; left: 0; top: 0; margin: 0; padding: 0; 
-        overflow: visible !important; width: 100% !important; 
-    }
-    .paper { 
-        margin: 0 !important; 
-        box-shadow: none !important; 
-        page-break-after: always !important; 
-        width: 8.5in !important; 
-        height: 11in !important;
-        overflow: visible !important;
-    }
+    .preview-panel { padding: 0 !important; margin: 0 !important; width: 8.5in !important; overflow: visible !important; }
+    .paper { margin: 0 !important; box-shadow: none !important; }
 }
