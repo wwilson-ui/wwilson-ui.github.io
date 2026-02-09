@@ -53,15 +53,31 @@
         <div id="setup" class="tab-content active">
             <h2>Project Setup</h2>
             <label>Project Title:</label>
-            <input type="text" id="projectTitle" placeholder="e.g. Smith v. Jones Final" oninput="refresh()">
+            <input type="text" id="projectTitle" oninput="refresh()">
+    
             <label>Writing for:</label>
-            <select id="briefType" onchange="refresh()">
+            <select id="briefType" onchange="toggleAmicusField(); refresh()">
                 <option value="Petitioner">Brief for Petitioner</option>
                 <option value="Respondent">Brief for Respondent</option>
+                <option value="Amicus Curiae">Brief for Amicus Curiae</option>
             </select>
+
+            <div id="amicus-extras" style="display:none; margin-top: 10px; border-left: 3px solid var(--legal-blue); padding-left: 10px;">
+                <label>Full Amicus Name:</label>
+                <input type="text" id="amicusName" placeholder="e.g. American Civil Liberties Union" oninput="refresh()">
+                <label>In Support of:</label>
+                <select id="amicusSupport" onchange="refresh()">
+                    <option value="Petitioner">In Support of Petitioner</option>
+                    <option value="Respondent">In Support of Respondent</option>
+                    <option value="Neither Party">In Support of Neither Party</option>
+                </select>
+            </div>
+
             <label>Court Term:</label>
             <input type="text" id="courtTerm" placeholder="October Term 2025" oninput="refresh()">
-            <label>Firm/School:</label>
+            </div>
+
+            <label>Law Firm Name:</label>
             <input type="text" id="firmName" placeholder="Law Firm..." oninput="refresh()">
             <label>Counsel Names:</label>
             <textarea id="studentNames" rows="3" oninput="refresh()"></textarea>
