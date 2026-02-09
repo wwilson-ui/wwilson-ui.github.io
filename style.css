@@ -95,3 +95,29 @@ hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
     .preview-panel { padding: 0 !important; margin: 0 !important; width: 8.5in !important; overflow: visible !important; }
     .paper { margin: 0 !important; box-shadow: none !important; }
 }
+
+
+.admin-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.admin-form-group {
+    margin-bottom: 15px;
+}
+
+.admin-form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.admin-form-group input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
