@@ -191,6 +191,8 @@ function onSignIn(response) {
     // Check if the user is the teacher
     if (currentUser === TEACHER_EMAIL) {
         document.getElementById('admin-tab-btn').style.display = "block";
+        } else {
+        document.getElementById('admin-tab-btn').style.display = "none";
     }
     
     loadCases(); // Load dropdown
