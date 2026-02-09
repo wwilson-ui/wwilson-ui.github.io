@@ -1,64 +1,4 @@
-// Add this at the VERY top of your script.js
-(function() {
-    // This is your confirmed Public Key
-    emailjs.init("EGTTkqjyh5AuglVne"); 
-})();
 
-async function submitToCourt() {
-    const v = (id) => document.getElementById(id)?.value || "";
-    
-    // 1. Validation Pop-up
-    const confirmed = confirm("Have you fully reviewed the file to be sure that it is finalized and ready for submission?");
-    
-    if (!confirmed) {
-        switchTab('argument');
-        return;
-    }
-
-    // 2. Prepare Data (Matches your index.html IDs)
-    const pet = data.petitioners[0] || "Petitioner";
-    const res = data.respondents[0] || "Respondent";
-    const term = v('courtTerm') || "October Term 2025";
-    const subjectLine = `${pet} v. ${res} (${term})`;
-    const projectTitle = v('projectTitle') || "Legal Brief";
-
-    // 3. Generate PDF and Send
-    const element = document.getElementById('render-target');
-    
-    try {
-        const pdfBlob = await html2pdf().from(element).set({
-            margin: 0,
-            filename: `${projectTitle}.pdf`,
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-        }).output('blob');
-
-        const reader = new FileReader();
-        reader.readAsDataURL(pdfBlob);
-        reader.onloadend = function() {
-            const base64data = reader.result.split(',')[1];
-
-            const templateParams = {
-                subject: subjectLine,
-                project_title: projectTitle,
-                content_attachment: base64data 
-            };
-
-            // FIX: Replace 'YOUR_SERVICE_ID' and 'YOUR_TEMPLATE_ID' with the codes 
-            // from your EmailJS dashboard (e.g., service_xxxx and template_xxxx)
-            emailjs.send('service_t5ybx5b', 'template_tx8tc09', templateParams)
-                .then(() => {
-                    alert("Success! The brief has been submitted and emailed to wwilson@mtps.us");
-                }, (error) => {
-                    alert("Email failed. Check if your Service ID and Template ID are correct in the script.");
-                    console.error("EmailJS Error:", error);
-                });
-        };
-    } catch (err) {
-        alert("Error generating PDF. Please try 'Direct Print'.");
-        console.error(err);
-    }
-}
 
 
 
@@ -172,12 +112,7 @@ function renderInputFields() {
     });
 }
 
-function onSignIn(response) {
-    const payload = JSON.parse(atob(response.credential.split('.')[1]));
-    currentUser = payload.email;
-    document.getElementById('auth-status').innerText = "Logged in: " + currentUser;
-    fetchProjectList();
-}
+
 
 async function saveToCloud() {
     if (!currentUser || !supabaseClient) return alert("Please sign in first.");
@@ -232,6 +167,110 @@ function downloadPDF() {
 }
 
 
+
+const TEACHER_EMAIL = "wwilson@mtps.us"; // Set this to your school email
+
+function onSignIn(response) {
+    const user = JSON.parse(atob(response.credential.split('.')[1]));
+    currentUser = user.email;
+    document.getElementById('auth-status').innerText = `Logged in as: ${currentUser}`;
+    
+    // Check if the user is the teacher
+    if (currentUser === TEACHER_EMAIL) {
+        document.getElementById('admin-tab-btn').style.display = "block";
+    }
+    
+    loadCases(); // Load dropdown
+    loadDocket(); // Load table
+}
+
+// 1. Fetch Cases from Database for Dropdown
+async function loadCases() {
+    const { data: cases } = await supabaseClient.from('active_cases').select('*').order('case_name');
+    const select = document.getElementById('assignedCase');
+    select.innerHTML = '<option value="">-- Select Case --</option>';
+    
+    cases.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.case_name;
+        opt.dataset.link = c.drive_link;
+        opt.innerText = c.case_name;
+        select.appendChild(opt);
+    });
+}
+
+// 2. Submit PDF to the Shared Docket
+async function submitToCourt() {
+    const caseName = document.getElementById('assignedCase').value;
+    const student = document.getElementById('studentNames')?.value || "Anonymous";
+    const type = document.getElementById('briefType').value;
+
+    if (!caseName) return alert("Please select a case in Tab 1 first.");
+    if (!confirm("File this final brief to the Public Court Docket?")) return;
+
+    const element = document.getElementById('render-target');
+    const pdfBlob = await html2pdf().from(element).output('blob');
+    
+    const reader = new FileReader();
+    reader.readAsDataURL(pdfBlob);
+    reader.onloadend = async function() {
+        const base64PDF = reader.result;
+
+        const { error } = await supabaseClient.from('court_docket').insert([{
+            case_name: caseName,
+            brief_type: type,
+            student_name: student,
+            pdf_data: base64PDF,
+            filed_at: new Date()
+        }]);
+
+        if (!error) {
+            alert("Success! Your brief is now part of the Public Docket.");
+            loadDocket(); // Refresh the table
+            switchTab('docket');
+        }
+    };
+}
+
+// 3. Build the Grouped Docket Table (The "View" students see)
+async function loadDocket() {
+    const { data: filings } = await supabaseClient.from('court_docket').select('*');
+    const { data: cases } = await supabaseClient.from('active_cases').select('*');
+    const body = document.getElementById('docket-body');
+    body.innerHTML = "";
+
+    cases.forEach(c => {
+        const caseFilings = filings.filter(f => f.case_name === c.case_name);
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong>${c.case_name}</strong></td>
+            <td><a href="${c.drive_link}" target="_blank">🔗 Briefing</a></td>
+            <td>${getLinksByType(caseFilings, 'Petitioner')}</td>
+            <td>${getLinksByType(caseFilings, 'Respondent')}</td>
+            <td>${getLinksByType(caseFilings, 'Amicus Curiae')}</td>
+        `;
+        body.appendChild(row);
+    });
+}
+
+function getLinksByType(files, type) {
+    const matches = files.filter(f => f.brief_type === type);
+    return matches.map(f => `
+        <div class="docket-link-wrapper">
+            <a href="${f.pdf_data}" download="${f.case_name}_${type}.pdf">📄 ${f.student_name}</a>
+            ${currentUser === TEACHER_EMAIL ? `<span onclick="deleteSubmission(${f.id})" style="color:red; cursor:pointer;"> [x]</span>` : ''}
+        </div>
+    `).join("");
+}
+
+// 4. Admin function to add cases
+async function addNewCase() {
+    const name = document.getElementById('newCaseName').value;
+    const link = document.getElementById('newCaseLink').value;
+    const { error } = await supabaseClient.from('active_cases').insert([{ case_name: name, drive_link: link }]);
+    if (!error) { alert("Case Added!"); loadCases(); loadDocket(); }
+}
 
 
 
