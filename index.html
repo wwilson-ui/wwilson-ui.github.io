@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SCOTUS Brief Pro | Legal Generator</title>
+    <title>SCOTUS Brief Pro</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -22,7 +22,7 @@
 
 <main class="app-container">
     <nav class="sidebar">
-        <div id="auth-status" style="font-size: 0.75rem; color: #888; margin-bottom: 15px;">Initializing system...</div>
+        <div id="auth-status" style="font-size: 0.75rem; color: #888; margin-bottom: 15px;">Initializing...</div>
         
         <div class="tabs-zone">
             <button class="tab-btn active" onclick="switchTab('setup')">1. Initial Setup</button>
@@ -35,20 +35,17 @@
         
         <div class="persistence-zone">
             <button class="action-btn cloud-save-btn" onclick="saveToCloud()">☁️ Save to Cloud</button>
-    
-            <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 10px;">
-                <select id="cloud-projects" class="action-btn">
-                    <option value="">📂 Select a Project...</option>
-                </select>
-                <div style="display: flex; gap: 5px;">
-                    <button class="action-btn" style="flex: 1;" onclick="loadSelectedProject()">📥 Load</button>
-                    <button class="action-btn btn-danger" style="flex: 1;" onclick="deleteSelectedProject()">🗑️ Delete</button>
-                </div>
+            <select id="cloud-projects" class="action-btn">
+                <option value="">📂 Select a Project...</option>
+            </select>
+            <div style="display: flex; gap: 5px;">
+                <button class="action-btn" style="flex: 1;" onclick="loadSelectedProject()">📥 Load</button>
+                <button class="action-btn btn-danger" style="flex: 1;" onclick="deleteSelectedProject()">🗑️ Delete</button>
             </div>
         </div>
-   
+
         <div class="sidebar-footer">
-            <a href="terms.html" target="_blank" style="color:#999; text-decoration:none; font-size:0.7rem;">Terms of Service</a>
+            <a href="terms.html" target="_blank" style="color:#999; text-decoration:none; font-size:0.75rem;">Terms of Service</a>
         </div>
     </nav>
 
@@ -65,7 +62,7 @@
             <label>Court Term:</label>
             <input type="text" id="courtTerm" placeholder="October Term 2025" oninput="refresh()">
             <label>Firm/School:</label>
-            <input type="text" id="firmName" placeholder="Law Firm or University..." oninput="refresh()">
+            <input type="text" id="firmName" placeholder="Law Firm..." oninput="refresh()">
             <label>Counsel Names:</label>
             <textarea id="studentNames" rows="3" oninput="refresh()"></textarea>
         </div>
@@ -73,13 +70,13 @@
         <div id="cover" class="tab-content">
             <h2>Cover Details</h2>
             <label>Docket Number:</label>
-            <input type="text" id="docketNum" placeholder="No. 23-1234" oninput="refresh()">
+            <input type="text" id="docketNum" oninput="refresh()">
             <label>Petitioners:</label>
             <div id="petitioner-inputs"></div>
-            <button class="action-btn small-btn" onclick="addDynamic('petitioner')">+ Add Petitioner</button>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('petitioner')">+ Add Petitioner</button>
             <label>Respondents:</label>
             <div id="respondent-inputs"></div>
-            <button class="action-btn small-btn" onclick="addDynamic('respondent')">+ Add Respondent</button>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('respondent')">+ Add Respondent</button>
             <label>Lower Court:</label>
             <input type="text" id="lowerCourt" oninput="refresh()">
         </div>
@@ -88,16 +85,16 @@
             <h2>Authorities</h2>
             <label>Cases:</label>
             <div id="case-inputs"></div>
-            <button class="action-btn small-btn" onclick="addDynamic('case')">+ Add Case</button>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('case')">+ Add Case</button>
             <label>Statutes:</label>
             <div id="statute-inputs"></div>
-            <button class="action-btn small-btn" onclick="addDynamic('statute')">+ Add Statute</button>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('statute')">+ Add Statute</button>
         </div>
 
         <div id="questions" class="tab-content">
             <h2>Questions</h2>
             <div id="question-inputs"></div>
-            <button class="action-btn small-btn" onclick="addDynamic('question')">+ Add Question</button>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('question')">+ Add Question</button>
         </div>
 
         <div id="argument" class="tab-content">
@@ -113,7 +110,7 @@
             <label>Conclusion:</label>
             <textarea id="conclusionText" rows="4" oninput="refresh()"></textarea>
             <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
-                <button class="action-btn print-primary" onclick="downloadPDF()">📥 DOWNLOAD PDF</button>
+                <button class="action-btn cloud-save-btn" onclick="downloadPDF()">📥 DOWNLOAD PDF</button>
                 <button class="action-btn" style="background:#333; color:white;" onclick="window.print()">🖨️ DIRECT PRINT</button>
             </div>
         </div>
