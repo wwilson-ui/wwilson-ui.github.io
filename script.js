@@ -232,72 +232,7 @@ function downloadPDF() {
 }
 
 
-// Initialize EmailJS (You will need a free Public Key from emailjs.com)
-(function() {
-    emailjs.init("YOUR_PUBLIC_KEY"); 
-})();
 
-async function submitToCourt() {
-    const v = (id) => document.getElementById(id)?.value || "";
-    
-    // 1. Validation Pop-up
-    const confirmed = confirm("Have you fully reviewed the file to be sure that it is finalized and ready for submission?");
-    
-    if (!confirmed) {
-        // Go back to edit (Switch to Argument tab as an example)
-        switchTab('argument');
-        return;
-    }
-
-    // 2. Prepare Email Data
-    const petitioner = data.petitioners[0] || "Petitioner";
-    const respondent = data.respondents[0] || "Respondent";
-    const term = v('courtTerm') || "October Term 202X";
-    
-    const subjectLine = `${petitioner} v. ${respondent} - ${term}`;
-    const recipient = "wwilson@mtps.us";
-
-    // 3. Generate PDF as Base64 for attachment
-    const element = document.getElementById('render-target');
-    const opt = {
-        margin: 0,
-        filename: 'Final_Submission.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-
-    try {
-        const pdfBlob = await html2pdf().from(element).set(opt).output('blob');
-        
-        // Converting blob to base64 for EmailJS
-        const reader = new FileReader();
-        reader.readAsDataURL(pdfBlob);
-        reader.onloadend = async function() {
-            const base64data = reader.result.split(',')[1];
-
-            const templateParams = {
-                to_email: recipient,
-                subject: subjectLine,
-                project_title: v('projectTitle'),
-                content_attachment: base64data // This requires a "File" type attachment configured in EmailJS
-            };
-
-            // 4. Send Email
-            // Note: ServiceID and TemplateID come from your EmailJS dashboard
-            emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams)
-                .then(() => {
-                    alert("Submission Successful! Your brief has been emailed to the Court.");
-                }, (error) => {
-                    alert("Submission failed. Please download the PDF and email it manually to " + recipient);
-                    console.error("Email Error:", error);
-                });
-        };
-    } catch (err) {
-        alert("Error generating submission. Please use Direct Print.");
-        console.error(err);
-    }
-}
 
 
 
