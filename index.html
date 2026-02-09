@@ -2,143 +2,106 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SCOTUS Brief Pro | Amicus Edition</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&display=swap');
-
-        :root {
-            --legal-blue: #1a237e;
-            --bg-gray: #525659;
-            --danger: #c62828;
-        }
-
-        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; background: var(--bg-gray); overflow: hidden; }
-        
-        /* Header & Sidebar */
-        header { background: var(--legal-blue); color: white; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; flex-shrink: 0; }
-        .app-container { display: flex; flex: 1; overflow: hidden; }
-        .sidebar { width: 300px; background: white; border-right: 1px solid #ccc; display: flex; flex-direction: column; padding: 15px; }
-        
-        /* Unified Button Heights */
-        .tab-btn, .action-btn { 
-            width: 100%; height: 40px; margin-bottom: 5px; cursor: pointer; border: 1px solid #ccc; 
-            border-radius: 4px; font-weight: bold; font-family: inherit; display: flex; align-items: center; justify-content: center;
-        }
-        .tab-btn { background: #f8f9fa; border: none; justify-content: flex-start; padding-left: 15px; }
-        .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); border-left: 4px solid var(--legal-blue); }
-        .save-btn { background: var(--legal-blue); color: white; border: none; }
-        .delete-btn { color: var(--danger); border-color: var(--danger); }
-
-        /* Input Panel */
-        .input-panel { flex: 1; background: white; padding: 25px; overflow-y: auto; border-right: 2px solid #333; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        label { display: block; font-size: 0.7rem; font-weight: bold; margin-top: 15px; color: #555; text-transform: uppercase; }
-        input, textarea, select { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-
-        /* Preview Engine & Page Fixes */
-        .preview-panel { flex: 1.5; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
-        .paper { 
-            width: 8.5in; height: 11in; background: white; padding: 1in !important; 
-            margin-bottom: 20px; box-shadow: 0 0 15px rgba(0,0,0,0.3); 
-            font-family: 'Crimson Pro', serif; font-size: 12pt; line-height: 1.5; 
-            position: relative; box-sizing: border-box; page-break-after: always;
-        }
-        /* Fix for Extra Page */
-        .paper:last-child { page-break-after: avoid !important; margin-bottom: 0; }
-        
-        .manual-footer { position: absolute; bottom: 0.75in; left: 0; right: 0; text-align: center; font-size: 11pt; }
-        .court-header { text-align: center; font-weight: bold; text-transform: uppercase; font-size: 1.4rem; line-height: 1.2; }
-        
-        .sidebar-footer { margin-top: auto; text-align: center; padding-top: 10px; border-top: 1px solid #eee; }
-
-        @media print {
-            body, .app-container, .preview-panel { display: block; background: white; overflow: visible; }
-            header, .sidebar, .input-panel { display: none; }
-            .paper { box-shadow: none; margin: 0; width: 8.5in; height: 11in; }
-        }
-    </style>
+    <title>SCOTUS Brief Pro</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header>
-    <div>⚖️ SCOTUS Brief Pro</div>
-    <div id="g_id_onload" data-client_id="129113401099-ihpv7tunjjfeuovepgphcfibf4nqj25g.apps.googleusercontent.com" data-callback="handleSignIn"></div>
+    <div style="font-weight:bold;">⚖️ SCOTUS Brief Pro</div>
+    <div id="g_id_onload" data-client_id="129113401099-ihpv7tunjjfeuovepgphcfibf4nqj25g.apps.googleusercontent.com" data-callback="onSignIn"></div>
     <div class="g_id_signin" data-type="standard"></div>
 </header>
 
 <div class="app-container">
     <nav class="sidebar">
-        <div id="status" style="font-size:0.7rem; color:gray; margin-bottom:10px;">Checking Database...</div>
-        <button class="tab-btn active" onclick="showTab('tab1', this)">1. Setup</button>
-        <button class="tab-btn" onclick="showTab('tab2', this)">2. Cover & Parties</button>
-        <button class="tab-btn" onclick="showTab('tab3', this)">3. Questions/Authorities</button>
-        <button class="tab-btn" onclick="showTab('tab4', this)">4. Argument & Interest</button>
-        <button class="tab-btn" onclick="showTab('tab5', this)">5. Export</button>
+        <div id="auth-status" style="font-size:0.7rem; color:#888; margin-bottom:10px;">Initializing...</div>
+        
+        <button class="tab-btn active" onclick="switchTab('tab-setup', this)">1. Setup</button>
+        <button class="tab-btn" onclick="switchTab('tab-cover', this)">2. Cover & Parties</button>
+        <button class="tab-btn" onclick="switchTab('tab-front', this)">3. Front Matter</button>
+        <button class="tab-btn" onclick="switchTab('tab-body', this)">4. Argument & Interest</button>
+        <button class="tab-btn" onclick="switchTab('tab-export', this)">5. Export</button>
 
-        <div style="margin-top:20px;">
-            <button class="action-btn save-btn" onclick="cloudSave()">☁️ Save to Cloud</button>
-            <select id="project-list" class="action-btn" style="margin-top:10px;"></select>
+        <div class="persistence-zone">
+            <button class="action-btn cloud-save-btn" onclick="saveToCloud()">☁️ Save to Cloud</button>
+            <select id="cloud-projects" class="action-btn">
+                <option value="">📂 Select Project...</option>
+            </select>
             <div style="display:flex; gap:5px;">
-                <button class="action-btn" style="flex:1" onclick="cloudLoad()">📥 Load</button>
-                <button class="action-btn delete-btn" style="flex:1" onclick="cloudDelete()">🗑️ Delete</button>
+                <button class="action-btn" style="flex:1" onclick="loadProject()">📥 Load</button>
+                <button class="action-btn btn-danger" style="flex:1" onclick="deleteProject()">🗑️ Delete</button>
             </div>
         </div>
 
         <div class="sidebar-footer">
-            <a href="#" style="font-size: 0.75rem; color: #999; text-decoration: none;">Terms of Service</a>
+            <a href="terms.html" style="font-size: 0.7rem; color: #999; text-decoration: none;">Terms of Service</a>
         </div>
     </nav>
 
     <div class="input-panel">
-        <div id="tab1" class="tab-content active">
-            <h2>Project Setup</h2>
-            <label>Project Title</label><input type="text" id="pTitle" oninput="draw()">
-            <label>Brief Type</label>
-            <select id="pType" onchange="toggleAmicus(); draw()">
-                <option value="Petitioner">Brief for Petitioner</option>
-                <option value="Respondent">Brief for Respondent</option>
-                <option value="Amicus Curiae">Brief for Amicus Curiae</option>
+        <div id="tab-setup" class="tab-content active">
+            <h2>Setup</h2>
+            <label>Brief For</label>
+            <select id="pType" onchange="toggleAmicus(); refresh()">
+                <option value="Petitioner">Petitioner</option>
+                <option value="Respondent">Respondent</option>
+                <option value="Amicus Curiae">Amicus Curiae</option>
             </select>
-            <div id="amicus-fields" style="display:none; border-left: 3px solid var(--legal-blue); padding-left: 10px; margin-top: 10px;">
-                <label>Amicus Name </label><input type="text" id="pAmicusName" oninput="draw()">
-                <label>Supporting </label>
-                <select id="pAmicusSupport" onchange="draw()">
+            
+            <div id="amicus-extras" style="display:none; border-left:3px solid var(--legal-blue); padding-left:10px; margin-top:10px;">
+                <label>Amicus Name (Organization/Individual)</label>
+                <input type="text" id="pAmicusName" oninput="refresh()">
+                <label>In Support of</label>
+                <select id="pAmicusSupport" onchange="refresh()">
                     <option value="PETITIONER">Petitioner</option>
                     <option value="RESPONDENT">Respondent</option>
                     <option value="NEITHER PARTY">Neither Party</option>
                 </select>
             </div>
-            <label>Court Term</label><input type="text" id="pTerm" placeholder="October Term 2025" oninput="draw()">
-            <label>Date [cite: 9]</label><input type="text" id="pDate" oninput="draw()">
+
+            <label>Project Title</label>
+            <input type="text" id="pTitle" oninput="refresh()">
+            <label>Court Term</label>
+            <input type="text" id="pTerm" placeholder="October Term 2025" oninput="refresh()">
         </div>
 
-        <div id="tab2" class="tab-content">
-            <h2>Cover & Parties</h2>
-            <label>Docket Number(s) [cite: 1]</label><input type="text" id="pDocket" oninput="draw()">
-            <label>Petitioners [cite: 2]</label><textarea id="pPets" rows="2" oninput="draw()"></textarea>
-            <label>Respondents [cite: 5]</label><textarea id="pResps" rows="2" oninput="draw()"></textarea>
-            <label>Lower Court [cite: 7]</label><input type="text" id="pCourt" oninput="draw()">
+        <div id="tab-cover" class="tab-content">
+            <h2>Cover</h2>
+            <label>Docket Number</label>
+            <input type="text" id="pDocket" oninput="refresh()">
+            <label>Petitioners</label>
+            <textarea id="pPets" rows="2" oninput="refresh()"></textarea>
+            <label>Respondents</label>
+            <textarea id="pResps" rows="2" oninput="refresh()"></textarea>
+            <label>Lower Court</label>
+            <input type="text" id="pCourt" oninput="refresh()">
         </div>
 
-        <div id="tab3" class="tab-content">
-            <h2>Front Matter</h2>
-            <label>Question Presented [cite: 11]</label><textarea id="pQuest" rows="4" oninput="draw()"></textarea>
-            <label>Cases (One per line) [cite: 23]</label><textarea id="pCases" rows="5" oninput="draw()"></textarea>
+        <div id="tab-front" class="tab-content">
+            <h2>Front Matter (i, ii, iii)</h2>
+            <label>Question Presented</label>
+            <textarea id="pQuest" rows="4" oninput="refresh()"></textarea>
+            <label>Authorities (Cases & Statutes)</label>
+            <textarea id="pAuth" rows="6" oninput="refresh()"></textarea>
         </div>
 
-        <div id="tab4" class="tab-content">
-            <h2>Body Content</h2>
-            <label>Interest of Amicus (3rd Person) [cite: 28, 30]</label><textarea id="pInterest" rows="6" oninput="draw()"></textarea>
-            <label>Argument [cite: 32]</label><textarea id="pArg" rows="10" oninput="draw()"></textarea>
-            <label>Conclusion [cite: 34]</label><textarea id="pConc" rows="4" oninput="draw()"></textarea>
-            <label>Respectfully Submitted By [cite: 37]</label><input type="text" id="pSign" oninput="draw()">
+        <div id="tab-body" class="tab-content">
+            <h2>Argument</h2>
+            <label>Interest of Amicus Curiae (If applicable)</label>
+            <textarea id="pInterest" rows="5" oninput="refresh()"></textarea>
+            <label>Argument Body</label>
+            <textarea id="pArg" rows="10" oninput="refresh()"></textarea>
+            <label>Conclusion</label>
+            <textarea id="pConc" rows="3" oninput="refresh()"></textarea>
+            <label>Counsel/Signatory Name</label>
+            <input type="text" id="pSign" oninput="refresh()">
         </div>
 
-        <div id="tab5" class="tab-content">
+        <div id="tab-export" class="tab-content">
             <h2>Export</h2>
-            <button class="action-btn save-btn" onclick="exportPDF()">📥 Download PDF</button>
-            <button class="action-btn" style="margin-top:10px; background:#333; color:white;" onclick="window.print()">🖨️ Direct Print</button>
+            <button class="action-btn cloud-save-btn" onclick="downloadPDF()">📥 Download PDF</button>
+            <button class="action-btn" style="background:#333; color:white;" onclick="window.print()">🖨️ Direct Print</button>
         </div>
     </div>
 
@@ -149,120 +112,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
-<script>
-    const SB_URL = 'https://dfmugytablgldpkadfrl.supabase.co';
-    const SB_KEY = 'sb_publishable_AoeVLd5TSJMGyhAyDmXTng_5C-_C8nC';
-    let supabase, userEmail;
-
-    window.onload = () => {
-        try { supabase = window.supabase.createClient(SB_URL, SB_KEY); } catch(e){}
-        draw();
-    };
-
-    function toggleAmicus() {
-        document.getElementById('amicus-fields').style.display = (document.getElementById('pType').value === 'Amicus Curiae') ? 'block' : 'none';
-    }
-
-    function showTab(id, btn) {
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-        btn.classList.add('active');
-    }
-
-    function draw() {
-        const v = (id) => document.getElementById(id).value;
-        const page = (content, num) => `<div class="paper">${content}<div class="manual-footer">${num}</div></div>`;
-
-        // Docket Auto-Prefix
-        let dNum = v('pDocket').trim();
-        if(dNum && !dNum.toUpperCase().startsWith("CASE NO")) dNum = "Case No.: " + dNum;
-
-        // Amicus Title Logic 
-        let titleBlock = `BRIEF FOR THE ${v('pType').toUpperCase()}`;
-        if(v('pType') === 'Amicus Curiae') {
-            titleBlock = `BRIEF OF ${v('pAmicusName').toUpperCase() || '[NAME]'} AS AMICUS CURIAE SUPPORTING ${v('pAmicusSupport').toUpperCase()}`;
-        }
-
-        const coverHtml = `
-            <div style="font-weight:bold;">${dNum.toUpperCase() || 'NOS. 00-000'}</div>
-            <div class="court-header" style="margin: 0.7in 0 0.3in 0;">In the <br> Supreme Court of the United States</div>
-            <div style="text-align:center;">${v('pTerm').toUpperCase() || 'TERM'}</div>
-            <hr style="border:none; border-top:2px solid black; margin:20px 0;">
-            <div style="display:flex; min-height: 1.5in;">
-                <div style="flex:1; padding-right:10px;">${v('pPets').replace(/\n/g, '<br>') || 'PETITIONERS'},<br><i>Petitioners</i><br>v.<br>${v('pResps').replace(/\n/g, '<br>') || 'RESPONDENTS'},<br><i>Respondent</i></div>
-                <div style="width:45%; border-left:2px solid black; padding-left:15px; font-style:italic;">On Writ of Certiorari to the ${v('pCourt') || 'Court of Appeals'}</div>
-            </div>
-            <div style="margin-top:0.5in; text-align:center; border-top:2px solid black; border-bottom:2px solid black; padding:20px 0; font-weight:bold;">${titleBlock}</div>
-            <div style="margin-top:0.5in; text-align:right;">${v('pDate')}<br><br>Respectfully submitted,<br><b>${v('pSign')}</b></div>
-        `;
-
-        const qHtml = `<div style="text-align:center; font-weight:bold; margin-bottom:20px;">QUESTION PRESENTED [cite: 11]</div><p>${v('pQuest')}</p>`;
-        const tocHtml = `<div style="text-align:center; font-weight:bold; margin-bottom:20px;">TABLE OF CONTENTS [cite: 14]</div>
-                         <p>Question Presented .... i</p><p>Table of Contents .... ii</p><p>Table of Authorities .... iii</p>
-                         <p>Interest of Amicus Curiae .... 1</p><p>Argument .... 2</p><p>Conclusion .... 3</p>`;
-        const authHtml = `<div style="text-align:center; font-weight:bold; margin-bottom:20px;">TABLE OF AUTHORITIES [cite: 22]</div>
-                          <b>Cases:</b><br>${v('pCases').replace(/\n/g, '<br>')}`;
-        
-        const interestHtml = `<div style="text-align:center; font-weight:bold; margin-bottom:20px;">INTRODUCTION AND INTEREST OF AMICUS CURIAE </div><p>${v('pInterest')}</p>`;
-        const argHtml = `<div style="text-align:center; font-weight:bold; margin-bottom:20px;">ARGUMENT [cite: 32]</div><p style="white-space:pre-wrap;">${v('pArg')}</p>`;
-        const concHtml = `<div style="text-align:center; font-weight:bold; margin-bottom:20px;">CONCLUSION [cite: 34]</div><p>${v('pConc')}</p>
-                          <div style="margin-top:1in; text-align:right;">${v('pDate')}<br><br>Respectfully submitted,<br><b>${v('pSign')}</b></div>`;
-
-        document.getElementById('render-target').innerHTML = 
-            page(coverHtml, '') + 
-            page(qHtml, 'i') + 
-            page(tocHtml, 'ii') + 
-            page(authHtml, 'iii') + 
-            page(interestHtml, '1') + 
-            page(argHtml, '2') + 
-            page(concHtml, '3');
-    }
-
-    // --- Database Handlers ---
-    function handleSignIn(resp) {
-        userEmail = JSON.parse(atob(resp.credential.split('.')[1])).email;
-        document.getElementById('status').innerText = "User: " + userEmail;
-        refreshList();
-    }
-    async function cloudSave() {
-        if(!userEmail) return alert("Sign in first");
-        const title = v('pTitle') || "Untitled";
-        const fields = {}; document.querySelectorAll('input, textarea, select').forEach(i => fields[i.id] = i.value);
-        await supabase.from('briefs').upsert({ user_id: userEmail, project_title: title, input_fields: fields }, { onConflict: 'user_id, project_title' });
-        alert("Saved!"); refreshList();
-    }
-    async function refreshList() {
-        const { data } = await supabase.from('briefs').select('project_title').eq('user_id', userEmail);
-        const list = document.getElementById('project-list');
-        list.innerHTML = '<option value="">📂 Select Project...</option>';
-        data.forEach(p => { const o = document.createElement('option'); o.value = p.project_title; o.innerText = p.project_title; list.appendChild(o); });
-    }
-    async function cloudLoad() {
-        const title = document.getElementById('project-list').value;
-        const { data } = await supabase.from('briefs').select('input_fields').eq('user_id', userEmail).eq('project_title', title).single();
-        for(let id in data.input_fields) { if(document.getElementById(id)) document.getElementById(id).value = data.input_fields[id]; }
-        toggleAmicus(); draw();
-    }
-    async function cloudDelete() {
-        const title = document.getElementById('project-list').value;
-        if(confirm("Delete " + title + "?")) {
-            await supabase.from('briefs').delete().eq('user_id', userEmail).eq('project_title', title);
-            refreshList();
-        }
-    }
-
-    function exportPDF() {
-        const element = document.getElementById('render-target');
-        html2pdf().from(element).set({
-            margin: 0, filename: 'brief.pdf',
-            html2canvas: { scale: 2, scrollX: 0, scrollY: 0, width: 816 },
-            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-            pagebreak: { mode: ['css', 'legacy'] }
-        }).save();
-    }
-    function v(id){ return document.getElementById(id).value; }
-</script>
+<script src="script.js"></script>
 </body>
 </html>
