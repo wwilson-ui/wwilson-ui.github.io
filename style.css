@@ -4,7 +4,7 @@
     --legal-blue: #1a237e;
     --border-color: #dee2e6;
     --bg-gray: #525659;
-    --danger: #c62828;
+    --danger-red: #c62828;
 }
 
 body {
@@ -20,7 +20,7 @@ header {
 .app-container { display: flex; flex: 1; overflow: hidden; }
 
 .sidebar {
-    width: 290px; min-width: 290px; background: white;
+    width: 280px; min-width: 280px; background: white;
     border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 15px; box-sizing: border-box;
 }
 
@@ -31,7 +31,6 @@ header {
 
 .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); }
 
-/* Buttons Alignment Fix */
 .persistence-zone { margin-top: auto; padding: 10px 0; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
 
 .action-btn {
@@ -42,37 +41,57 @@ header {
 }
 
 .cloud-save-btn { background: var(--legal-blue); color: white; border: none; }
-.btn-danger { color: var(--danger); border-color: var(--danger); }
+.btn-danger { color: var(--danger-red); border-color: var(--danger-red); }
 
 .sidebar-footer { width: 100%; text-align: center; padding-top: 10px; }
 
-/* Input Panel */
 .input-panel { flex: 1; background: white; padding: 30px; overflow-y: auto; border-right: 2px solid #333; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-label { display: block; font-weight: 700; font-size: 0.65rem; margin-top: 15px; color: #666; text-transform: uppercase; }
+label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 15px; color: #666; text-transform: uppercase; }
 input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
 
 /* PREVIEW SYSTEM */
 .preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
 
 .paper { 
-    width: 8.5in; height: 11in; background: white; padding: 1in !important; 
-    margin-bottom: 30px; box-shadow: 0 0 20px rgba(0,0,0,0.5); 
-    font-family: 'Crimson Pro', serif; font-size: 12pt; line-height: 1.5; 
-    color: black; position: relative; box-sizing: border-box;
+    width: 8.5in; 
+    height: 11in; 
+    background: white; 
+    padding: 1in !important; 
+    margin-bottom: 30px; 
+    box-shadow: 0 0 20px rgba(0,0,0,0.5); 
+    font-family: 'Crimson Pro', serif; 
+    font-size: 12pt; 
+    line-height: 1.5; 
+    color: black; 
+    position: relative; 
+    box-sizing: border-box;
     page-break-after: always;
 }
 
-/* FIX: Kill extra page at the end */
-.paper:last-child { page-break-after: avoid !important; margin-bottom: 0 !important; }
+/* The Nuke: Prevents blank page after the final document page */
+.paper:last-child {
+    page-break-after: auto !important;
+    margin-bottom: 0 !important;
+}
 
 .court-header { text-align: center; font-weight: bold; font-size: 14pt; text-transform: uppercase; line-height: 1.2; }
-.manual-footer { position: absolute; bottom: 0.75in; left: 0; right: 0; text-align: center; font-size: 11pt; }
+hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
+.title-box { text-align: center; border-top: 1.5pt solid black; border-bottom: 1.5pt solid black; padding: 15px 10px; margin: 25px 0; font-weight: bold; text-transform: uppercase; }
+.section-header { text-align: center; font-weight: bold; text-transform: uppercase; margin: 25px 0 10px 0; }
+
+.manual-footer { 
+    position: absolute; 
+    bottom: 0.75in; 
+    left: 0; right: 0; 
+    text-align: center; 
+    font-size: 11pt; 
+}
 
 @media print {
-    body, .app-container { overflow: visible !important; height: auto !important; display: block !important; }
+    body, .app-container { overflow: visible !important; height: auto !important; }
     header, .sidebar, .input-panel { display: none !important; }
-    .preview-panel { position: absolute; left: 0; top: 0; margin: 0; padding: 0; overflow: visible !important; width: 100% !important; }
-    .paper { margin: 0 !important; box-shadow: none !important; width: 8.5in !important; height: 11in !important; overflow: visible !important; }
+    .preview-panel { padding: 0 !important; margin: 0 !important; width: 8.5in !important; overflow: visible !important; }
+    .paper { margin: 0 !important; box-shadow: none !important; }
 }
