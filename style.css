@@ -55,37 +55,54 @@ input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1
 /* PREVIEW SYSTEM */
 .preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
 
+/* Precise Legal Formatting */
 .paper { 
     width: 8.5in; 
     height: 11in; 
     background: white; 
+    /* Force 1-inch margins on ALL sides */
     padding: 1in !important; 
-    margin-bottom: 30px; 
+    margin: 0 auto 30px auto; 
     box-shadow: 0 0 20px rgba(0,0,0,0.5); 
     font-family: 'Crimson Pro', serif; 
     font-size: 12pt; 
     line-height: 1.5; 
     color: black; 
     position: relative; 
-    box-sizing: border-box;
-    overflow: hidden; /* Prevents overflow pushing the footer */
+    box-sizing: border-box; /* This ensures padding stays INSIDE the 8.5x11 */
+    overflow: hidden; 
+}
+
+/* Footer position - raised slightly to prevent page-break triggers */
+.manual-footer { 
+    position: absolute; 
+    bottom: 0.75in; 
+    left: 0; 
+    right: 0; 
+    text-align: center; 
+    font-size: 11pt; 
+}
+
+/* Hard-Fix for Print Margins */
+@media print {
+    @page {
+        size: letter;
+        margin: 0; /* Let the CSS .paper padding handle the 1-inch margin */
+    }
+    body { background: white !important; }
+    header, .sidebar, .input-panel { display: none !important; }
+    .preview-panel { padding: 0 !important; margin: 0 !important; width: 100% !important; }
+    .paper { 
+        margin: 0 !important; 
+        box-shadow: none !important; 
+        page-break-after: always !important; 
+        width: 8.5in !important;
+        height: 11in !important;
+        border: none !important;
+    }
 }
 
 .court-header { text-align: center; font-weight: bold; font-size: 14pt; text-transform: uppercase; line-height: 1.2; }
 hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
 .title-box { text-align: center; border-top: 1.5pt solid black; border-bottom: 1.5pt solid black; padding: 15px 10px; margin: 25px 0; font-weight: bold; text-transform: uppercase; }
 .section-header { text-align: center; font-weight: bold; text-transform: uppercase; margin: 25px 0 10px 0; }
-
-.manual-footer { 
-    position: absolute; 
-    bottom: 0.8in; /* Raised from 0.5in to ensure it doesn't jump pages */
-    left: 0; right: 0; 
-    text-align: center; 
-    font-size: 11pt; 
-}
-
-@media print {
-    body, .app-container, .preview-panel { display: block !important; height: auto !important; background: white !important; }
-    header, .sidebar, .input-panel { display: none !important; }
-    .paper { margin: 0 !important; box-shadow: none !important; page-break-after: always !important; width: 8.5in !important; height: 11in !important; }
-}
