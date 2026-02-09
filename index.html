@@ -13,44 +13,42 @@
     <div class="g_id_signin" data-type="standard"></div>
 </header>
 
-<div class="app-container">
+<main class="app-container">
     <nav class="sidebar">
-        <div id="auth-status" style="font-size:0.7rem; color:#888; margin-bottom:10px;">Initializing...</div>
+        <div id="auth-status" style="font-size: 0.7rem; color: #888; margin-bottom: 15px;">Initializing...</div>
         
-        <button class="tab-btn active" onclick="switchTab('tab-setup', this)">1. Setup</button>
-        <button class="tab-btn" onclick="switchTab('tab-cover', this)">2. Cover & Parties</button>
-        <button class="tab-btn" onclick="switchTab('tab-front', this)">3. Front Matter</button>
-        <button class="tab-btn" onclick="switchTab('tab-body', this)">4. Argument & Interest</button>
-        <button class="tab-btn" onclick="switchTab('tab-export', this)">5. Export</button>
-
-        <div class="persistence-zone">
+        <button class="tab-btn active" onclick="switchTab('setup', this)">1. Setup</button>
+        <button class="tab-btn" onclick="switchTab('cover', this)">2. Cover & Parties</button>
+        <button class="tab-btn" onclick="switchTab('matter', this)">3. Front Matter</button>
+        <button class="tab-btn" onclick="switchTab('body', this)">4. Argument & Interest</button>
+        <button class="tab-btn" onclick="switchTab('export', this)">5. Export</button>
+        
+        <div style="margin-top:auto;">
             <button class="action-btn cloud-save-btn" onclick="saveToCloud()">☁️ Save to Cloud</button>
-            <select id="cloud-projects" class="action-btn">
-                <option value="">📂 Select Project...</option>
-            </select>
-            <div style="display:flex; gap:5px;">
-                <button class="action-btn" style="flex:1" onclick="loadProject()">📥 Load</button>
-                <button class="action-btn btn-danger" style="flex:1" onclick="deleteProject()">🗑️ Delete</button>
+            <select id="cloud-projects" class="action-btn" style="margin: 8px 0;"></select>
+            <div style="display: flex; gap: 5px;">
+                <button class="action-btn" style="flex: 1;" onclick="loadProject()">📥 Load</button>
+                <button class="action-btn btn-danger" style="flex: 1;" onclick="deleteProject()">🗑️ Delete</button>
             </div>
         </div>
 
         <div class="sidebar-footer">
-            <a href="terms.html" style="font-size: 0.7rem; color: #999; text-decoration: none;">Terms of Service</a>
+            <a href="terms.html" style="color:#999; text-decoration:none; font-size:0.75rem;">Terms of Service</a>
         </div>
     </nav>
 
-    <div class="input-panel">
-        <div id="tab-setup" class="tab-content active">
+    <section class="input-panel">
+        <div id="setup" class="tab-content active">
             <h2>Setup</h2>
-            <label>Brief For</label>
+            <label>Writing For</label>
             <select id="pType" onchange="toggleAmicus(); refresh()">
-                <option value="Petitioner">Petitioner</option>
-                <option value="Respondent">Respondent</option>
-                <option value="Amicus Curiae">Amicus Curiae</option>
+                <option value="Petitioner">Brief for Petitioner</option>
+                <option value="Respondent">Brief for Respondent</option>
+                <option value="Amicus Curiae">Brief for Amicus Curiae</option>
             </select>
             
-            <div id="amicus-extras" style="display:none; border-left:3px solid var(--legal-blue); padding-left:10px; margin-top:10px;">
-                <label>Amicus Name (Organization/Individual)</label>
+            <div id="amicus-extras" style="display:none; border-left: 3px solid var(--legal-blue); padding-left: 10px; margin-top: 10px;">
+                <label>Amicus Name</label>
                 <input type="text" id="pAmicusName" oninput="refresh()">
                 <label>In Support of</label>
                 <select id="pAmicusSupport" onchange="refresh()">
@@ -66,49 +64,49 @@
             <input type="text" id="pTerm" placeholder="October Term 2025" oninput="refresh()">
         </div>
 
-        <div id="tab-cover" class="tab-content">
+        <div id="cover" class="tab-content">
             <h2>Cover</h2>
             <label>Docket Number</label>
             <input type="text" id="pDocket" oninput="refresh()">
-            <label>Petitioners</label>
+            <label>Petitioners (One per line)</label>
             <textarea id="pPets" rows="2" oninput="refresh()"></textarea>
-            <label>Respondents</label>
+            <label>Respondents (One per line)</label>
             <textarea id="pResps" rows="2" oninput="refresh()"></textarea>
             <label>Lower Court</label>
             <input type="text" id="pCourt" oninput="refresh()">
         </div>
 
-        <div id="tab-front" class="tab-content">
-            <h2>Front Matter (i, ii, iii)</h2>
+        <div id="matter" class="tab-content">
+            <h2>Front Matter</h2>
             <label>Question Presented</label>
-            <textarea id="pQuest" rows="4" oninput="refresh()"></textarea>
+            <textarea id="pQuest" rows="5" oninput="refresh()"></textarea>
             <label>Authorities (Cases & Statutes)</label>
-            <textarea id="pAuth" rows="6" oninput="refresh()"></textarea>
+            <textarea id="pAuth" rows="8" oninput="refresh()"></textarea>
         </div>
 
-        <div id="tab-body" class="tab-content">
-            <h2>Argument</h2>
-            <label>Interest of Amicus Curiae (If applicable)</label>
+        <div id="body" class="tab-content">
+            <h2>Content</h2>
+            <label>Interest of Amicus Curiae</label>
             <textarea id="pInterest" rows="5" oninput="refresh()"></textarea>
             <label>Argument Body</label>
             <textarea id="pArg" rows="10" oninput="refresh()"></textarea>
             <label>Conclusion</label>
             <textarea id="pConc" rows="3" oninput="refresh()"></textarea>
-            <label>Counsel/Signatory Name</label>
+            <label>Counsel Name</label>
             <input type="text" id="pSign" oninput="refresh()">
         </div>
 
-        <div id="tab-export" class="tab-content">
+        <div id="export" class="tab-content">
             <h2>Export</h2>
-            <button class="action-btn cloud-save-btn" onclick="downloadPDF()">📥 Download PDF</button>
-            <button class="action-btn" style="background:#333; color:white;" onclick="window.print()">🖨️ Direct Print</button>
+            <button class="action-btn cloud-save-btn" onclick="downloadPDF()">📥 DOWNLOAD PDF</button>
+            <button class="action-btn" style="background:#333; color:white; margin-top:10px;" onclick="window.print()">🖨️ DIRECT PRINT</button>
         </div>
-    </div>
+    </section>
 
-    <div class="preview-panel">
+    <section class="preview-panel">
         <div id="render-target"></div>
-    </div>
-</div>
+    </section>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
