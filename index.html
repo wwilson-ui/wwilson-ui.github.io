@@ -122,16 +122,19 @@
             <textarea id="argBody" rows="12" oninput="refresh()"></textarea>
         </div>
 
-        <div id="finalize" class="tab-content">
-            <h2>Finalize</h2>
-            <label>Conclusion:</label>
-            <textarea id="conclusionText" rows="4" oninput="refresh()"></textarea>
-            <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
-                <button class="action-btn cloud-save-btn" onclick="downloadPDF()">📥 DOWNLOAD PDF</button>
-                <button class="action-btn" style="background:#333; color:white;" onclick="window.print()">🖨️ DIRECT PRINT</button>
-            </div>
-        </div>
-    </section>
+<div id="finalize" class="tab-content">
+    <h2>Finalize</h2>
+    <label>Conclusion:</label>
+    <textarea id="conclusionText" rows="4" oninput="refresh()"></textarea>
+    <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+        <button class="action-btn cloud-save-btn" onclick="downloadPDF()">📥 DOWNLOAD PDF</button>
+        <button class="action-btn" style="background:#333; color:white;" onclick="window.print()">🖨️ DIRECT PRINT</button>
+        
+        <button class="action-btn" style="background: #2e7d32; color: white; border: none;" onclick="submitToCourt()">⚖️ SUBMIT TO COURT</button>
+    </div>
+</div>
+
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>    </section>
 
     <section class="preview-panel">
         <div id="render-target"></div>
