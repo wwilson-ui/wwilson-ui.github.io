@@ -35,12 +35,18 @@
         
         <div class="persistence-zone">
             <button class="action-btn cloud-save-btn" onclick="saveToCloud()">☁️ Save to Cloud</button>
-            <select id="cloud-projects" class="action-btn" onchange="loadSpecificProject(this.value)">
-                <option value="">📂 My Cloud Projects...</option>
-            </select>
-            <button class="action-btn btn-danger" onclick="deleteProject()">🗑️ Delete Selected</button>
+    
+            <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 10px;">
+                <select id="cloud-projects" class="action-btn">
+                    <option value="">📂 Select a Project...</option>
+                </select>
+                <div style="display: flex; gap: 5px;">
+                    <button class="action-btn" style="flex: 1;" onclick="loadSelectedProject()">📥 Load</button>
+                    <button class="action-btn btn-danger" style="flex: 1;" onclick="deleteSelectedProject()">🗑️ Delete</button>
+                </div>
+            </div>
         </div>
-
+   
         <div class="sidebar-footer">
             <a href="terms.html" target="_blank" style="color:#999; text-decoration:none; font-size:0.7rem;">Terms of Service</a>
         </div>
