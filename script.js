@@ -16,11 +16,15 @@ async function submitToCourt() {
 
     // 2. Prepare Dynamic Subject Line using your existing data object
     // It looks for the first Petitioner and first Respondent in your lists
+
+    // Use these lines inside your submitToCourt function to get your specific data:
     const pet = data.petitioners[0] || "Petitioner";
     const res = data.respondents[0] || "Respondent";
-    const term = v('courtTerm') || "October Term";
-    
+    const term = document.getElementById('courtTerm')?.value || "October Term 2025";
     const subjectLine = `${pet} v. ${res} (${term})`;
+
+    
+
     const projectTitle = v('projectTitle') || "Legal Brief";
 
     // 3. Generate PDF and Send
