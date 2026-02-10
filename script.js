@@ -8,6 +8,25 @@ let data = {
     petitioners: [""], respondents: [""], questions: [""], cases: [""], statutes: [""] 
 };
 
+
+// Put this right after your Supabase Key at the top
+function onSignIn(response) {
+    const user = JSON.parse(atob(response.credential.split('.')[1]));
+    currentUser = user.email;
+    document.getElementById('auth-status').innerText = `Logged in as: ${currentUser}`;
+    
+    if (currentUser === "wwilson@mtps.us") {
+        const btn = document.getElementById('admin-tab-btn');
+        if (btn) btn.style.display = "block";
+    }
+    
+    // These two lines are what make the dropdown and table appear!
+    loadCases(); 
+    loadDocket();
+}
+
+
+
 window.onload = () => {
     try {
         if (window.supabase) {
@@ -19,27 +38,6 @@ window.onload = () => {
     refresh();
 };
 
-
-
-
-
-const TEACHER_EMAIL = "wwilson@mtps.us"; // Set this to your school email
-
-function onSignIn(response) {
-    const user = JSON.parse(atob(response.credential.split('.')[1]));
-    currentUser = user.email;
-    document.getElementById('auth-status').innerText = `Logged in as: ${currentUser}`;
-    
-    // 1. Check Teacher status
-    if (currentUser === TEACHER_EMAIL) {
-        const adminBtn = document.getElementById('admin-tab-btn');
-        if (adminBtn) adminBtn.style.display = "block";
-    }
-    
-    // 2. IMMEDIATE FETCH: Load cases for the dropdown and the docket table
-    loadCases(); 
-    loadDocket();
-}
 
 
 
@@ -227,62 +225,39 @@ async function loadCases() {
 
 
 async function submitToCourt() {
-    const v = (id) => document.getElementById(id)?.value || "";
-    
-    // 1. Get student/case info
+    // 1. Identify which case the student is working on
     const caseName = document.getElementById('assignedCase')?.value;
     const briefType = document.getElementById('briefType')?.value;
-    const studentName = v('studentNames') || "Anonymous Student";
+    const studentName = document.getElementById('studentNames')?.value || "Anonymous";
 
-    if (!caseName) {
-        alert("Please select your Assigned Case in Tab 1 first.");
-        return;
-    }
+    if (!caseName) return alert("Please select a case on the first tab.");
 
-    if (!confirm(`Submit this ${briefType} brief for ${caseName}?`)) return;
-
+    // 2. Turn the preview into a PDF
     const element = document.getElementById('render-target');
+    const pdfBlob = await html2pdf().from(element).output('blob');
     
-    try {
-        // 2. Create the PDF
-        const pdfBlob = await html2pdf().from(element).set({
-            margin: 0,
-            filename: `${caseName}_Submission.pdf`,
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-        }).output('blob');
+    const reader = new FileReader();
+    reader.readAsDataURL(pdfBlob);
+    reader.onloadend = async function() {
+        const base64Data = reader.result;
 
-        // 3. Convert to text-friendly format (Base64)
-        const reader = new FileReader();
-        reader.readAsDataURL(pdfBlob);
-        reader.onloadend = async function() {
-            const base64PDF = reader.result;
+        // 3. SEND DIRECTLY TO SUPABASE (No EmailJS needed)
+        const { error } = await supabaseClient.from('court_docket').insert([{
+            case_name: caseName,
+            brief_type: briefType,
+            student_name: studentName,
+            pdf_data: base64Data
+        }]);
 
-            // 4. SAVE TO SUPABASE
-            const { error } = await supabaseClient
-                .from('court_docket')
-                .insert([{
-                    case_name: caseName,
-                    brief_type: briefType,
-                    student_name: studentName,
-                    pdf_data: base64PDF,
-                    filed_at: new Date()
-                }]);
-
-            if (error) {
-                console.error(error);
-                alert("Database Error: " + error.message);
-            } else {
-                alert("Success! Your brief is now on the Public Court Docket.");
-                loadDocket();   // Force the table to refresh
-                switchTab('docket'); // Take the student to see the link
-            }
-        };
-    } catch (err) {
-        alert("Error generating file.");
-    }
+        if (!error) {
+            alert("Success! Your brief is now on the Public Docket.");
+            loadDocket(); // Refresh the table so the link appears
+            switchTab('docket'); // Take them to see it
+        } else {
+            alert("Error saving to docket: " + error.message);
+        }
+    };
 }
-
 
 
 
