@@ -347,8 +347,32 @@ async function deleteCase(id) {
 }
 
 // Ensure the list renders when you click the Admin tab
+
+// --- CORRECTED TAB LOGIC ---
+// Replace the block at the very end of your script.js with this:
+
 const originalSwitchTab = switchTab;
 switchTab = function(id) {
+    // Call the original UI switcher
     originalSwitchTab(id);
-    if (id === 'admin') renderAdminCaseList();
+    
+    // Trigger data loading based on the tab ID
+    if (id === 'admin') {
+        renderAdminCaseList();
+    }
+    
+    if (id === 'docket') {
+        loadDocket(); // This pulls the student submissions and case links
+    }
 };
+
+// Add this helper function to handle the teacher's delete button on the docket
+async function deleteSubmission(id) {
+    if (!confirm("Are you sure you want to remove this student's filing?")) return;
+    const { error } = await supabaseClient.from('court_docket').delete().eq('id', id);
+    if (!error) {
+        loadDocket(); // Refresh the table after deletion
+    } else {
+        alert("Delete failed: " + error.message);
+    }
+}
