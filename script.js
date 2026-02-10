@@ -20,7 +20,23 @@ window.onload = () => {
 };
 
 
+const TEACHER_EMAIL = "wwilson@mtps.us"; // Set this to your school email
 
+function onSignIn(response) {
+    const user = JSON.parse(atob(response.credential.split('.')[1]));
+    currentUser = user.email;
+    document.getElementById('auth-status').innerText = `Logged in as: ${currentUser}`;
+    
+    // 1. Check Teacher status
+    if (currentUser === TEACHER_EMAIL) {
+        const adminBtn = document.getElementById('admin-tab-btn');
+        if (adminBtn) adminBtn.style.display = "block";
+    }
+    
+    // 2. IMMEDIATE FETCH: Load cases for the dropdown and the docket table
+    loadCases(); 
+    loadDocket();
+}
 
 
 
@@ -184,23 +200,6 @@ function downloadPDF() {
 
 
 
-const TEACHER_EMAIL = "wwilson@mtps.us"; // Set this to your school email
-
-function onSignIn(response) {
-    const user = JSON.parse(atob(response.credential.split('.')[1]));
-    currentUser = user.email;
-    document.getElementById('auth-status').innerText = `Logged in as: ${currentUser}`;
-    
-    // 1. Check Teacher status
-    if (currentUser === TEACHER_EMAIL) {
-        const adminBtn = document.getElementById('admin-tab-btn');
-        if (adminBtn) adminBtn.style.display = "block";
-    }
-    
-    // 2. IMMEDIATE FETCH: Load cases for the dropdown and the docket table
-    loadCases(); 
-    loadDocket();
-}
 
 // 1. Fetch Cases from Database for Dropdown
 async function loadCases() {
