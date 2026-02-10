@@ -226,62 +226,35 @@ async function loadCases() {
 
 
 async function submitToCourt() {
-    const v = (id) => document.getElementById(id)?.value || "";
-    
-    // 1. Get student/case info
     const caseName = document.getElementById('assignedCase')?.value;
     const briefType = document.getElementById('briefType')?.value;
-    const studentName = v('studentNames') || "Anonymous Student";
+    const studentName = document.getElementById('studentNames')?.value || "Anonymous";
 
-    if (!caseName) {
-        alert("Please select your Assigned Case in Tab 1 first.");
-        return;
-    }
-
-    if (!confirm(`Submit this ${briefType} brief for ${caseName}?`)) return;
+    if (!caseName) return alert("Please select a case on the first tab.");
 
     const element = document.getElementById('render-target');
+    const pdfBlob = await html2pdf().from(element).output('blob');
     
-    try {
-        // 2. Create the PDF
-        const pdfBlob = await html2pdf().from(element).set({
-            margin: 0,
-            filename: `${caseName}_Submission.pdf`,
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-        }).output('blob');
+    const reader = new FileReader();
+    reader.readAsDataURL(pdfBlob);
+    reader.onloadend = async function() {
+        // Save to the 'court_docket' table in Supabase
+        const { error } = await supabaseClient.from('court_docket').insert([{
+            case_name: caseName,
+            brief_type: briefType,
+            student_name: studentName,
+            pdf_data: reader.result
+        }]);
 
-        // 3. Convert to text-friendly format (Base64)
-        const reader = new FileReader();
-        reader.readAsDataURL(pdfBlob);
-        reader.onloadend = async function() {
-            const base64PDF = reader.result;
-
-            // 4. SAVE TO SUPABASE
-            const { error } = await supabaseClient
-                .from('court_docket')
-                .insert([{
-                    case_name: caseName,
-                    brief_type: briefType,
-                    student_name: studentName,
-                    pdf_data: base64PDF,
-                    filed_at: new Date()
-                }]);
-
-            if (error) {
-                console.error(error);
-                alert("Database Error: " + error.message);
-            } else {
-                alert("Success! Your brief is now on the Public Court Docket.");
-                loadDocket();   // Force the table to refresh
-                switchTab('docket'); // Take the student to see the link
-            }
-        };
-    } catch (err) {
-        alert("Error generating file.");
-    }
+        if (!error) {
+            alert("Success! Your brief is now on the Public Docket.");
+            loadDocket(); 
+            switchTab('docket');
+        } else {
+            alert("Error: " + error.message);
+        }
+    };
 }
-
 
 
 
