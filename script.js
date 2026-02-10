@@ -203,17 +203,23 @@ function downloadPDF() {
 
 // 1. Fetch Cases from Database for Dropdown
 async function loadCases() {
-    const { data: cases } = await supabaseClient.from('active_cases').select('*').order('case_name');
     const select = document.getElementById('assignedCase');
-    select.innerHTML = '<option value="">-- Select Case --</option>';
-    
-    cases.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.case_name;
-        opt.dataset.link = c.drive_link;
-        opt.innerText = c.case_name;
-        select.appendChild(opt);
-    });
+    if (!select) return;
+
+    // Wait a split second if Supabase is still connecting
+    if (!supabaseClient) {
+        setTimeout(loadCases, 500);
+        return;
+    }
+
+    const { data: cases, error } = await supabaseClient.from('active_cases').select('*').order('case_name');
+    if (error) {
+        console.error("Error loading cases:", error);
+        return;
+    }
+
+    select.innerHTML = '<option value="">-- Select a Case --</option>' + 
+        cases.map(c => `<option value="${c.case_name}">${c.case_name}</option>`).join("");
 }
 
 
