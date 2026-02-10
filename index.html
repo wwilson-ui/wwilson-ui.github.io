@@ -102,23 +102,6 @@
             </select>
             <p id="caseBriefLinkArea" style="font-size: 0.8rem;"></p>
 
-            <div id="docket" class="tab-content">
-                <h2>Public Court Docket</h2>
-                <div id="docket-table-container">
-                    <table class="docket-table">
-                        <thead>
-                            <tr>
-                                <th>Case Name</th>
-                                <th>Case Brief</th>
-                                <th>Petitioner</th>
-                                <th>Respondent</th>
-                                <th>Amicus Curiae</th>
-                            </tr>
-                        </thead>
-                        <tbody id="docket-body"></tbody>
-                    </table>
-                </div>
-            </div>
 
 
             <!-- Temporarily remove duplicate id="admin" tag per gemini review) 
@@ -177,19 +160,35 @@
             <textarea id="argBody" rows="12" oninput="refresh()"></textarea>
         </div>
 
-<div id="finalize" class="tab-content">
-    <h2>Finalize</h2>
-    <label>Conclusion:</label>
-    <textarea id="conclusionText" rows="4" oninput="refresh()"></textarea>
-    <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
-        <button class="action-btn cloud-save-btn" onclick="downloadPDF()">📥 DOWNLOAD PDF</button>
-        <button class="action-btn" style="background:#333; color:white;" onclick="window.print()">🖨️ DIRECT PRINT</button>
+        <div id="finalize" class="tab-content">
+            <h2>Finalize</h2>
+            <label>Conclusion:</label>
+            <textarea id="conclusionText" rows="4" oninput="refresh()"></textarea>
+            <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+                <button class="action-btn cloud-save-btn" onclick="downloadPDF()">📥 DOWNLOAD PDF</button>
+                <button class="action-btn" style="background:#333; color:white;" onclick="window.print()">🖨️ DIRECT PRINT</button>
         
-        <button class="action-btn" style="background: #2e7d32; color: white; border: none;" onclick="submitToCourt()">⚖️ SUBMIT TO COURT</button>
-    </div>
-</div>
+                <button class="action-btn" style="background: #2e7d32; color: white; border: none;" onclick="submitToCourt()">⚖️ SUBMIT TO COURT</button>
+            </div>
+        </div>
 
-
+        <div id="docket" class="tab-content">
+            <h2>Public Court Docket</h2>
+            <div id="docket-table-container">
+                <table class="docket-table">
+                    <thead>
+                        <tr>
+                            <th>Case Name</th>
+                            <th>Case Brief</th>
+                            <th>Petitioner</th>
+                            <th>Respondent</th>
+                            <th>Amicus Curiae</th>
+                        </tr>
+                    </thead>
+                    <tbody id="docket-body"></tbody>
+                </table>
+            </div>
+        </div>
 
 
 
