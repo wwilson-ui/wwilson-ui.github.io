@@ -214,38 +214,81 @@ async function loadCases() {
     });
 }
 
-// 2. Submit PDF to the Shared Docket
-async function submitToCourt() {
-    const caseName = document.getElementById('assignedCase').value;
-    const student = document.getElementById('studentNames')?.value || "Anonymous";
-    const type = document.getElementById('briefType').value;
 
-    if (!caseName) return alert("Please select a case in Tab 1 first.");
-    if (!confirm("File this final brief to the Public Court Docket?")) return;
+
+
+
+
+
+// 2. Submit PDF to the Shared Docket
+
+
+async function submitToCourt() {
+    const v = (id) => document.getElementById(id)?.value || "";
+    
+    // 1. Get the data from Tab 1 and the Case Selection
+    const caseName = document.getElementById('assignedCase')?.value;
+    const briefType = document.getElementById('briefType')?.value;
+    const studentNames = v('studentNames') || "Anonymous Student";
+
+    if (!caseName) {
+        alert("Please select your Assigned Case on the 'Cover Details' tab first.");
+        switchTab('cover');
+        return;
+    }
+
+    const confirmed = confirm(`File this ${briefType} brief for ${caseName} to the public docket?`);
+    if (!confirmed) return;
 
     const element = document.getElementById('render-target');
-    const pdfBlob = await html2pdf().from(element).output('blob');
-    
-    const reader = new FileReader();
-    reader.readAsDataURL(pdfBlob);
-    reader.onloadend = async function() {
-        const base64PDF = reader.result;
-
-        const { error } = await supabaseClient.from('court_docket').insert([{
-            case_name: caseName,
-            brief_type: type,
-            student_name: student,
-            pdf_data: base64PDF,
-            filed_at: new Date()
-        }]);
-
-        if (!error) {
-            alert("Success! Your brief is now part of the Public Docket.");
-            loadDocket(); // Refresh the table
-            switchTab('docket');
-        }
+    const opt = {
+        margin: 0,
+        filename: `${caseName}_${briefType}.pdf`,
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
+
+    try {
+        // 2. Generate the PDF Blob
+        const pdfBlob = await html2pdf().from(element).set(opt).output('blob');
+        
+        // 3. Convert Blob to Base64 String
+        const reader = new FileReader();
+        reader.readAsDataURL(pdfBlob);
+        reader.onloadend = async function() {
+            const base64PDF = reader.result;
+
+            // 4. Save to Supabase 'court_docket' table
+            const { error } = await supabaseClient
+                .from('court_docket')
+                .insert([{
+                    case_name: caseName,
+                    brief_type: briefType,
+                    student_name: studentNames,
+                    pdf_data: base64PDF
+                }]);
+
+            if (error) {
+                console.error("Filing Error:", error);
+                alert("Submission failed. Check your Supabase table name.");
+            } else {
+                alert("Successfully filed! Redirecting to the Court Docket...");
+                if (typeof loadDocket === "function") loadDocket(); // Refresh the table
+                switchTab('docket'); // Take them to see the result
+            }
+        };
+    } catch (err) {
+        alert("Error generating the PDF document.");
+        console.error(err);
+    }
 }
+
+
+
+
+
+
+
 
 // 3. Build the Grouped Docket Table (The "View" students see)
 async function loadDocket() {
