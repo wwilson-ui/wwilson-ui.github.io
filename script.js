@@ -188,15 +188,15 @@ function onSignIn(response) {
     currentUser = user.email;
     document.getElementById('auth-status').innerText = `Logged in as: ${currentUser}`;
     
-    // Check if the user is the teacher
+    // 1. Check Teacher status
     if (currentUser === TEACHER_EMAIL) {
-        document.getElementById('admin-tab-btn').style.display = "block";
-        } else {
-        document.getElementById('admin-tab-btn').style.display = "none";
+        const adminBtn = document.getElementById('admin-tab-btn');
+        if (adminBtn) adminBtn.style.display = "block";
     }
     
-    loadCases(); // Load dropdown
-    loadDocket(); // Load table
+    // 2. IMMEDIATE FETCH: Load cases for the dropdown and the docket table
+    loadCases(); 
+    loadDocket();
 }
 
 // 1. Fetch Cases from Database for Dropdown
