@@ -148,7 +148,7 @@ function renderInputFields() {
 
 async function saveToCloud() {
     if (!currentUser || !supabaseClient) return alert("Please sign in first.");
-    const title = document.getElementById('projectTitle').value || "Untitled";
+    const title = document.getElementById('assignedCase').value || "Untitled";
     const inputs = {};
     document.querySelectorAll('input, textarea, select').forEach(el => { if(el.id) inputs[el.id] = el.value; });
     const { error } = await supabaseClient.from('briefs').upsert({ user_id: currentUser, project_title: title, content_data: data, input_fields: inputs, updated_at: new Date() }, { onConflict: 'user_id, project_title' });
@@ -188,7 +188,7 @@ async function deleteSelectedProject() {
 
 function downloadPDF() {
     const element = document.getElementById('render-target');
-    const title = document.getElementById('projectTitle').value || "Brief";
+    const title = document.getElementById('assignedCase').value || "Brief";
     const opt = {
         margin: 0, filename: `${title}.pdf`,
         html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
