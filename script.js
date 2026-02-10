@@ -21,6 +21,9 @@ window.onload = () => {
 
 
 
+
+
+
 function switchTab(id) {
     // 1. Hide all tabs and deactivate all buttons
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
