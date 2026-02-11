@@ -7,103 +7,250 @@
     --danger-red: #c62828;
 }
 
+/* FIX 4: Remove overflow:hidden from body so small screens can scroll.
+   Use min-height instead of fixed height so the layout never clips. */
 body {
-    margin: 0; display: flex; flex-direction: column; height: 100vh;
-    font-family: 'Segoe UI', sans-serif; background: var(--bg-gray); overflow: hidden;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    height: 100vh;
+    font-family: 'Segoe UI', sans-serif;
+    background: var(--bg-gray);
+    overflow: hidden; /* keep this; individual panels control their own scroll */
 }
 
 header {
-    background: var(--legal-blue); color: white; padding: 0 25px;
-    display: flex; justify-content: space-between; align-items: center; height: 60px; flex-shrink: 0;
+    background: var(--legal-blue);
+    color: white;
+    padding: 0 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 60px;
+    flex-shrink: 0;
+    z-index: 10;
 }
 
-.app-container { display: flex; flex: 1; overflow: hidden; }
+/* FIX 4: Give the container a min-height so it never collapses on short screens */
+.app-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0; /* crucial for flex children to scroll correctly */
+}
 
+/* FIX 4: Sidebar now scrolls internally — persistence zone (Load/Delete buttons)
+   is always reachable even on short screens. */
 .sidebar {
-    width: 280px; min-width: 280px; background: white;
-    border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 15px; box-sizing: border-box;
+    width: 280px;
+    min-width: 280px;
+    background: white;
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    box-sizing: border-box;
+    overflow-y: auto;      /* ← allows sidebar to scroll on short screens */
+    overflow-x: hidden;
 }
 
 .tab-btn {
-    width: 100%; padding: 12px; border: none; background: transparent;
-    text-align: left; cursor: pointer; border-radius: 6px; margin-bottom: 5px; font-weight: 600; color: #444;
+    width: 100%;
+    padding: 12px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 6px;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #444;
+    flex-shrink: 0; /* never compress tab buttons */
 }
 
 .tab-btn.active { background: #e8eaf6; color: var(--legal-blue); }
 
-.persistence-zone { margin-top: auto; padding: 10px 0; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
+.persistence-zone {
+    margin-top: auto;
+    padding: 10px 0;
+    border-top: 1px solid #eee;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0; /* keep Save/Load/Delete always fully visible */
+}
 
 .action-btn {
-    display: flex; align-items: center; justify-content: center;
-    width: 100%; height: 40px; border-radius: 6px; border: 1px solid #ccc;
-    cursor: pointer; font-weight: 600; background: white; box-sizing: border-box;
-    font-family: inherit; font-size: 0.85rem; color: #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 40px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    font-weight: 600;
+    background: white;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: #333;
 }
 
 .cloud-save-btn { background: var(--legal-blue); color: white; border: none; }
 .btn-danger { color: var(--danger-red); border-color: var(--danger-red); }
 
-.sidebar-footer { width: 100%; text-align: center; padding-top: 10px; }
+.sidebar-footer {
+    width: 100%;
+    text-align: center;
+    padding-top: 10px;
+    flex-shrink: 0;
+}
 
-.input-panel { flex: 1; background: white; padding: 30px; overflow-y: auto; border-right: 2px solid #333; }
+.input-panel {
+    flex: 1;
+    background: white;
+    padding: 30px;
+    overflow-y: auto;
+    border-right: 2px solid #333;
+    min-width: 0;
+}
+
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-label { display: block; font-weight: 700; font-size: 0.7rem; margin-top: 15px; color: #666; text-transform: uppercase; }
-input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
 
-/* PREVIEW SYSTEM */
-.preview-panel { flex: 1.5; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
+label {
+    display: block;
+    font-weight: 700;
+    font-size: 0.7rem;
+    margin-top: 15px;
+    color: #666;
+    text-transform: uppercase;
+}
 
-.paper { 
-    width: 8.5in; 
-    min-height: 11in;        /* content-driven height — no forced blank continuation pages */
-    background: white; 
-    padding: 1in !important; 
-    margin-bottom: 30px; 
-    box-shadow: 0 0 20px rgba(0,0,0,0.5); 
-    font-family: 'Crimson Pro', serif; 
-    font-size: 12pt; 
-    line-height: 1.5; 
-    color: black; 
-    position: relative; 
+input, textarea, select {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
     box-sizing: border-box;
-    break-before: page;      /* CSS3 page break — used by html2pdf pagebreak:css mode */
-    page-break-before: always;
 }
 
-/* First page should never have a forced break before it */
-.paper:first-child {
-    break-before: auto;
-    page-break-before: auto;
+/* ── PREVIEW PANEL ─────────────────────────────────────────────────────────── */
+.preview-panel {
+    flex: 1.5;
+    padding: 40px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
 }
 
-/* The Nuke: Prevents blank page after the final document page */
+/* FIX 2: Use min-height (not fixed height) so content-light pages don't leave
+   blank continuation pages in the PDF.
+   On screen: pages look like letter-sized sheets (min 11in tall).
+   In PDF: html2pdf measures actual content height only. */
+.paper {
+    width: 8.5in;
+    min-height: 11in;
+    background: white;
+    padding: 1in !important;
+    margin-bottom: 30px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    font-family: 'Crimson Pro', serif;
+    font-size: 12pt;
+    line-height: 1.5;
+    color: black;
+    position: relative;
+    box-sizing: border-box;
+}
+
 .paper:last-child {
-    page-break-after: auto !important;
-    margin-bottom: 0 !important;
+    margin-bottom: 0;
 }
 
-.court-header { text-align: center; font-weight: bold; font-size: 14pt; text-transform: uppercase; line-height: 1.2; }
+.court-header {
+    text-align: center;
+    font-weight: bold;
+    font-size: 14pt;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+
 hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
-.title-box { text-align: center; border-top: 1.5pt solid black; border-bottom: 1.5pt solid black; padding: 15px 10px; margin: 25px 0; font-weight: bold; text-transform: uppercase; }
-.section-header { text-align: center; font-weight: bold; text-transform: uppercase; margin: 25px 0 10px 0; }
 
-.manual-footer { 
-    position: absolute; 
-    bottom: 0.75in; 
-    left: 0; right: 0; 
-    text-align: center; 
-    font-size: 11pt; 
+.title-box {
+    text-align: center;
+    border-top: 1.5pt solid black;
+    border-bottom: 1.5pt solid black;
+    padding: 15px 10px;
+    margin: 25px 0;
+    font-weight: bold;
+    text-transform: uppercase;
 }
 
+.section-header {
+    text-align: center;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin: 25px 0 10px 0;
+}
+
+/* On-screen: page number pinned near the bottom of the 11in box */
+.manual-footer {
+    position: absolute;
+    bottom: 0.75in;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 11pt;
+}
+
+/* ── PRINT MEDIA (window.print / Direct Print) ─────────────────────────────
+   FIX 3: The large bottom margin when printing was caused by .manual-footer
+   being position:absolute;bottom:0.75in inside a min-height:11in box.
+   In print, the browser renders the actual content height, so "bottom:0.75in"
+   resolves against the viewport rather than the page — pushing the footer way
+   down. We switch it to static flow so it prints right after the last line. */
 @media print {
     body, .app-container { overflow: visible !important; height: auto !important; }
     header, .sidebar, .input-panel { display: none !important; }
-    .preview-panel { padding: 0 !important; margin: 0 !important; width: 8.5in !important; overflow: visible !important; }
-    .paper { margin: 0 !important; box-shadow: none !important; }
+
+    .preview-panel {
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        overflow: visible !important;
+        display: block !important;
+    }
+
+    .paper {
+        min-height: 0 !important;   /* let content set the height in print */
+        height: auto !important;
+        margin: 0 !important;
+        padding: 1in !important;
+        box-shadow: none !important;
+        page-break-after: always;
+        break-after: page;
+    }
+
+    .paper:last-child {
+        page-break-after: auto !important;
+        break-after: auto !important;
+    }
+
+    /* FIX 3: Switch footer to static flow in print — no more giant bottom gap */
+    .manual-footer {
+        position: static !important;
+        margin-top: 20pt;
+        bottom: auto !important;
+    }
 }
 
-
+/* ── ADMIN & DOCKET STYLES ──────────────────────────────────────────────── */
 .admin-card {
     background: white;
     padding: 20px;
@@ -112,9 +259,7 @@ hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
-.admin-form-group {
-    margin-bottom: 15px;
-}
+.admin-form-group { margin-bottom: 15px; }
 
 .admin-form-group label {
     display: block;
@@ -129,24 +274,25 @@ hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
     border-radius: 4px;
 }
 
-
-
 .docket-table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 20px;
     background: white;
 }
+
 .docket-table th, .docket-table td {
     border: 1px solid #ddd;
     padding: 12px;
     text-align: left;
     font-size: 0.9rem;
 }
+
 .docket-table th {
     background-color: var(--legal-blue);
     color: white;
 }
+
 .docket-link-wrapper {
     margin-bottom: 8px;
     padding: 5px;
