@@ -56,7 +56,7 @@ input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1
 
 .paper { 
     width: 8.5in; 
-    height: 11in; 
+    min-height: 11in;        /* content-driven height — no forced blank continuation pages */
     background: white; 
     padding: 1in !important; 
     margin-bottom: 30px; 
@@ -67,7 +67,14 @@ input, textarea, select { width: 100%; padding: 10px; margin-top: 5px; border: 1
     color: black; 
     position: relative; 
     box-sizing: border-box;
-    page-break-after: always;
+    break-before: page;      /* CSS3 page break — used by html2pdf pagebreak:css mode */
+    page-break-before: always;
+}
+
+/* First page should never have a forced break before it */
+.paper:first-child {
+    break-before: auto;
+    page-break-before: auto;
 }
 
 /* The Nuke: Prevents blank page after the final document page */
