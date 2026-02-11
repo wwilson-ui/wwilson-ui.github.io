@@ -27,14 +27,15 @@ function onSignIn(response) {
     currentUser = user.email;
     document.getElementById('auth-status').innerText = `Logged in as: ${currentUser}`;
     
-    // 1. Check Teacher status
+    // 1. Show Admin tab button if teacher
     if (currentUser === TEACHER_EMAIL) {
         const adminBtn = document.getElementById('admin-tab-btn');
         if (adminBtn) adminBtn.style.display = "block";
     }
     
-    // 2. IMMEDIATE FETCH: Load cases for the dropdown and the docket table
+    // 2. TRIGGER DROPDOWNS: Load the master case list AND the user's saved projects
     loadCases(); 
+    loadSavedVersions(); 
     loadDocket();
 }
 
