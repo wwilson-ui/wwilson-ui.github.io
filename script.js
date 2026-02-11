@@ -1,20 +1,15 @@
-
 const SUPABASE_URL = 'https://dfmugytablgldpkadfrl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AoeVLd5TSJMGyhAyDmXTng_5C-_C8nC';
 
-let supabaseClient = null;
+// Initialize immediately so it's ready for Sign-In
+const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 let currentUser = null;
-let data = { 
-    petitioners: [""], respondents: [""], questions: [""], cases: [""], statutes: [""] 
-};
+let data = { petitioners: [""], respondents: [""], questions: [""], cases: [""], statutes: [Detailed logic] };
 
 window.onload = () => {
-    try {
-        if (window.supabase) {
-            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            document.getElementById('auth-status').innerText = "System Ready (Cloud Active)";
-        }
-    } catch (e) { console.error(e); }
+    if (supabaseClient) {
+        document.getElementById('auth-status').innerText = "System Ready (Cloud Active)";
+    }
     renderInputFields();
     refresh();
 };
@@ -22,28 +17,20 @@ window.onload = () => {
 
 const TEACHER_EMAIL = "wwilson@mtps.us"; // Set this to your school email
 
-async function onSignIn(response) {
+function onSignIn(response) {
     const user = JSON.parse(atob(response.credential.split('.')[1]));
     currentUser = user.email;
     document.getElementById('auth-status').innerText = `Logged in as: ${currentUser}`;
     
-    if (currentUser === TEACHER_EMAIL) {
+    if (currentUser === TEACHER_EMAIL) { // Teacher Email
         const adminBtn = document.getElementById('admin-tab-btn');
         if (adminBtn) adminBtn.style.display = "block";
     }
-
-    // Give Supabase a split second to ensure the connection is active
-    let attempts = 0;
-    while (!supabaseClient && attempts < 10) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        attempts++;
-    }
-
-    // Now trigger the data loads
-    console.log("Sign-in verified. Loading dropdown data...");
-    loadCases();           // Fills "Assigned Case"
-    loadSavedVersions();   // Fills "Select a Project"
-    loadDocket();          // Fills the Court Docket table
+    
+    // FETCH BOTH DROPDOWNS
+    loadCases();            // Fills "Select your assigned Case"
+    loadSavedVersions();    // Fills "Select a Project"
+    loadDocket();           // Fills the Court Docket
 }
 
 
@@ -214,21 +201,16 @@ async function loadCases() {
     const select = document.getElementById('assignedCase');
     if (!select || !supabaseClient) return;
 
-    try {
-        const { data: cases, error } = await supabaseClient
-            .from('active_cases')
-            .select('*')
-            .order('case_name');
-
-        if (error) throw error;
-
-        if (cases) {
-            select.innerHTML = '<option value="">-- Select a Case --</option>' + 
-                cases.map(c => `<option value="${c.case_name}">${c.case_name}</option>`).join("");
-        }
-    } catch (err) {
-        console.error("Error loading master case list:", err);
+    const { data: cases, error } = await supabaseClient.from('active_cases').select('*').order('case_name');
+    
+    if (error) {
+        select.innerHTML = '<option value="">-- Error Loading Cases --</option>';
+        console.error("Supabase Error:", error);
+        return;
     }
+
+    select.innerHTML = '<option value="">-- Select a Case --</option>' + 
+        cases.map(c => `<option value="${c.case_name}">${c.case_name}</option>`).join("");
 }
 
 
@@ -236,20 +218,19 @@ async function loadSavedVersions() {
     const select = document.getElementById('savedProjects');
     if (!select || !currentUser || !supabaseClient) return;
 
-    try {
-        const { data: versions, error } = await supabaseClient
-            .from('user_versions')
-            .select('*')
-            .eq('user_email', currentUser)
-            .order('created_at', { ascending: false });
+    const { data: versions, error } = await supabaseClient
+        .from('user_versions')
+        .select('*')
+        .eq('user_email', currentUser)
+        .order('created_at', { ascending: false });
 
-        if (error) throw error;
-
-        select.innerHTML = '<option value="">-- Select a Project --</option>' + 
-            versions.map(v => `<option value="${v.id}">${v.project_name} (${new Date(v.created_at).toLocaleDateString()})</option>`).join("");
-    } catch (err) {
-        console.error("Error loading user projects:", err);
+    if (error) {
+        select.innerHTML = '<option value="">-- Error Loading Projects --</option>';
+        return;
     }
+
+    select.innerHTML = '<option value="">-- Select a Project --</option>' + 
+        versions.map(v => `<option value="${v.id}">${v.project_name} (${new Date(v.created_at).toLocaleDateString()})</option>`).join("");
 }
 
 
