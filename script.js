@@ -22,21 +22,28 @@ window.onload = () => {
 
 const TEACHER_EMAIL = "wwilson@mtps.us"; // Set this to your school email
 
-function onSignIn(response) {
+async function onSignIn(response) {
     const user = JSON.parse(atob(response.credential.split('.')[1]));
     currentUser = user.email;
     document.getElementById('auth-status').innerText = `Logged in as: ${currentUser}`;
     
-    // 1. Show Admin tab button if teacher
     if (currentUser === TEACHER_EMAIL) {
         const adminBtn = document.getElementById('admin-tab-btn');
         if (adminBtn) adminBtn.style.display = "block";
     }
-    
-    // 2. TRIGGER DROPDOWNS: Load the master case list AND the user's saved projects
-    loadCases(); 
-    loadSavedVersions(); 
-    loadDocket();
+
+    // Give Supabase a split second to ensure the connection is active
+    let attempts = 0;
+    while (!supabaseClient && attempts < 10) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        attempts++;
+    }
+
+    // Now trigger the data loads
+    console.log("Sign-in verified. Loading dropdown data...");
+    loadCases();           // Fills "Assigned Case"
+    loadSavedVersions();   // Fills "Select a Project"
+    loadDocket();          // Fills the Court Docket table
 }
 
 
@@ -205,42 +212,44 @@ function downloadPDF() {
 // 1. Fetch Cases from Database for Dropdown
 async function loadCases() {
     const select = document.getElementById('assignedCase');
-    if (!select) return;
+    if (!select || !supabaseClient) return;
 
-    // If Supabase isn't ready yet, wait and try again
-    if (!supabaseClient) {
-        setTimeout(loadCases, 500);
-        return;
+    try {
+        const { data: cases, error } = await supabaseClient
+            .from('active_cases')
+            .select('*')
+            .order('case_name');
+
+        if (error) throw error;
+
+        if (cases) {
+            select.innerHTML = '<option value="">-- Select a Case --</option>' + 
+                cases.map(c => `<option value="${c.case_name}">${c.case_name}</option>`).join("");
+        }
+    } catch (err) {
+        console.error("Error loading master case list:", err);
     }
-
-    const { data: cases, error } = await supabaseClient.from('active_cases').select('*').order('case_name');
-    if (error) return console.error("Error loading cases:", error);
-
-    select.innerHTML = '<option value="">-- Select a Case --</option>' + 
-        cases.map(c => `<option value="${c.case_name}">${c.case_name}</option>`).join("");
 }
 
 
 async function loadSavedVersions() {
     const select = document.getElementById('savedProjects');
-    if (!select || !currentUser) return;
+    if (!select || !currentUser || !supabaseClient) return;
 
-    // If Supabase isn't ready yet, wait and try again
-    if (!supabaseClient) {
-        setTimeout(loadSavedVersions, 500);
-        return;
+    try {
+        const { data: versions, error } = await supabaseClient
+            .from('user_versions')
+            .select('*')
+            .eq('user_email', currentUser)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        select.innerHTML = '<option value="">-- Select a Project --</option>' + 
+            versions.map(v => `<option value="${v.id}">${v.project_name} (${new Date(v.created_at).toLocaleDateString()})</option>`).join("");
+    } catch (err) {
+        console.error("Error loading user projects:", err);
     }
-
-    const { data: versions, error } = await supabaseClient
-        .from('user_versions')
-        .select('*')
-        .eq('user_email', currentUser)
-        .order('created_at', { ascending: false });
-
-    if (error) return console.error("Error loading versions:", error);
-
-    select.innerHTML = '<option value="">-- Select a Project --</option>' + 
-        versions.map(v => `<option value="${v.id}">${v.project_name} (${new Date(v.created_at).toLocaleString()})</option>`).join("");
 }
 
 
