@@ -57,7 +57,8 @@ async function onSignIn(response) {
 
 
 // --- TAB SWITCHING ---
-function switchTab(id) {
+// skipReload: pass true when caller has already loaded fresh data (prevents double-fetch race)
+function switchTab(id, skipReload = false) {
     // 1. Hide all tabs and deactivate all buttons
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -73,12 +74,14 @@ function switchTab(id) {
         event.currentTarget.classList.add('active');
     }
 
-    // 4. Trigger data loading for data-driven tabs (guard: only if Supabase is ready)
-    if (id === 'admin' && supabaseClient) {
-        renderAdminCaseList();
-    }
-    if (id === 'docket' && supabaseClient) {
-        loadDocket();
+    // 4. Trigger data loading for data-driven tabs — skip if caller already loaded
+    if (!skipReload) {
+        if (id === 'admin' && supabaseClient) {
+            renderAdminCaseList();
+        }
+        if (id === 'docket' && supabaseClient) {
+            loadDocket();
+        }
     }
 }
 
@@ -353,8 +356,8 @@ async function submitToCourt() {
         if (insertError) throw insertError;
 
         alert("✅ Success! Your brief has been filed to the Public Court Docket.");
-        loadDocket();
-        switchTab('docket');
+        await loadDocket();              // wait for table to fully rebuild
+        switchTab('docket', true);       // reveal docket tab WITHOUT triggering a second loadDocket()
 
     } catch (err) {
         console.error("Submit to Court error:", err);
@@ -393,13 +396,13 @@ async function loadDocket() {
     });
 }
 
-// BUG 3 FIX: Now uses f.pdf_url (a real storage URL) instead of f.pdf_data (raw base64)
 function getLinksByType(files, type) {
-    const matches = files.filter(f => f.brief_type === type);
+    // Only show rows that have a valid pdf_url (skip legacy rows submitted before storage was set up)
+    const matches = files.filter(f => f.brief_type === type && f.pdf_url);
     if (matches.length === 0) return '<span style="color:#bbb;">—</span>';
     return matches.map(f => `
         <div class="docket-link-wrapper">
-            <a href="${f.pdf_url}" target="_blank" download="${f.case_name}_${type}.pdf">📄 ${f.student_name}</a>
+            <a href="${f.pdf_url}" target="_blank">📄 ${f.student_name}</a>
             ${currentUser === TEACHER_EMAIL
                 ? `<span onclick="deleteSubmission(${f.id})" style="color:red; cursor:pointer; margin-left:6px;">[x]</span>`
                 : ''}
