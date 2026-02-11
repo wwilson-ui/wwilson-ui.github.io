@@ -207,24 +207,41 @@ async function loadCases() {
     const select = document.getElementById('assignedCase');
     if (!select) return;
 
-    // Wait a split second if Supabase is still connecting
+    // If Supabase isn't ready yet, wait and try again
     if (!supabaseClient) {
         setTimeout(loadCases, 500);
         return;
     }
 
     const { data: cases, error } = await supabaseClient.from('active_cases').select('*').order('case_name');
-    if (error) {
-        console.error("Error loading cases:", error);
-        return;
-    }
+    if (error) return console.error("Error loading cases:", error);
 
     select.innerHTML = '<option value="">-- Select a Case --</option>' + 
         cases.map(c => `<option value="${c.case_name}">${c.case_name}</option>`).join("");
 }
 
 
+async function loadSavedVersions() {
+    const select = document.getElementById('savedProjects');
+    if (!select || !currentUser) return;
 
+    // If Supabase isn't ready yet, wait and try again
+    if (!supabaseClient) {
+        setTimeout(loadSavedVersions, 500);
+        return;
+    }
+
+    const { data: versions, error } = await supabaseClient
+        .from('user_versions')
+        .select('*')
+        .eq('user_email', currentUser)
+        .order('created_at', { ascending: false });
+
+    if (error) return console.error("Error loading versions:", error);
+
+    select.innerHTML = '<option value="">-- Select a Project --</option>' + 
+        versions.map(v => `<option value="${v.id}">${v.project_name} (${new Date(v.created_at).toLocaleString()})</option>`).join("");
+}
 
 
 
