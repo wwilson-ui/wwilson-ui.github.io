@@ -1,36 +1,54 @@
 const SUPABASE_URL = 'https://dfmugytablgldpkadfrl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AoeVLd5TSJMGyhAyDmXTng_5C-_C8nC';
 
-// Initialize immediately so it's ready for Sign-In
-const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+let supabaseClient = null;
 let currentUser = null;
-let data = { petitioners: [""], respondents: [""], questions: [""], cases: [""], statutes: [Detailed logic] };
 
-window.onload = () => {
-    if (supabaseClient) {
+// Initial data structure
+let data = { 
+    petitioners: [""], 
+    respondents: [""], 
+    questions: [""], 
+    cases: [""], 
+    statutes: [""] 
+};
+
+// Initialize Supabase safely
+function initSupabase() {
+    if (window.supabase && !supabaseClient) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         document.getElementById('auth-status').innerText = "System Ready (Cloud Active)";
     }
+}
+
+window.onload = () => {
+    initSupabase();
     renderInputFields();
     refresh();
 };
 
+const TEACHER_EMAIL = "wwilson@mtps.us";
 
-const TEACHER_EMAIL = "wwilson@mtps.us"; // Set this to your school email
-
-function onSignIn(response) {
+async function onSignIn(response) {
+    // Decode Google JWT
     const user = JSON.parse(atob(response.credential.split('.')[1]));
     currentUser = user.email;
     document.getElementById('auth-status').innerText = `Logged in as: ${currentUser}`;
     
-    if (currentUser === TEACHER_EMAIL) { // Teacher Email
+    // Check for Teacher/Admin access
+    if (currentUser === TEACHER_EMAIL) {
         const adminBtn = document.getElementById('admin-tab-btn');
         if (adminBtn) adminBtn.style.display = "block";
     }
-    
-    // FETCH BOTH DROPDOWNS
-    loadCases();            // Fills "Select your assigned Case"
-    loadSavedVersions();    // Fills "Select a Project"
-    loadDocket();           // Fills the Court Docket
+
+    // Ensure Supabase is ready before fetching
+    if (!supabaseClient) initSupabase();
+
+    if (supabaseClient) {
+        loadCases();            // Populate Assigned Cases dropdown
+        loadSavedVersions();    // Populate Saved Projects dropdown
+        loadDocket();           // Load the Docket tab data
+    }
 }
 
 
@@ -201,18 +219,19 @@ async function loadCases() {
     const select = document.getElementById('assignedCase');
     if (!select || !supabaseClient) return;
 
-    const { data: cases, error } = await supabaseClient.from('active_cases').select('*').order('case_name');
+    const { data: cases, error } = await supabaseClient
+        .from('active_cases')
+        .select('*')
+        .order('case_name');
     
     if (error) {
-        select.innerHTML = '<option value="">-- Error Loading Cases --</option>';
-        console.error("Supabase Error:", error);
+        console.error("Error loading cases:", error);
         return;
     }
 
-    select.innerHTML = '<option value="">-- Select a Case --</option>' + 
+    select.innerHTML = '<option value="">-- Select your assigned Case --</option>' + 
         cases.map(c => `<option value="${c.case_name}">${c.case_name}</option>`).join("");
 }
-
 
 async function loadSavedVersions() {
     const select = document.getElementById('savedProjects');
@@ -225,11 +244,11 @@ async function loadSavedVersions() {
         .order('created_at', { ascending: false });
 
     if (error) {
-        select.innerHTML = '<option value="">-- Error Loading Projects --</option>';
+        console.error("Error loading projects:", error);
         return;
     }
 
-    select.innerHTML = '<option value="">-- Select a Project --</option>' + 
+    select.innerHTML = '<option value="">-- Select a Project to Load --</option>' + 
         versions.map(v => `<option value="${v.id}">${v.project_name} (${new Date(v.created_at).toLocaleDateString()})</option>`).join("");
 }
 
