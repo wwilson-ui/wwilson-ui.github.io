@@ -166,11 +166,21 @@ input, textarea, select {
     color: black;
     position: relative;
     box-sizing: border-box;
+    break-after: page;      /* Modern replacement for page-break-after */
+    page-break-after: always;
 }
 
+/* ADD THIS RULE right after it to stop the last page from creating a blank one */
+.paper:last-child {
+    break-after: auto;
+    page-break-after: auto;
+}
+
+/*
 .paper:last-child {
     margin-bottom: 0;
 }
+*/
 
 .court-header {
     text-align: center;
@@ -201,12 +211,15 @@ hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
 
 /* On-screen: page number pinned near the bottom of the 11in box */
 .manual-footer {
-    position: absolute;
-    bottom: 0.75in;
-    left: 0;
+    position: fixed;   /* Forces it to the bottom of the view/page */
+    bottom: 0;         /* Stick to the very bottom edge */
+    left: 0; 
     right: 0;
+    width: 100%;
     text-align: center;
     font-size: 11pt;
+    padding-bottom: 0.5in; /* Lift it up slightly from the physical edge */
+    background: white;     /* Ensures no text overlaps it */
 }
 
 /* ── PRINT MEDIA (window.print / Direct Print) ─────────────────────────────
