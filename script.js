@@ -285,20 +285,18 @@ async function deleteSelectedProject() {
 }
 
 // ─── PDF DOWNLOAD ─────────────────────────────────────────────────────────────
-// Use the simplest possible approach: the CSS already has proper styling for
-// print (via @media print rules). Just call html2pdf with minimal interference.
 function downloadPDF() {
     const element = document.getElementById('render-target');
     const title   = document.getElementById('assignedCase')?.value ||
                     document.getElementById('projectTitle')?.value || 'Brief';
 
     const opt = {
-        margin:       0,  // No extra margin - the .paper padding handles it
+        margin:       0,
         filename:     title + '.pdf',
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
         jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak:    { mode: 'avoid-all', before: '.paper' }
+        pagebreak:    { mode: 'avoid-all' }  // avoid breaking inside elements, but don't force breaks
     };
 
     html2pdf().from(element).set(opt).save();
@@ -435,10 +433,16 @@ async function loadDocket() {
 function getLinksByType(files, type) {
     const matches = files.filter(f => f.brief_type === type && f.pdf_url);
     if (matches.length === 0) return '<span style="color:#bbb;">&mdash;</span>';
+    
+    const isTeacher = (currentUser === TEACHER_EMAIL);
+    if (isTeacher && matches.length > 0) {
+        console.log('Teacher logged in, adding delete buttons for', type, 'matches:', matches.length);
+    }
+    
     return matches.map(f =>
         '<div class="docket-link-wrapper">' +
             '<a href="' + f.pdf_url + '" target="_blank">&#128196; ' + f.student_name + '</a>' +
-            (currentUser === TEACHER_EMAIL
+            (isTeacher
                 ? ' <span class="delete-filing-btn" data-filing-id="' + f.id + '" ' +
                   'style="color:red;cursor:pointer;font-weight:bold;">[x]</span>'
                 : '') +
@@ -509,11 +513,28 @@ async function deleteCase(id) {
 }
 
 // ─── GLOBAL EVENT DELEGATION FOR DELETE BUTTONS ─────────────────────────────
-// Set up once when the page loads - handles all delete button clicks via event
-// delegation so dynamically added buttons work without needing inline onclick
-document.addEventListener('click', function(e) {
-    if (e.target && e.target.classList.contains('delete-filing-btn')) {
-        const filingId = parseInt(e.target.getAttribute('data-filing-id'));
-        if (filingId) deleteSubmission(filingId);
-    }
-});
+// This must run after DOM is loaded, so we wrap it in a DOMContentLoaded check
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupDeleteHandler);
+} else {
+    setupDeleteHandler();
+}
+
+function setupDeleteHandler() {
+    document.addEventListener('click', function(e) {
+        // Check if click was on the delete button or any child element inside it
+        const deleteBtn = e.target.closest('.delete-filing-btn');
+        if (deleteBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const filingId = parseInt(deleteBtn.getAttribute('data-filing-id'));
+            console.log('Delete button clicked, filing ID:', filingId);
+            if (filingId) {
+                deleteSubmission(filingId);
+            } else {
+                console.error('No filing ID found on delete button');
+            }
+        }
+    });
+    console.log('Delete button event delegation set up');
+}
