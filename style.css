@@ -209,15 +209,12 @@ hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
     margin: 25px 0 10px 0;
 }
 
-/* On-screen: page number pinned near the bottom of the 11in box */
+
+/* 1. Hide the footer on the screen so it doesn't float over your content */
 .manual-footer {
-    position: absolute;
-    bottom: 0.75in;
-    left: 0;
-    right: 0;
-    text-align: center;
-    font-size: 11pt;
+    display: none;
 }
+
 
 /* ── PRINT MEDIA (window.print / Direct Print) ─────────────────────────────
    FIX 3: The large bottom margin when printing was caused by .manual-footer
@@ -253,16 +250,15 @@ hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
     }
 
     /* FIX 3: Switch footer to static flow in print — no more giant bottom gap */
-    .manual-footer {
-        position: fixed;   /* Forces it to the bottom of the view/page */
-        bottom: 0;         /* Stick to the very bottom edge */
+.manual-footer {
+        display: block !important;
+        position: fixed;        /* Fixed ensures it repeats on every page bottom */
+        bottom: 0;
         left: 0; 
         right: 0;
-        width: 100%;
         text-align: center;
-        font-size: 11pt;
-        padding-bottom: 0.5in; /* Lift it up slightly from the physical edge */
-        background: white;     /* Ensures no text overlaps it */
+        background: white;      /* covers any text running behind it */
+        padding-bottom: 10px;
     }
 }
 
