@@ -285,43 +285,67 @@ async function deleteSelectedProject() {
 }
 
 // ─── PDF DOWNLOAD (FIX 2 — no blank pages) ───────────────────────────────────
-// We clone the render target and strip all height constraints before passing to
-// html2pdf. This prevents the 11in min-height from creating empty continuation
-// pages. Each .paper becomes exactly as tall as its content.
+// Strategy: Temporarily modify the live .paper elements to remove fixed heights,
+// generate the PDF, then restore the original styles. This avoids the detached-clone
+// rendering bug that caused massive zoom issues.
 function downloadPDF() {
-    const source = document.getElementById('render-target');
-    const title  = document.getElementById('assignedCase')?.value ||
-                   document.getElementById('projectTitle')?.value || 'Brief';
+    const element = document.getElementById('render-target');
+    const title   = document.getElementById('assignedCase')?.value ||
+                    document.getElementById('projectTitle')?.value || 'Brief';
 
-    // Deep-clone so the live preview is untouched
-    const clone = source.cloneNode(true);
-    clone.querySelectorAll('.paper').forEach((p, i) => {
-        p.style.height        = 'auto';
-        p.style.minHeight     = '0';
-        p.style.boxShadow     = 'none';
-        p.style.marginBottom  = '0';
-        // page break before every page except the first
-        p.style.pageBreakBefore = (i === 0) ? 'auto' : 'always';
-        p.style.pageBreakAfter  = 'auto';
-        p.style.breakBefore     = (i === 0) ? 'auto' : 'page';
+    // Save original styles so we can restore them after PDF generation
+    const papers  = element.querySelectorAll('.paper');
+    const footers = element.querySelectorAll('.manual-footer');
+    const origStyles = {
+        papers: Array.from(papers).map(p => ({
+            height:        p.style.height,
+            minHeight:     p.style.minHeight,
+            marginBottom:  p.style.marginBottom,
+            pageBreakAfter: p.style.pageBreakAfter
+        })),
+        footers: Array.from(footers).map(f => ({
+            position:  f.style.position,
+            bottom:    f.style.bottom,
+            marginTop: f.style.marginTop
+        }))
+    };
+
+    // Temporarily modify for PDF-friendly rendering
+    papers.forEach((p, i) => {
+        p.style.height         = 'auto';
+        p.style.minHeight      = '11in'; // keep min but let content expand
+        p.style.marginBottom   = '0';
+        p.style.pageBreakAfter = (i === papers.length - 1) ? 'auto' : 'always';
     });
 
-    // Move the footer INSIDE the content flow (not absolute) so it doesn't
-    // add phantom height below the last line of content
-    clone.querySelectorAll('.manual-footer').forEach(f => {
-        f.style.position   = 'static';
-        f.style.marginTop  = '30px';
-        f.style.textAlign  = 'center';
+    footers.forEach(f => {
+        f.style.position  = 'absolute';
+        f.style.bottom    = '0.75in';
+        f.style.marginTop = '0';
     });
 
-    html2pdf().from(clone).set({
-        margin:      0,
+    // Generate PDF
+    html2pdf().from(element).set({
+        margin:      [1, 1, 1, 1], // top, right, bottom, left in inches
         filename:    title + '.pdf',
         image:       { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 816 },
+        html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
         jsPDF:       { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak:   { mode: 'legacy' }
-    }).save();
+        pagebreak:   { mode: 'css', avoid: '.paper' }
+    }).save().then(() => {
+        // Restore original styles after PDF generation completes
+        papers.forEach((p, i) => {
+            p.style.height         = origStyles.papers[i].height;
+            p.style.minHeight      = origStyles.papers[i].minHeight;
+            p.style.marginBottom   = origStyles.papers[i].marginBottom;
+            p.style.pageBreakAfter = origStyles.papers[i].pageBreakAfter;
+        });
+        footers.forEach((f, i) => {
+            f.style.position  = origStyles.footers[i].position;
+            f.style.bottom    = origStyles.footers[i].bottom;
+            f.style.marginTop = origStyles.footers[i].marginTop;
+        });
+    });
 }
 
 // ─── CASE DROPDOWN ───────────────────────────────────────────────────────────
@@ -469,8 +493,14 @@ function getLinksByType(files, type) {
 async function deleteSubmission(id) {
     if (!confirm("Remove this student's filing?")) return;
     const { error } = await supabaseClient.from('court_docket').delete().eq('id', id);
-    if (!error) loadDocket();
-    else alert('Delete failed: ' + error.message);
+    if (!error) {
+        console.log('Delete successful, reloading docket...');
+        await loadDocket(); // wait for the table to fully rebuild
+        console.log('Docket reloaded.');
+    } else {
+        console.error('Delete failed:', error);
+        alert('Delete failed: ' + error.message);
+    }
 }
 
 // ─── TEACHER ADMIN ────────────────────────────────────────────────────────────
