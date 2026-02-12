@@ -29,6 +29,7 @@ window.onload = () => {
     initSupabase();
     renderInputFields();
     refresh();
+    setupDeleteHandler(); // Set up event delegation for delete buttons
 
     // FIX 1: Restore login from localStorage on every page load/refresh
     const savedEmail = localStorage.getItem(LOGIN_KEY);
@@ -296,7 +297,7 @@ function downloadPDF() {
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
         jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak:    { mode: 'avoid-all' }  // avoid breaking inside elements, but don't force breaks
+        pagebreak:    { mode: 'legacy' }  // Use legacy mode - most reliable with explicit CSS breaks
     };
 
     html2pdf().from(element).set(opt).save();
@@ -452,13 +453,10 @@ function getLinksByType(files, type) {
 
 // Make sure this function is available globally
 window.deleteSubmission = async function(id) {
-    if (!confirm("Are you sure you want to remove this student's filing?")) return;
+    if (!confirm("Remove this student's filing?")) return;
 
-    // FIX: Force the ID to be a number. 
-    // This fixes the 'silent failure' where text IDs are ignored by the database.
     const numericId = Number(id);
-
-    console.log("Attempting to delete ID:", numericId); // For debugging
+    console.log("Attempting to delete filing ID:", numericId);
 
     const { error } = await supabaseClient
         .from('court_docket')
@@ -466,10 +464,12 @@ window.deleteSubmission = async function(id) {
         .eq('id', numericId);
 
     if (error) {
+        console.error("Delete error:", error);
         alert("Error deleting: " + error.message);
     } else {
-        // Success! Refresh the table.
-        loadDocket(); 
+        console.log("Delete successful, reloading docket...");
+        await loadDocket(); // AWAIT the reload so table updates before function returns
+        console.log("Docket reloaded.");
     }
 };
 

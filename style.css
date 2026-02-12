@@ -166,21 +166,12 @@ input, textarea, select {
     color: black;
     position: relative;
     box-sizing: border-box;
-    break-after: page;      /* Modern replacement for page-break-after */
-    page-break-after: always;
+    /* Removed break-after and page-break-after - let html2pdf handle pagination */
 }
 
-/* ADD THIS RULE right after it to stop the last page from creating a blank one */
-.paper:last-child {
-    break-after: auto;
-    page-break-after: auto;
-}
-
-/*
 .paper:last-child {
     margin-bottom: 0;
 }
-*/
 
 .court-header {
     text-align: center;
@@ -210,9 +201,14 @@ hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
 }
 
 
-/* 1. Hide the footer on the screen so it doesn't float over your content */
+/* Page footer - visible on screen and in PDF */
 .manual-footer {
-    display: none;
+    position: absolute;
+    bottom: 0.75in;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 11pt;
 }
 
 
@@ -235,30 +231,27 @@ hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
     }
 
     .paper {
-        min-height: 0 !important;   /* let content set the height in print */
+        min-height: 0 !important;
         height: auto !important;
         margin: 0 !important;
         padding: 1in !important;
         box-shadow: none !important;
-        page-break-after: always;
-        break-after: page;
+        /* Removed page-break rules - html2pdf handles pagination automatically */
     }
 
     .paper:last-child {
-        page-break-after: auto !important;
-        break-after: auto !important;
+        /* Last page has no special rules */
     }
 
-    /* FIX 3: Switch footer to static flow in print — no more giant bottom gap */
-.manual-footer {
+    /* Footer fixed at bottom of each printed page */
+    .manual-footer {
         display: block !important;
-        position: fixed;        /* Fixed ensures it repeats on every page bottom */
-        bottom: 0;
-        left: 0; 
+        position: fixed;
+        bottom: 0.5in;
+        left: 0;
         right: 0;
         text-align: center;
-        background: white;      /* covers any text running behind it */
-        padding-bottom: 10px;
+        font-size: 11pt;
     }
 }
 
