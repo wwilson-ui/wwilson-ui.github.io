@@ -284,68 +284,24 @@ async function deleteSelectedProject() {
     if (!error) { alert('Deleted.'); fetchProjectList(); }
 }
 
-// ─── PDF DOWNLOAD (FIX 2 — no blank pages) ───────────────────────────────────
-// Strategy: Temporarily modify the live .paper elements to remove fixed heights,
-// generate the PDF, then restore the original styles. This avoids the detached-clone
-// rendering bug that caused massive zoom issues.
+// ─── PDF DOWNLOAD ─────────────────────────────────────────────────────────────
+// Use the simplest possible approach: the CSS already has proper styling for
+// print (via @media print rules). Just call html2pdf with minimal interference.
 function downloadPDF() {
     const element = document.getElementById('render-target');
     const title   = document.getElementById('assignedCase')?.value ||
                     document.getElementById('projectTitle')?.value || 'Brief';
 
-    // Save original styles so we can restore them after PDF generation
-    const papers  = element.querySelectorAll('.paper');
-    const footers = element.querySelectorAll('.manual-footer');
-    const origStyles = {
-        papers: Array.from(papers).map(p => ({
-            height:        p.style.height,
-            minHeight:     p.style.minHeight,
-            marginBottom:  p.style.marginBottom,
-            pageBreakAfter: p.style.pageBreakAfter
-        })),
-        footers: Array.from(footers).map(f => ({
-            position:  f.style.position,
-            bottom:    f.style.bottom,
-            marginTop: f.style.marginTop
-        }))
+    const opt = {
+        margin:       0,  // No extra margin - the .paper padding handles it
+        filename:     title + '.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak:    { mode: 'avoid-all', before: '.paper' }
     };
 
-    // Temporarily modify for PDF-friendly rendering
-    papers.forEach((p, i) => {
-        p.style.height         = 'auto';
-        p.style.minHeight      = '11in'; // keep min but let content expand
-        p.style.marginBottom   = '0';
-        p.style.pageBreakAfter = (i === papers.length - 1) ? 'auto' : 'always';
-    });
-
-    footers.forEach(f => {
-        f.style.position  = 'absolute';
-        f.style.bottom    = '0.75in';
-        f.style.marginTop = '0';
-    });
-
-    // Generate PDF
-    html2pdf().from(element).set({
-        margin:      [1, 1, 1, 1], // top, right, bottom, left in inches
-        filename:    title + '.pdf',
-        image:       { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
-        jsPDF:       { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak:   { mode: 'css', avoid: '.paper' }
-    }).save().then(() => {
-        // Restore original styles after PDF generation completes
-        papers.forEach((p, i) => {
-            p.style.height         = origStyles.papers[i].height;
-            p.style.minHeight      = origStyles.papers[i].minHeight;
-            p.style.marginBottom   = origStyles.papers[i].marginBottom;
-            p.style.pageBreakAfter = origStyles.papers[i].pageBreakAfter;
-        });
-        footers.forEach((f, i) => {
-            f.style.position  = origStyles.footers[i].position;
-            f.style.bottom    = origStyles.footers[i].bottom;
-            f.style.marginTop = origStyles.footers[i].marginTop;
-        });
-    });
+    html2pdf().from(element).set(opt).save();
 }
 
 // ─── CASE DROPDOWN ───────────────────────────────────────────────────────────
@@ -483,8 +439,8 @@ function getLinksByType(files, type) {
         '<div class="docket-link-wrapper">' +
             '<a href="' + f.pdf_url + '" target="_blank">&#128196; ' + f.student_name + '</a>' +
             (currentUser === TEACHER_EMAIL
-                ? ' <span onclick="deleteSubmission(' + f.id + ')" ' +
-                  'style="color:red;cursor:pointer;">[x]</span>'
+                ? ' <span class="delete-filing-btn" data-filing-id="' + f.id + '" ' +
+                  'style="color:red;cursor:pointer;font-weight:bold;">[x]</span>'
                 : '') +
         '</div>'
     ).join('');
@@ -551,3 +507,13 @@ async function deleteCase(id) {
     if (!error) { renderAdminCaseList(); loadCases(); loadDocket(); }
     else alert('Delete failed: ' + error.message);
 }
+
+// ─── GLOBAL EVENT DELEGATION FOR DELETE BUTTONS ─────────────────────────────
+// Set up once when the page loads - handles all delete button clicks via event
+// delegation so dynamically added buttons work without needing inline onclick
+document.addEventListener('click', function(e) {
+    if (e.target && e.target.classList.contains('delete-filing-btn')) {
+        const filingId = parseInt(e.target.getAttribute('data-filing-id'));
+        if (filingId) deleteSubmission(filingId);
+    }
+});
