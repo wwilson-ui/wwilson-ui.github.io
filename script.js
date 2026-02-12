@@ -451,15 +451,22 @@ function getLinksByType(files, type) {
 }
 
 async function deleteSubmission(id) {
-    if (!confirm("Remove this student's filing?")) return;
-    const { error } = await supabaseClient.from('court_docket').delete().eq('id', id);
-    if (!error) {
-        console.log('Delete successful, reloading docket...');
-        await loadDocket(); // wait for the table to fully rebuild
-        console.log('Docket reloaded.');
+    if (!confirm("Are you sure you want to remove this student's filing?")) return;
+
+    // FIX: Convert the ID to a number to match Supabase's integer type
+    const numericId = parseInt(id, 10);
+
+    const { error } = await supabaseClient
+        .from('court_docket')
+        .delete()
+        .eq('id', numericId);
+
+    if (error) {
+        console.error("Delete failed:", error);
+        alert("Error deleting filing: " + error.message);
     } else {
-        console.error('Delete failed:', error);
-        alert('Delete failed: ' + error.message);
+        // Success! Refresh the table immediately.
+        loadDocket();
     }
 }
 
