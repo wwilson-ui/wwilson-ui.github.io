@@ -450,11 +450,15 @@ function getLinksByType(files, type) {
     ).join('');
 }
 
-async function deleteSubmission(id) {
+// Make sure this function is available globally
+window.deleteSubmission = async function(id) {
     if (!confirm("Are you sure you want to remove this student's filing?")) return;
 
-    // FIX: Convert the ID to a number to match Supabase's integer type
-    const numericId = parseInt(id, 10);
+    // FIX: Force the ID to be a number. 
+    // This fixes the 'silent failure' where text IDs are ignored by the database.
+    const numericId = Number(id);
+
+    console.log("Attempting to delete ID:", numericId); // For debugging
 
     const { error } = await supabaseClient
         .from('court_docket')
@@ -462,13 +466,12 @@ async function deleteSubmission(id) {
         .eq('id', numericId);
 
     if (error) {
-        console.error("Delete failed:", error);
-        alert("Error deleting filing: " + error.message);
+        alert("Error deleting: " + error.message);
     } else {
-        // Success! Refresh the table immediately.
-        loadDocket();
+        // Success! Refresh the table.
+        loadDocket(); 
     }
-}
+};
 
 // ─── TEACHER ADMIN ────────────────────────────────────────────────────────────
 async function addNewCase() {
