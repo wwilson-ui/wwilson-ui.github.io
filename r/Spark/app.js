@@ -96,20 +96,14 @@ async function loadUserProfile(user) {
 
 function renderAuthButtons() {
     const authSection = document.getElementById('authSection');
-    if (!authSection) {
-        console.error('authSection element not found!');
-        return;
-    }
+    if (!authSection) return;
     
-    console.log('Rendering auth buttons (sign in)');
-    // Only update if not already showing sign in button
-    if (!authSection.innerHTML.includes('Sign in with Google')) {
-        authSection.innerHTML = `
-            <button class="btn btn-primary" onclick="signInWithGoogle()">
-                Sign in with Google
-            </button>
-        `;
-    }
+    authSection.innerHTML = `
+        <button class="google-signin-btn" onclick="signInWithGoogle()">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google Logo">
+            Sign in with Google
+        </button>
+    `;
 }
 
 function renderUserInfo() {
@@ -135,24 +129,20 @@ function renderUserInfo() {
 }
 
 async function signInWithGoogle() {
-    console.log('Attempting to sign in with Google...');
     try {
-        const { data, error } = await supabase.auth.signInWithOAuth({
+        const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin
+                redirectTo: window.location.origin,
+                queryParams: {
+                    hd: 'mtps.us' // This forces the school domain picker
+                }
             }
         });
-        
-        if (error) {
-            console.error('Error signing in:', error);
-            alert('Error signing in: ' + error.message);
-        } else {
-            console.log('Sign in initiated successfully');
-        }
+        if (error) throw error;
     } catch (err) {
-        console.error('Unexpected error during sign in:', err);
-        alert('Unexpected error: ' + err.message);
+        console.error('Sign in error:', err);
+        alert('Error: ' + err.message);
     }
 }
 
