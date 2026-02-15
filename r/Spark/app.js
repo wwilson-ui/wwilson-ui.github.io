@@ -5,14 +5,21 @@ let currentUser = null;
 let currentSubreddit = null;
 let currentSort = 'hot';
 let subreddits = [];
-
-// Use the supabase client from config.js
-const supabase = supabaseClient;
+let supabase;
 
 // ============================================
 // INITIALIZATION
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize Supabase client
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('Supabase client initialized');
+    } else {
+        console.error('Supabase library not loaded');
+        return;
+    }
+    
     await checkAuth();
     await loadSubreddits();
     await loadPosts();
@@ -23,25 +30,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 // AUTHENTICATION
 // ============================================
 async function checkAuth() {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session) {
-        await loadUserProfile(session.user);
-    } else {
+    try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+            console.error('Error getting session:', error);
+            renderAuthButtons();
+            return;
+        }
+        
+        if (session) {
+            console.log('User is signed in:', session.user.email);
+            await loadUserProfile(session.user);
+        } else {
+            console.log('No active session, showing sign in button');
+            renderAuthButtons();
+        }
+        
+        // Listen for auth changes
+        supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('Auth state changed:', event);
+            if (event === 'SIGNED_IN' && session) {
+                await loadUserProfile(session.user);
+                location.reload();
+            } else if (event === 'SIGNED_OUT') {
+                currentUser = null;
+                renderAuthButtons();
+                location.reload();
+            }
+        });
+    } catch (err) {
+        console.error('Error in checkAuth:', err);
         renderAuthButtons();
     }
-    
-    // Listen for auth changes
-    supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-            await loadUserProfile(session.user);
-            location.reload();
-        } else if (event === 'SIGNED_OUT') {
-            currentUser = null;
-            renderAuthButtons();
-            location.reload();
-        }
-    });
 }
 
 async function loadUserProfile(user) {
@@ -55,16 +76,32 @@ async function loadUserProfile(user) {
         currentUser = profile;
         renderUserInfo();
         
-        // Show create buttons if user has permission
-        if (profile.role === 'teacher') {
-            document.getElementById('createSubredditBtn').style.display = 'block';
+        // Show create post button for ALL users
+        const createPostBtn = document.getElementById('createPostBtn');
+        if (createPostBtn) {
+            createPostBtn.style.display = 'block';
         }
-        document.getElementById('createPostBtn').style.display = 'block';
+        
+        // Show create subreddit button only for teachers
+        if (profile.role === 'teacher') {
+            const createSubredditBtn = document.getElementById('createSubredditBtn');
+            if (createSubredditBtn) {
+                createSubredditBtn.style.display = 'block';
+            }
+        }
+    } else {
+        console.error('Error loading profile:', error);
     }
 }
 
 function renderAuthButtons() {
     const authSection = document.getElementById('authSection');
+    if (!authSection) {
+        console.error('authSection element not found!');
+        return;
+    }
+    
+    console.log('Rendering auth buttons (sign in)');
     authSection.innerHTML = `
         <button class="btn btn-primary" onclick="signInWithGoogle()">
             Sign in with Google
@@ -74,6 +111,12 @@ function renderAuthButtons() {
 
 function renderUserInfo() {
     const authSection = document.getElementById('authSection');
+    if (!authSection) {
+        console.error('authSection element not found!');
+        return;
+    }
+    
+    console.log('Rendering user info for:', currentUser.username);
     const initial = currentUser.username ? currentUser.username[0].toUpperCase() : 'U';
     
     authSection.innerHTML = `
@@ -89,15 +132,24 @@ function renderUserInfo() {
 }
 
 async function signInWithGoogle() {
-    const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-            redirectTo: window.location.origin
+    console.log('Attempting to sign in with Google...');
+    try {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin
+            }
+        });
+        
+        if (error) {
+            console.error('Error signing in:', error);
+            alert('Error signing in: ' + error.message);
+        } else {
+            console.log('Sign in initiated successfully');
         }
-    });
-    
-    if (error) {
-        alert('Error signing in: ' + error.message);
+    } catch (err) {
+        console.error('Unexpected error during sign in:', err);
+        alert('Unexpected error: ' + err.message);
     }
 }
 
