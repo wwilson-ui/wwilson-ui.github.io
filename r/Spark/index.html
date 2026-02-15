@@ -14,38 +14,29 @@
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-left">
-                <h1 class="logo">MTPS<span class="logo-accent">Forum</span></h1>
-                <div class="search-container" id="searchContainer">
-                    <input type="text" id="searchInput" placeholder="Search subreddits, posts..." class="search-input">
-                    <svg class="search-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2"/>
-                        <path d="M12 12L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                </div>
+                <a href="#" class="logo">MTPS<span class="logo-accent">Forum</span></a>
             </div>
+            
             <div class="nav-right">
-                <!-- Auth section with default button -->
-                <div id="authSection" class="auth-section">
-                    <nav class="navbar">
-                        <div class="nav-container">
-                            <div class="nav-left">
-                                <h1 class="logo">MTPS<span class="logo-accent">Forum</span></h1>
-                                </div>
-                            <div class="nav-right">
-                                <div id="authSection" class="auth-section">
-                                    <button class="google-signin-btn" onclick="signInWithGoogle()">
-                                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google Logo">
-                                        <span>Sign in with Google</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </nav>
+                <div id="authSection">
+                    <button id="loginBtn" class="google-btn">
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google G" />
+                        <span>Sign in with Google</span>
+                    </button>
                 </div>
             </div>
         </div>
     </nav>
 
+    <main class="container">
+        <div id="contentArea"></div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+
+    
     <!-- Main Content -->
     <div class="main-container">
         <!-- Sidebar -->
@@ -161,8 +152,6 @@
         <div class="spinner"></div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js"></script>
-    <script src="app.js"></script>
+
 </body>
 </html>
