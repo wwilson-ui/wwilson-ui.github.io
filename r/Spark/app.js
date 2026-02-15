@@ -102,11 +102,14 @@ function renderAuthButtons() {
     }
     
     console.log('Rendering auth buttons (sign in)');
-    authSection.innerHTML = `
-        <button class="btn btn-primary" onclick="signInWithGoogle()">
-            Sign in with Google
-        </button>
-    `;
+    // Only update if not already showing sign in button
+    if (!authSection.innerHTML.includes('Sign in with Google')) {
+        authSection.innerHTML = `
+            <button class="btn btn-primary" onclick="signInWithGoogle()">
+                Sign in with Google
+            </button>
+        `;
+    }
 }
 
 function renderUserInfo() {
@@ -123,7 +126,7 @@ function renderUserInfo() {
         <div class="user-info">
             <div class="user-avatar">${initial}</div>
             <div>
-                <div class="user-name">${currentUser.username}</div>
+                <div class="user-name">Logged in as ${currentUser.username}</div>
                 <div class="user-role">${currentUser.role}</div>
             </div>
         </div>
@@ -153,9 +156,15 @@ async function signInWithGoogle() {
     }
 }
 
+// Make function globally accessible
+window.signInWithGoogle = signInWithGoogle;
+
 async function signOut() {
     await supabase.auth.signOut();
 }
+
+// Make function globally accessible
+window.signOut = signOut;
 
 // ============================================
 // SUBREDDITS
