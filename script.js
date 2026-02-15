@@ -334,7 +334,7 @@ function downloadPDF() {
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2, useCORS: true },
         jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak:    { mode: 'avoid-all', before: '.paper' }
+        pagebreak:    { mode: 'avoid-all' }  // Removed 'before' - let CSS handle breaks
     };
 
     html2pdf().from(clone).set(opt).save();
