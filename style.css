@@ -219,8 +219,14 @@ hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
    resolves against the viewport rather than the page — pushing the footer way
    down. We switch it to static flow so it prints right after the last line. */
 @media print {
-    body, .app-container { overflow: visible !important; height: auto !important; }
-    header, .sidebar, .input-panel { display: none !important; }
+    body, .app-container { 
+        overflow: visible !important; 
+        height: auto !important; 
+    }
+    
+    header, .sidebar, .input-panel { 
+        display: none !important; 
+    }
 
     .preview-panel {
         padding: 0 !important;
@@ -231,13 +237,24 @@ hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
     }
 
     .paper {
-        min-height: 0 !important;
+        width: 8.5in !important;
+        min-height: 11in !important;
         height: auto !important;
         margin: 0 !important;
         padding: 1in !important;
         box-shadow: none !important;
-        page-break-after: always;  /* Force new page after each section */
-        break-after: page;
+        position: relative !important;
+        page-break-before: auto !important;
+        page-break-after: always !important;
+        page-break-inside: avoid !important;
+        break-before: auto !important;
+        break-after: page !important;
+        break-inside: avoid !important;
+    }
+
+    .paper:first-child {
+        page-break-before: auto !important;
+        break-before: auto !important;
     }
 
     .paper:last-child {
@@ -245,15 +262,15 @@ hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
         break-after: auto !important;
     }
 
-    /* Footer fixed at bottom of each printed page */
+    /* Footer appears at bottom of each printed page */
     .manual-footer {
         display: block !important;
-        position: fixed;
-        bottom: 0.5in;
-        left: 0;
-        right: 0;
-        text-align: center;
-        font-size: 11pt;
+        position: fixed !important;
+        bottom: 0.5in !important;
+        left: 0 !important;
+        right: 0 !important;
+        text-align: center !important;
+        font-size: 11pt !important;
     }
 }
 

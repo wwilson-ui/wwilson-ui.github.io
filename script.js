@@ -299,39 +299,45 @@ async function deleteSelectedProject() {
 
 // ─── PDF DOWNLOAD ─────────────────────────────────────────────────────────────
 function downloadPDF() {
-    const element = document.getElementById('render-target');
-    const title   = document.getElementById('assignedCase')?.value ||
-                    document.getElementById('projectTitle')?.value || 'Brief';
+    const source = document.getElementById('render-target');
+    const title  = document.getElementById('assignedCase')?.value ||
+                   document.getElementById('projectTitle')?.value || 'Brief';
 
-    // Save original styles
-    const papers = element.querySelectorAll('.paper');
-    const originalStyles = Array.from(papers).map(p => ({
-        minHeight: p.style.minHeight,
-        height: p.style.height
-    }));
-
-    // Temporarily force each page to be exactly 11in tall so footers position correctly
-    papers.forEach(p => {
-        p.style.minHeight = '11in';
-        p.style.height = '11in';
+    // Clone the entire render target so we can modify it safely
+    const clone = source.cloneNode(true);
+    
+    // Wrap each .paper in an isolated container to fix footer positioning
+    const papers = clone.querySelectorAll('.paper');
+    papers.forEach((paper, index) => {
+        // Force exact height so footer positions correctly
+        paper.style.height = '11in';
+        paper.style.minHeight = '11in';
+        paper.style.position = 'relative';
+        paper.style.pageBreakAfter = (index === papers.length - 1) ? 'auto' : 'always';
+        paper.style.margin = '0';
+        paper.style.boxShadow = 'none';
+        
+        // Make sure footer is absolutely positioned within THIS paper
+        const footer = paper.querySelector('.manual-footer');
+        if (footer) {
+            footer.style.position = 'absolute';
+            footer.style.bottom = '0.75in';
+            footer.style.left = '0';
+            footer.style.right = '0';
+            footer.style.textAlign = 'center';
+        }
     });
 
     const opt = {
         margin:       0,
         filename:     title + '.pdf',
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
+        html2canvas:  { scale: 2, useCORS: true },
         jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak:    { mode: 'legacy' }
+        pagebreak:    { mode: 'avoid-all', before: '.paper' }
     };
 
-    html2pdf().from(element).set(opt).save().then(() => {
-        // Restore original styles after PDF generation
-        papers.forEach((p, i) => {
-            p.style.minHeight = originalStyles[i].minHeight;
-            p.style.height = originalStyles[i].height;
-        });
-    });
+    html2pdf().from(clone).set(opt).save();
 }
 
 // ─── CASE DROPDOWN ───────────────────────────────────────────────────────────
