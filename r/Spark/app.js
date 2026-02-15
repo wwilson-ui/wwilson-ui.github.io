@@ -1,76 +1,112 @@
-// Global variables
-let supabase;
-let currentUser = null;
-let currentSubreddit = null;
-let currentSort = 'hot';
-let subreddits = [];
+// Global variables - using var to avoid conflicts
+var supabaseClient;
+var currentUser = null;
+var currentSubreddit = null;
+var currentSort = 'hot';
+var subreddits = [];
 
 // Initialize everything when page loads
 window.addEventListener('load', async function() {
-    console.log('Page loaded, starting initialization...');
+    console.log('===============================================');
+    console.log('🚀 PAGE LOADED - Starting initialization...');
+    console.log('===============================================');
+    console.log('Current URL:', window.location.href);
+    console.log('Supabase URL from config:', SUPABASE_URL);
+    console.log('Supabase key exists:', !!SUPABASE_ANON_KEY);
     
     // Give Supabase library time to load
     await new Promise(resolve => setTimeout(resolve, 500));
     
+    console.log('Window.supabase exists:', !!window.supabase);
+    console.log('Window.supabase.createClient exists:', !!(window.supabase && window.supabase.createClient));
+    
     // Initialize Supabase
     if (window.supabase && window.supabase.createClient) {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log('✅ Supabase initialized');
-        
-        // Set up Google sign-in button
-        setupGoogleSignIn();
-        
-        // Check if user is already logged in
-        await checkAuth();
-        
-        // Load content
-        await loadSubreddits();
-        await loadPosts();
-        
-        // Set up event listeners
-        setupEventListeners();
+        try {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log('✅ Supabase client created');
+            console.log('Supabase client object:', supabaseClient);
+            console.log('Supabase.auth exists:', !!supabaseClient.auth);
+            
+            // Set up Google sign-in button
+            setupGoogleSignIn();
+            
+            // Check if user is already logged in
+            await checkAuth();
+            
+            // Load content
+            await loadSubreddits();
+            await loadPosts();
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            console.log('✅ Initialization complete');
+        } catch (err) {
+            console.error('❌ Error during initialization:', err);
+            alert('Initialization error: ' + err.message);
+        }
     } else {
         console.error('❌ Supabase library not loaded');
-        alert('Error loading page. Please refresh.');
+        console.error('window.supabase:', window.supabase);
+        alert('Error: Supabase library failed to load. Please refresh the page.');
     }
 });
 
 // Set up the Google sign-in button
 function setupGoogleSignIn() {
-    const btn = document.getElementById('googleSignInBtn');
+    var btn = document.getElementById('googleSignInBtn');
+    console.log('Setting up sign-in button, found:', btn);
+    
     if (btn) {
-        btn.onclick = async function() {
-            console.log('🔐 Sign in button clicked');
+        btn.onclick = async function(e) {
+            console.log('🔐 SIGN IN BUTTON CLICKED!');
+            console.log('Event:', e);
+            console.log('Supabase client exists:', !!supabaseClient);
+            console.log('Supabase auth exists:', !!supabaseClient?.auth);
+            
+            // Test alert to confirm button works
+            alert('Button clicked! Check console for details.');
             
             try {
-                const { data, error } = await supabase.auth.signInWithOAuth({
+                console.log('Attempting OAuth sign-in...');
+                var result = await supabaseClient.auth.signInWithOAuth({
                     provider: 'google',
                     options: {
-                        redirectTo: window.location.origin
+                        redirectTo: window.location.origin,
+                        queryParams: {
+                            access_type: 'offline',
+                            prompt: 'consent',
+                        }
                     }
                 });
                 
-                if (error) {
-                    console.error('Sign in error:', error);
-                    alert('Sign in failed: ' + error.message);
+                console.log('OAuth response - data:', result.data, 'error:', result.error);
+                
+                if (result.error) {
+                    console.error('❌ Sign in error:', result.error);
+                    alert('Sign in failed: ' + result.error.message);
                 } else {
-                    console.log('Sign in initiated');
+                    console.log('✅ Sign in initiated, data:', result.data);
                 }
             } catch (err) {
-                console.error('Unexpected error:', err);
-                alert('Error: ' + err.message);
+                console.error('❌ Unexpected error:', err);
+                alert('Unexpected error: ' + err.message);
             }
         };
+        
         console.log('✅ Sign-in button configured');
     } else {
-        console.error('❌ Sign-in button not found');
+        console.error('❌ Sign-in button not found in DOM');
+        alert('ERROR: Sign-in button element not found!');
     }
 }
 
 // Check authentication status
 async function checkAuth() {
     try {
-        const { data: { session } } = await supabase.auth.getSession();
+        var result = await supabaseClient.auth.getSession();
+        var session = result.data.session;
         
         if (session) {
             console.log('✅ User logged in:', session.user.email);
@@ -80,7 +116,7 @@ async function checkAuth() {
         }
         
         // Listen for auth changes
-        supabase.auth.onAuthStateChange(async (event, session) => {
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
             console.log('Auth changed:', event);
             
             if (event === 'SIGNED_IN') {
@@ -103,18 +139,18 @@ async function loadUserProfile(user) {
         // Wait a moment for trigger to create profile
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        const { data: profile, error } = await supabase
+        var result = await supabaseClient
             .from('profiles')
             .select('*')
             .eq('id', user.id)
             .single();
         
-        if (profile) {
-            currentUser = profile;
-            console.log('✅ Profile loaded:', profile.username, profile.role);
+        if (result.data) {
+            currentUser = result.data;
+            console.log('✅ Profile loaded:', result.data.username, result.data.role);
             updateAuthUI();
         } else {
-            console.error('Profile not found:', error);
+            console.error('Profile not found:', result.error);
             // Try again in 2 seconds
             setTimeout(() => loadUserProfile(user), 2000);
         }
@@ -125,11 +161,11 @@ async function loadUserProfile(user) {
 
 // Update the auth section UI
 function updateAuthUI() {
-    const authSection = document.getElementById('authSection');
+    var authSection = document.getElementById('authSection');
     if (!authSection) return;
     
     if (currentUser) {
-        const initial = currentUser.username ? currentUser.username[0].toUpperCase() : 'U';
+        var initial = currentUser.username ? currentUser.username[0].toUpperCase() : 'U';
         authSection.innerHTML = `
             <div class="user-info">
                 <div class="user-avatar">${initial}</div>
@@ -143,7 +179,7 @@ function updateAuthUI() {
         
         // Set up sign out button
         document.getElementById('signOutBtn').onclick = async function() {
-            await supabase.auth.signOut();
+            await supabaseClient.auth.signOut();
         };
         
         // Show create post button
@@ -159,14 +195,14 @@ function updateAuthUI() {
 // Load subreddits
 async function loadSubreddits() {
     try {
-        const { data, error } = await supabase
+        var result = await supabaseClient
             .from('subreddits')
             .select('*')
             .order('name');
         
-        if (data) {
-            subreddits = data;
-            console.log('✅ Loaded', data.length, 'communities');
+        if (result.data) {
+            subreddits = result.data;
+            console.log('✅ Loaded', result.data.length, 'communities');
             renderSubreddits();
         }
     } catch (err) {
@@ -176,7 +212,7 @@ async function loadSubreddits() {
 
 // Render subreddits list
 function renderSubreddits() {
-    const list = document.getElementById('subredditsList');
+    var list = document.getElementById('subredditsList');
     if (!list) return;
     
     if (subreddits.length === 0) {
@@ -197,7 +233,7 @@ function renderSubreddits() {
     `;
     
     // Update post form dropdown
-    const select = document.getElementById('postSubreddit');
+    var select = document.getElementById('postSubreddit');
     if (select) {
         select.innerHTML = subreddits.map(sub => 
             `<option value="${sub.id}">${sub.name}</option>`
@@ -221,7 +257,7 @@ window.filterBySubreddit = function(subredditId) {
 // Load posts
 async function loadPosts() {
     try {
-        let query = supabase
+        var query = supabaseClient
             .from('posts')
             .select(`
                 *,
@@ -240,11 +276,11 @@ async function loadPosts() {
             query = query.order('vote_count', { ascending: false });
         }
         
-        const { data, error } = await query;
+        var result = await query;
         
-        if (data) {
-            console.log('✅ Loaded', data.length, 'posts');
-            renderPosts(data);
+        if (result.data) {
+            console.log('✅ Loaded', result.data.length, 'posts');
+            renderPosts(result.data);
         }
     } catch (err) {
         console.error('Error loading posts:', err);
@@ -253,7 +289,7 @@ async function loadPosts() {
 
 // Render posts
 function renderPosts(posts) {
-    const container = document.getElementById('postsContainer');
+    var container = document.getElementById('postsContainer');
     if (!container) return;
     
     if (posts.length === 0) {
@@ -266,12 +302,12 @@ function renderPosts(posts) {
 
 // Create post card HTML
 function createPostCard(post) {
-    const timeAgo = getTimeAgo(post.created_at);
-    const canDelete = currentUser && (currentUser.id === post.user_id || currentUser.role === 'teacher');
+    var timeAgo = getTimeAgo(post.created_at);
+    var canDelete = currentUser && (currentUser.id === post.user_id || currentUser.role === 'teacher');
     
-    let contentHtml = '';
+    var contentHtml = '';
     if (post.post_type === 'text' && post.content) {
-        const preview = post.content.length > 300 ? post.content.substring(0, 300) + '...' : post.content;
+        var preview = post.content.length > 300 ? post.content.substring(0, 300) + '...' : post.content;
         contentHtml = `<p class="post-text">${escapeHtml(preview)}</p>`;
     } else if (post.post_type === 'link' && post.url) {
         contentHtml = `<div class="post-link"><a href="${escapeHtml(post.url)}" target="_blank">🔗 ${escapeHtml(post.url)}</a></div>`;
@@ -318,24 +354,26 @@ window.vote = async function(postId, voteType) {
     }
     
     try {
-        const { data: existingVote } = await supabase
+        var result = await supabaseClient
             .from('votes')
             .select('*')
             .eq('user_id', currentUser.id)
             .eq('post_id', postId)
             .single();
         
+        var existingVote = result.data;
+        
         if (existingVote) {
             if (existingVote.vote_type === voteType) {
                 // Remove vote
-                await supabase.from('votes').delete().eq('id', existingVote.id);
+                await supabaseClient.from('votes').delete().eq('id', existingVote.id);
             } else {
                 // Change vote
-                await supabase.from('votes').update({ vote_type: voteType }).eq('id', existingVote.id);
+                await supabaseClient.from('votes').update({ vote_type: voteType }).eq('id', existingVote.id);
             }
         } else {
             // New vote
-            await supabase.from('votes').insert([{
+            await supabaseClient.from('votes').insert([{
                 user_id: currentUser.id,
                 post_id: postId,
                 vote_type: voteType
@@ -353,7 +391,7 @@ window.deletePost = async function(postId) {
     if (!confirm('Delete this post?')) return;
     
     try {
-        await supabase.from('posts').delete().eq('id', postId);
+        await supabaseClient.from('posts').delete().eq('id', postId);
         await loadPosts();
     } catch (err) {
         console.error('Delete error:', err);
@@ -363,19 +401,19 @@ window.deletePost = async function(postId) {
 // Open post detail
 window.openPost = async function(postId) {
     try {
-        const { data: post } = await supabase
+        var postResult = await supabaseClient
             .from('posts')
             .select(`*, profiles:user_id (username, role), subreddits:subreddit_id (name)`)
             .eq('id', postId)
             .single();
         
-        const { data: comments } = await supabase
+        var commentsResult = await supabaseClient
             .from('comments')
             .select(`*, profiles:user_id (username, role)`)
             .eq('post_id', postId)
             .order('created_at');
         
-        document.getElementById('postDetailContent').innerHTML = renderPostDetail(post, comments || []);
+        document.getElementById('postDetailContent').innerHTML = renderPostDetail(postResult.data, commentsResult.data || []);
         document.getElementById('postDetailModal').classList.add('active');
     } catch (err) {
         console.error('Error opening post:', err);
@@ -384,9 +422,9 @@ window.openPost = async function(postId) {
 
 // Render post detail
 function renderPostDetail(post, comments) {
-    const canDelete = currentUser && (currentUser.id === post.user_id || currentUser.role === 'teacher');
+    var canDelete = currentUser && (currentUser.id === post.user_id || currentUser.role === 'teacher');
     
-    let contentHtml = '';
+    var contentHtml = '';
     if (post.post_type === 'text' && post.content) {
         contentHtml = `<p class="post-text">${escapeHtml(post.content)}</p>`;
     } else if (post.post_type === 'link' && post.url) {
@@ -428,8 +466,8 @@ function renderComments(comments, allComments, postId) {
     }
     
     return comments.map(c => {
-        const replies = allComments.filter(r => r.parent_comment_id === c.id);
-        const canDelete = currentUser && (currentUser.id === c.user_id || currentUser.role === 'teacher');
+        var replies = allComments.filter(r => r.parent_comment_id === c.id);
+        var canDelete = currentUser && (currentUser.id === c.user_id || currentUser.role === 'teacher');
         
         return `
             <div class="comment">
@@ -456,13 +494,14 @@ function renderComments(comments, allComments, postId) {
 window.addComment = async function(postId, parentId) {
     if (!currentUser) return;
     
-    const textId = parentId ? `reply-text-${parentId}` : 'newComment';
-    const text = document.getElementById(textId)?.value?.trim();
+    var textId = parentId ? `reply-text-${parentId}` : 'newComment';
+    var textElement = document.getElementById(textId);
+    var text = textElement?.value?.trim();
     
     if (!text) return;
     
     try {
-        await supabase.from('comments').insert([{
+        await supabaseClient.from('comments').insert([{
             post_id: postId,
             parent_comment_id: parentId,
             user_id: currentUser.id,
@@ -480,7 +519,7 @@ window.deleteComment = async function(commentId, postId) {
     if (!confirm('Delete this comment?')) return;
     
     try {
-        await supabase.from('comments').delete().eq('id', commentId);
+        await supabaseClient.from('comments').delete().eq('id', commentId);
         window.openPost(postId);
     } catch (err) {
         console.error('Delete error:', err);
@@ -489,7 +528,7 @@ window.deleteComment = async function(commentId, postId) {
 
 // Show reply form
 window.showReplyForm = function(commentId) {
-    const form = document.getElementById(`reply-${commentId}`);
+    var form = document.getElementById(`reply-${commentId}`);
     if (form) {
         form.style.display = form.style.display === 'none' ? 'block' : 'none';
     }
@@ -503,94 +542,116 @@ window.closeModal = function(modalId) {
 // Set up event listeners
 function setupEventListeners() {
     // Create subreddit button
-    document.getElementById('createSubredditBtn')?.addEventListener('click', () => {
-        document.getElementById('createSubredditModal').classList.add('active');
-    });
+    var createSubBtn = document.getElementById('createSubredditBtn');
+    if (createSubBtn) {
+        createSubBtn.addEventListener('click', function() {
+            document.getElementById('createSubredditModal').classList.add('active');
+        });
+    }
     
     // Create subreddit form
-    document.getElementById('createSubredditForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        if (!currentUser || currentUser.role !== 'teacher') return;
-        
-        const name = document.getElementById('subredditName').value.trim();
-        const description = document.getElementById('subredditDescription').value.trim();
-        
-        try {
-            await supabase.from('subreddits').insert([{
-                name: name.toLowerCase(),
-                description,
-                created_by: currentUser.id
-            }]);
+    var createSubForm = document.getElementById('createSubredditForm');
+    if (createSubForm) {
+        createSubForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
             
-            await loadSubreddits();
-            window.closeModal('createSubredditModal');
-            e.target.reset();
-        } catch (err) {
-            console.error('Create subreddit error:', err);
-        }
-    });
+            if (!currentUser || currentUser.role !== 'teacher') return;
+            
+            var name = document.getElementById('subredditName').value.trim();
+            var description = document.getElementById('subredditDescription').value.trim();
+            
+            try {
+                await supabaseClient.from('subreddits').insert([{
+                    name: name.toLowerCase(),
+                    description: description,
+                    created_by: currentUser.id
+                }]);
+                
+                await loadSubreddits();
+                window.closeModal('createSubredditModal');
+                e.target.reset();
+            } catch (err) {
+                console.error('Create subreddit error:', err);
+            }
+        });
+    }
     
     // Create post button
-    document.getElementById('createPostBtn')?.addEventListener('click', () => {
-        document.getElementById('createPostModal').classList.add('active');
-    });
+    var createPostBtn = document.getElementById('createPostBtn');
+    if (createPostBtn) {
+        createPostBtn.addEventListener('click', function() {
+            document.getElementById('createPostModal').classList.add('active');
+        });
+    }
     
     // Post type tabs
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.tab-btn').forEach(function(b) {
+                b.classList.remove('active');
+            });
             btn.classList.add('active');
             
-            const type = btn.dataset.type;
-            document.querySelectorAll('.post-content-section').forEach(s => s.style.display = 'none');
-            document.getElementById(`${type}PostContent`).style.display = 'block';
+            var type = btn.dataset.type;
+            document.querySelectorAll('.post-content-section').forEach(function(s) {
+                s.style.display = 'none';
+            });
+            var contentSection = document.getElementById(type + 'PostContent');
+            if (contentSection) {
+                contentSection.style.display = 'block';
+            }
         });
     });
     
     // Create post form
-    document.getElementById('createPostForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        if (!currentUser) return;
-        
-        const subredditId = document.getElementById('postSubreddit').value;
-        const title = document.getElementById('postTitle').value.trim();
-        const activeType = document.querySelector('.tab-btn.active').dataset.type;
-        
-        let content = '';
-        let url = '';
-        
-        if (activeType === 'text') {
-            content = document.getElementById('postContent').value.trim();
-        } else if (activeType === 'link') {
-            url = document.getElementById('postUrl').value.trim();
-        } else if (activeType === 'image') {
-            url = document.getElementById('postImageUrl').value.trim();
-        }
-        
-        try {
-            await supabase.from('posts').insert([{
-                subreddit_id: subredditId,
-                user_id: currentUser.id,
-                title,
-                content: activeType === 'text' ? content : null,
-                post_type: activeType,
-                url: activeType !== 'text' ? url : null
-            }]);
+    var createPostForm = document.getElementById('createPostForm');
+    if (createPostForm) {
+        createPostForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
             
-            await loadPosts();
-            window.closeModal('createPostModal');
-            e.target.reset();
-        } catch (err) {
-            console.error('Create post error:', err);
-        }
-    });
+            if (!currentUser) return;
+            
+            var subredditId = document.getElementById('postSubreddit').value;
+            var title = document.getElementById('postTitle').value.trim();
+            var activeTab = document.querySelector('.tab-btn.active');
+            var activeType = activeTab.dataset.type;
+            
+            var content = '';
+            var url = '';
+            
+            if (activeType === 'text') {
+                content = document.getElementById('postContent').value.trim();
+            } else if (activeType === 'link') {
+                url = document.getElementById('postUrl').value.trim();
+            } else if (activeType === 'image') {
+                url = document.getElementById('postImageUrl').value.trim();
+            }
+            
+            try {
+                await supabaseClient.from('posts').insert([{
+                    subreddit_id: subredditId,
+                    user_id: currentUser.id,
+                    title: title,
+                    content: activeType === 'text' ? content : null,
+                    post_type: activeType,
+                    url: activeType !== 'text' ? url : null
+                }]);
+                
+                await loadPosts();
+                window.closeModal('createPostModal');
+                e.target.reset();
+            } catch (err) {
+                console.error('Create post error:', err);
+            }
+        });
+    }
     
     // Sort buttons
-    document.querySelectorAll('.sort-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.sort-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.sort-btn').forEach(function(b) {
+                b.classList.remove('active');
+            });
             btn.classList.add('active');
             currentSort = btn.dataset.sort;
             loadPosts();
@@ -598,8 +659,8 @@ function setupEventListeners() {
     });
     
     // Close modals on outside click
-    document.querySelectorAll('.modal').forEach(modal => {
-        modal.addEventListener('click', (e) => {
+    document.querySelectorAll('.modal').forEach(function(modal) {
+        modal.addEventListener('click', function(e) {
             if (e.target === modal) {
                 modal.classList.remove('active');
             }
@@ -611,18 +672,21 @@ function setupEventListeners() {
 
 // Utility functions
 function escapeHtml(text) {
-    const div = document.createElement('div');
+    var div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
 function getTimeAgo(timestamp) {
-    const seconds = Math.floor((new Date() - new Date(timestamp)) / 1000);
-    const intervals = { year: 31536000, month: 2592000, week: 604800, day: 86400, hour: 3600, minute: 60 };
+    var seconds = Math.floor((new Date() - new Date(timestamp)) / 1000);
+    var intervals = { year: 31536000, month: 2592000, week: 604800, day: 86400, hour: 3600, minute: 60 };
     
-    for (const [unit, secondsInUnit] of Object.entries(intervals)) {
-        const interval = Math.floor(seconds / secondsInUnit);
-        if (interval >= 1) return `${interval} ${unit}${interval > 1 ? 's' : ''} ago`;
+    for (var unit in intervals) {
+        var secondsInUnit = intervals[unit];
+        var interval = Math.floor(seconds / secondsInUnit);
+        if (interval >= 1) {
+            return interval + ' ' + unit + (interval > 1 ? 's' : '') + ' ago';
+        }
     }
     
     return 'just now';
