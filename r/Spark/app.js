@@ -1,223 +1,162 @@
-// ============================================
-// GLOBAL STATE
-// ============================================
+// Global variables
+let supabase;
 let currentUser = null;
 let currentSubreddit = null;
 let currentSort = 'hot';
 let subreddits = [];
-let supabase;
 
-// ============================================
-// INITIALIZATION
-// ============================================
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log('DOM loaded, initializing app...');
+// Initialize everything when page loads
+window.addEventListener('load', async function() {
+    console.log('Page loaded, starting initialization...');
     
-    // Wait a moment for Supabase library to be fully loaded
-    setTimeout(async () => {
-        try {
-            // Initialize Supabase client
-            if (window.supabase && typeof window.supabase.createClient === 'function') {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                console.log('✅ Supabase client initialized successfully');
-                
-                await checkAuth();
-                await loadSubreddits();
-                await loadPosts();
-                setupEventListeners();
-            } else {
-                console.error('❌ Supabase library not loaded properly');
-                alert('Error: Supabase library failed to load. Please refresh the page.');
-            }
-        } catch (error) {
-            console.error('❌ Error during initialization:', error);
-        }
-    }, 100);
+    // Give Supabase library time to load
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Initialize Supabase
+    if (window.supabase && window.supabase.createClient) {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('✅ Supabase initialized');
+        
+        // Set up Google sign-in button
+        setupGoogleSignIn();
+        
+        // Check if user is already logged in
+        await checkAuth();
+        
+        // Load content
+        await loadSubreddits();
+        await loadPosts();
+        
+        // Set up event listeners
+        setupEventListeners();
+    } else {
+        console.error('❌ Supabase library not loaded');
+        alert('Error loading page. Please refresh.');
+    }
 });
 
-// ============================================
-// AUTHENTICATION
-// ============================================
+// Set up the Google sign-in button
+function setupGoogleSignIn() {
+    const btn = document.getElementById('googleSignInBtn');
+    if (btn) {
+        btn.onclick = async function() {
+            console.log('🔐 Sign in button clicked');
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: window.location.origin
+                    }
+                });
+                
+                if (error) {
+                    console.error('Sign in error:', error);
+                    alert('Sign in failed: ' + error.message);
+                } else {
+                    console.log('Sign in initiated');
+                }
+            } catch (err) {
+                console.error('Unexpected error:', err);
+                alert('Error: ' + err.message);
+            }
+        };
+        console.log('✅ Sign-in button configured');
+    } else {
+        console.error('❌ Sign-in button not found');
+    }
+}
+
+// Check authentication status
 async function checkAuth() {
     try {
-        console.log('Checking authentication status...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-            console.error('Error getting session:', error);
-            renderAuthButtons();
-            return;
-        }
+        const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-            console.log('✅ User is signed in:', session.user.email);
+            console.log('✅ User logged in:', session.user.email);
             await loadUserProfile(session.user);
         } else {
             console.log('ℹ️  No active session');
-            renderAuthButtons();
         }
         
         // Listen for auth changes
         supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log('🔄 Auth state changed:', event);
+            console.log('Auth changed:', event);
             
-            if (event === 'SIGNED_IN' && session) {
-                console.log('User signed in:', session.user.email);
+            if (event === 'SIGNED_IN') {
                 await loadUserProfile(session.user);
-                // Reload page content
                 await loadSubreddits();
                 await loadPosts();
             } else if (event === 'SIGNED_OUT') {
-                console.log('User signed out');
                 currentUser = null;
-                renderAuthButtons();
                 location.reload();
             }
         });
     } catch (err) {
-        console.error('Error in checkAuth:', err);
-        renderAuthButtons();
+        console.error('Auth check error:', err);
     }
 }
 
+// Load user profile
 async function loadUserProfile(user) {
     try {
+        // Wait a moment for trigger to create profile
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         const { data: profile, error } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', user.id)
             .single();
         
-        if (error) {
-            console.error('Error loading profile:', error);
-            // Profile might not exist yet, wait a moment and try again
-            setTimeout(async () => {
-                const { data: retryProfile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', user.id)
-                    .single();
-                
-                if (retryProfile) {
-                    currentUser = retryProfile;
-                    renderUserInfo();
-                    showUserButtons();
-                }
-            }, 2000);
-            return;
-        }
-        
         if (profile) {
             currentUser = profile;
-            console.log('✅ Profile loaded:', profile.username, '(' + profile.role + ')');
-            renderUserInfo();
-            showUserButtons();
-        }
-    } catch (err) {
-        console.error('Unexpected error loading profile:', err);
-    }
-}
-
-function showUserButtons() {
-    // Show create post button for ALL users
-    const createPostBtn = document.getElementById('createPostBtn');
-    if (createPostBtn) {
-        createPostBtn.style.display = 'block';
-    }
-    
-    // Show create subreddit button only for teachers
-    if (currentUser && currentUser.role === 'teacher') {
-        const createSubredditBtn = document.getElementById('createSubredditBtn');
-        if (createSubredditBtn) {
-            createSubredditBtn.style.display = 'block';
-        }
-    }
-}
-
-function renderAuthButtons() {
-    const authSection = document.getElementById('authSection');
-    if (!authSection) {
-        console.error('❌ authSection element not found!');
-        return;
-    }
-    
-    console.log('📝 Rendering sign-in button');
-    authSection.innerHTML = `
-        <button class="btn btn-primary" onclick="signInWithGoogle()">
-            Sign in with Google
-        </button>
-    `;
-}
-
-function renderUserInfo() {
-    const authSection = document.getElementById('authSection');
-    if (!authSection) {
-        console.error('❌ authSection element not found!');
-        return;
-    }
-    
-    console.log('📝 Rendering user info for:', currentUser.username);
-    const initial = currentUser.username ? currentUser.username[0].toUpperCase() : 'U';
-    
-    authSection.innerHTML = `
-        <div class="user-info">
-            <div class="user-avatar">${initial}</div>
-            <div>
-                <div class="user-name">Logged in as ${currentUser.username}</div>
-                <div class="user-role">${currentUser.role.toUpperCase()}</div>
-            </div>
-        </div>
-        <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
-    `;
-}
-
-async function signInWithGoogle() {
-    console.log('🔐 Attempting to sign in with Google...');
-    
-    if (!supabase) {
-        alert('Supabase is not initialized. Please refresh the page.');
-        return;
-    }
-    
-    try {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: window.location.origin
-            }
-        });
-        
-        if (error) {
-            console.error('❌ Error signing in:', error);
-            alert('Error signing in: ' + error.message);
+            console.log('✅ Profile loaded:', profile.username, profile.role);
+            updateAuthUI();
         } else {
-            console.log('✅ Sign in initiated successfully');
+            console.error('Profile not found:', error);
+            // Try again in 2 seconds
+            setTimeout(() => loadUserProfile(user), 2000);
         }
     } catch (err) {
-        console.error('❌ Unexpected error during sign in:', err);
-        alert('Unexpected error: ' + err.message);
+        console.error('Profile load error:', err);
     }
 }
 
-async function signOut() {
-    console.log('🔐 Signing out...');
-    try {
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-            console.error('Error signing out:', error);
+// Update the auth section UI
+function updateAuthUI() {
+    const authSection = document.getElementById('authSection');
+    if (!authSection) return;
+    
+    if (currentUser) {
+        const initial = currentUser.username ? currentUser.username[0].toUpperCase() : 'U';
+        authSection.innerHTML = `
+            <div class="user-info">
+                <div class="user-avatar">${initial}</div>
+                <div>
+                    <div class="user-name">Logged in as ${currentUser.username}</div>
+                    <div class="user-role">${currentUser.role.toUpperCase()}</div>
+                </div>
+            </div>
+            <button class="btn btn-secondary" id="signOutBtn">Sign Out</button>
+        `;
+        
+        // Set up sign out button
+        document.getElementById('signOutBtn').onclick = async function() {
+            await supabase.auth.signOut();
+        };
+        
+        // Show create post button
+        document.getElementById('createPostBtn').style.display = 'block';
+        
+        // Show create subreddit button for teachers
+        if (currentUser.role === 'teacher') {
+            document.getElementById('createSubredditBtn').style.display = 'block';
         }
-    } catch (err) {
-        console.error('Unexpected error signing out:', err);
     }
 }
 
-// Make functions globally accessible
-window.signInWithGoogle = signInWithGoogle;
-window.signOut = signOut;
-
-// ============================================
-// SUBREDDITS
-// ============================================
+// Load subreddits
 async function loadSubreddits() {
     try {
         const { data, error } = await supabase
@@ -225,44 +164,40 @@ async function loadSubreddits() {
             .select('*')
             .order('name');
         
-        if (error) {
-            console.error('Error loading subreddits:', error);
-            return;
-        }
-        
         if (data) {
             subreddits = data;
-            console.log('✅ Loaded', subreddits.length, 'communities');
+            console.log('✅ Loaded', data.length, 'communities');
             renderSubreddits();
         }
     } catch (err) {
-        console.error('Unexpected error loading subreddits:', err);
+        console.error('Error loading subreddits:', err);
     }
 }
 
+// Render subreddits list
 function renderSubreddits() {
     const list = document.getElementById('subredditsList');
-    const select = document.getElementById('postSubreddit');
-    
     if (!list) return;
     
     if (subreddits.length === 0) {
         list.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">No communities yet</p>';
-    } else {
-        list.innerHTML = `
-            <div class="subreddit-item ${!currentSubreddit ? 'active' : ''}" onclick="filterBySubreddit(null)">
-                All Posts
-            </div>
-            ${subreddits.map(sub => `
-                <div class="subreddit-item ${currentSubreddit?.id === sub.id ? 'active' : ''}" 
-                     onclick="filterBySubreddit('${sub.id}')">
-                    ${sub.name}
-                </div>
-            `).join('')}
-        `;
+        return;
     }
     
-    // Update select dropdown
+    list.innerHTML = `
+        <div class="subreddit-item ${!currentSubreddit ? 'active' : ''}" onclick="window.filterBySubreddit(null)">
+            All Posts
+        </div>
+        ${subreddits.map(sub => `
+            <div class="subreddit-item ${currentSubreddit?.id === sub.id ? 'active' : ''}" 
+                 onclick="window.filterBySubreddit('${sub.id}')">
+                ${sub.name}
+            </div>
+        `).join('')}
+    `;
+    
+    // Update post form dropdown
+    const select = document.getElementById('postSubreddit');
     if (select) {
         select.innerHTML = subreddits.map(sub => 
             `<option value="${sub.id}">${sub.name}</option>`
@@ -270,7 +205,8 @@ function renderSubreddits() {
     }
 }
 
-function filterBySubreddit(subredditId) {
+// Filter posts by subreddit
+window.filterBySubreddit = function(subredditId) {
     if (subredditId) {
         currentSubreddit = subreddits.find(s => s.id === subredditId);
         document.getElementById('feedTitle').textContent = currentSubreddit.name;
@@ -280,48 +216,10 @@ function filterBySubreddit(subredditId) {
     }
     loadPosts();
     renderSubreddits();
-}
+};
 
-window.filterBySubreddit = filterBySubreddit;
-
-async function createSubreddit(name, description) {
-    if (!currentUser || currentUser.role !== 'teacher') {
-        alert('Only teachers can create communities');
-        return;
-    }
-    
-    try {
-        const { data, error } = await supabase
-            .from('subreddits')
-            .insert([{
-                name: name.toLowerCase(),
-                description,
-                created_by: currentUser.id
-            }])
-            .select()
-            .single();
-        
-        if (error) {
-            console.error('Error creating community:', error);
-            alert('Error creating community: ' + error.message);
-        } else {
-            console.log('✅ Community created:', name);
-            await loadSubreddits();
-            closeModal('createSubredditModal');
-            document.getElementById('createSubredditForm').reset();
-        }
-    } catch (err) {
-        console.error('Unexpected error creating community:', err);
-        alert('Unexpected error: ' + err.message);
-    }
-}
-
-// ============================================
-// POSTS
-// ============================================
+// Load posts
 async function loadPosts() {
-    showLoading();
-    
     try {
         let query = supabase
             .from('posts')
@@ -335,89 +233,62 @@ async function loadPosts() {
             query = query.eq('subreddit_id', currentSubreddit.id);
         }
         
-        // Apply sorting
-        if (currentSort === 'hot') {
-            query = query.order('vote_count', { ascending: false });
-        } else if (currentSort === 'new') {
+        // Sort
+        if (currentSort === 'new') {
             query = query.order('created_at', { ascending: false });
-        } else if (currentSort === 'top') {
+        } else {
             query = query.order('vote_count', { ascending: false });
         }
         
         const { data, error } = await query;
-        
-        hideLoading();
-        
-        if (error) {
-            console.error('Error loading posts:', error);
-            return;
-        }
         
         if (data) {
             console.log('✅ Loaded', data.length, 'posts');
             renderPosts(data);
         }
     } catch (err) {
-        hideLoading();
-        console.error('Unexpected error loading posts:', err);
+        console.error('Error loading posts:', err);
     }
 }
 
+// Render posts
 function renderPosts(posts) {
     const container = document.getElementById('postsContainer');
-    
     if (!container) return;
     
     if (posts.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <h3>No posts yet</h3>
-                <p>Be the first to post!</p>
-            </div>
-        `;
+        container.innerHTML = '<div class="empty-state"><h3>No posts yet</h3><p>Be the first to post!</p></div>';
         return;
     }
     
-    container.innerHTML = posts.map(post => {
-        return createPostCard(post);
-    }).join('');
+    container.innerHTML = posts.map(post => createPostCard(post)).join('');
 }
 
+// Create post card HTML
 function createPostCard(post) {
     const timeAgo = getTimeAgo(post.created_at);
+    const canDelete = currentUser && (currentUser.id === post.user_id || currentUser.role === 'teacher');
     
     let contentHtml = '';
     if (post.post_type === 'text' && post.content) {
         const preview = post.content.length > 300 ? post.content.substring(0, 300) + '...' : post.content;
         contentHtml = `<p class="post-text">${escapeHtml(preview)}</p>`;
     } else if (post.post_type === 'link' && post.url) {
-        contentHtml = `
-            <div class="post-link">
-                <a href="${escapeHtml(post.url)}" target="_blank" rel="noopener noreferrer">
-                    🔗 ${escapeHtml(post.url)}
-                </a>
-            </div>
-        `;
+        contentHtml = `<div class="post-link"><a href="${escapeHtml(post.url)}" target="_blank">🔗 ${escapeHtml(post.url)}</a></div>`;
     } else if (post.post_type === 'image' && post.url) {
-        contentHtml = `
-            <div class="post-image">
-                <img src="${escapeHtml(post.url)}" alt="${escapeHtml(post.title)}" loading="lazy">
-            </div>
-        `;
+        contentHtml = `<div class="post-image"><img src="${escapeHtml(post.url)}" alt="${escapeHtml(post.title)}"></div>`;
     }
     
-    const canDelete = currentUser && (currentUser.id === post.user_id || currentUser.role === 'teacher');
-    
     return `
-        <div class="post-card" data-post-id="${post.id}">
+        <div class="post-card">
             <div class="vote-section">
-                <button class="vote-btn" onclick="vote('${post.id}', 1, 'post')" ${!currentUser ? 'disabled' : ''}>
+                <button class="vote-btn" onclick="window.vote('${post.id}', 1)" ${!currentUser ? 'disabled' : ''}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 4L3 15h6v5h6v-5h6z"/>
                     </svg>
                 </button>
                 <div class="vote-count">${post.vote_count || 0}</div>
-                <button class="vote-btn" onclick="vote('${post.id}', -1, 'post')" ${!currentUser ? 'disabled' : ''}>
+                <button class="vote-btn" onclick="window.vote('${post.id}', -1)" ${!currentUser ? 'disabled' : ''}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 20L3 9h6V4h6v5h6z"/>
                     </svg>
@@ -425,223 +296,123 @@ function createPostCard(post) {
             </div>
             <div class="post-content">
                 <div class="post-header">
-                    <span class="subreddit-badge" onclick="filterBySubreddit('${post.subreddit_id}')">${post.subreddits.name}</span>
+                    <span class="subreddit-badge" onclick="window.filterBySubreddit('${post.subreddit_id}')">${post.subreddits.name}</span>
                     <span class="post-meta">Posted by ${post.profiles.username} • ${timeAgo}</span>
                 </div>
-                <h3 class="post-title" onclick="openPost('${post.id}')">${escapeHtml(post.title)}</h3>
+                <h3 class="post-title" onclick="window.openPost('${post.id}')">${escapeHtml(post.title)}</h3>
                 ${contentHtml}
                 <div class="post-actions">
-                    <button class="action-btn" onclick="openPost('${post.id}')">
-                        💬 ${post.comment_count || 0} Comments
-                    </button>
-                    ${canDelete ? `<button class="action-btn" onclick="deletePost('${post.id}')">🗑️ Delete</button>` : ''}
+                    <button class="action-btn" onclick="window.openPost('${post.id}')">💬 ${post.comment_count || 0} Comments</button>
+                    ${canDelete ? `<button class="action-btn" onclick="window.deletePost('${post.id}')">🗑️ Delete</button>` : ''}
                 </div>
             </div>
         </div>
     `;
 }
 
-window.vote = vote;
-window.openPost = openPost;
-window.deletePost = deletePost;
-
-async function vote(targetId, voteType, type) {
+// Vote on post
+window.vote = async function(postId, voteType) {
     if (!currentUser) {
         alert('Please sign in to vote');
         return;
     }
     
     try {
-        const voteData = {
-            user_id: currentUser.id,
-            vote_type: voteType
-        };
-        
-        if (type === 'post') {
-            voteData.post_id = targetId;
-        } else {
-            voteData.comment_id = targetId;
-        }
-        
-        // Check if user already voted
         const { data: existingVote } = await supabase
             .from('votes')
             .select('*')
             .eq('user_id', currentUser.id)
-            .eq(type === 'post' ? 'post_id' : 'comment_id', targetId)
+            .eq('post_id', postId)
             .single();
         
         if (existingVote) {
             if (existingVote.vote_type === voteType) {
                 // Remove vote
-                await supabase
-                    .from('votes')
-                    .delete()
-                    .eq('id', existingVote.id);
+                await supabase.from('votes').delete().eq('id', existingVote.id);
             } else {
                 // Change vote
-                await supabase
-                    .from('votes')
-                    .update({ vote_type: voteType })
-                    .eq('id', existingVote.id);
+                await supabase.from('votes').update({ vote_type: voteType }).eq('id', existingVote.id);
             }
         } else {
             // New vote
-            await supabase
-                .from('votes')
-                .insert([voteData]);
+            await supabase.from('votes').insert([{
+                user_id: currentUser.id,
+                post_id: postId,
+                vote_type: voteType
+            }]);
         }
         
         await loadPosts();
     } catch (err) {
-        console.error('Error voting:', err);
+        console.error('Vote error:', err);
     }
-}
+};
 
-async function createPost(subredditId, title, content, postType, url) {
-    if (!currentUser) {
-        alert('Please sign in to post');
-        return;
-    }
+// Delete post
+window.deletePost = async function(postId) {
+    if (!confirm('Delete this post?')) return;
     
     try {
-        const { data, error } = await supabase
-            .from('posts')
-            .insert([{
-                subreddit_id: subredditId,
-                user_id: currentUser.id,
-                title,
-                content: postType === 'text' ? content : null,
-                post_type: postType,
-                url: postType !== 'text' ? url : null
-            }])
-            .select()
-            .single();
-        
-        if (error) {
-            console.error('Error creating post:', error);
-            alert('Error creating post: ' + error.message);
-        } else {
-            console.log('✅ Post created');
-            await loadPosts();
-            closeModal('createPostModal');
-            document.getElementById('createPostForm').reset();
-        }
+        await supabase.from('posts').delete().eq('id', postId);
+        await loadPosts();
     } catch (err) {
-        console.error('Unexpected error creating post:', err);
-        alert('Unexpected error: ' + err.message);
+        console.error('Delete error:', err);
     }
-}
+};
 
-async function deletePost(postId) {
-    if (!confirm('Are you sure you want to delete this post?')) return;
-    
+// Open post detail
+window.openPost = async function(postId) {
     try {
-        const { error } = await supabase
+        const { data: post } = await supabase
             .from('posts')
-            .delete()
-            .eq('id', postId);
-        
-        if (error) {
-            console.error('Error deleting post:', error);
-            alert('Error deleting post: ' + error.message);
-        } else {
-            console.log('✅ Post deleted');
-            await loadPosts();
-        }
-    } catch (err) {
-        console.error('Unexpected error deleting post:', err);
-    }
-}
-
-async function openPost(postId) {
-    showLoading();
-    
-    try {
-        const { data: post, error } = await supabase
-            .from('posts')
-            .select(`
-                *,
-                profiles:user_id (username, role),
-                subreddits:subreddit_id (name)
-            `)
+            .select(`*, profiles:user_id (username, role), subreddits:subreddit_id (name)`)
             .eq('id', postId)
             .single();
         
-        if (error) {
-            hideLoading();
-            console.error('Error loading post:', error);
-            alert('Error loading post');
-            return;
-        }
-        
-        const { data: comments, error: commentsError } = await supabase
+        const { data: comments } = await supabase
             .from('comments')
-            .select(`
-                *,
-                profiles:user_id (username, role)
-            `)
+            .select(`*, profiles:user_id (username, role)`)
             .eq('post_id', postId)
-            .order('created_at', { ascending: true });
+            .order('created_at');
         
-        hideLoading();
-        
-        const modal = document.getElementById('postDetailModal');
-        const content = document.getElementById('postDetailContent');
-        
-        content.innerHTML = renderPostDetail(post, comments || []);
-        modal.classList.add('active');
+        document.getElementById('postDetailContent').innerHTML = renderPostDetail(post, comments || []);
+        document.getElementById('postDetailModal').classList.add('active');
     } catch (err) {
-        hideLoading();
-        console.error('Unexpected error opening post:', err);
+        console.error('Error opening post:', err);
     }
-}
+};
 
+// Render post detail
 function renderPostDetail(post, comments) {
-    const timeAgo = getTimeAgo(post.created_at);
     const canDelete = currentUser && (currentUser.id === post.user_id || currentUser.role === 'teacher');
     
     let contentHtml = '';
     if (post.post_type === 'text' && post.content) {
         contentHtml = `<p class="post-text">${escapeHtml(post.content)}</p>`;
     } else if (post.post_type === 'link' && post.url) {
-        contentHtml = `
-            <div class="post-link">
-                <a href="${escapeHtml(post.url)}" target="_blank" rel="noopener noreferrer">
-                    🔗 ${escapeHtml(post.url)}
-                </a>
-            </div>
-        `;
+        contentHtml = `<div class="post-link"><a href="${escapeHtml(post.url)}" target="_blank">🔗 ${escapeHtml(post.url)}</a></div>`;
     } else if (post.post_type === 'image' && post.url) {
-        contentHtml = `
-            <div class="post-image">
-                <img src="${escapeHtml(post.url)}" alt="${escapeHtml(post.title)}">
-            </div>
-        `;
+        contentHtml = `<div class="post-image"><img src="${escapeHtml(post.url)}"></div>`;
     }
     
     return `
         <div class="post-detail">
             <div class="post-header">
                 <span class="subreddit-badge">${post.subreddits.name}</span>
-                <span class="post-meta">Posted by ${post.profiles.username} • ${timeAgo}</span>
+                <span class="post-meta">Posted by ${post.profiles.username}</span>
             </div>
             <h2 class="post-title">${escapeHtml(post.title)}</h2>
             ${contentHtml}
-            ${canDelete ? `<button class="action-btn" onclick="deletePost('${post.id}'); closeModal('postDetailModal');">🗑️ Delete Post</button>` : ''}
+            ${canDelete ? `<button class="action-btn" onclick="window.deletePost('${post.id}'); window.closeModal('postDetailModal')">🗑️ Delete</button>` : ''}
             
             <div class="comments-section">
-                <h3 style="margin-bottom: 1rem; font-size: 1.2rem;">Comments</h3>
-                
+                <h3 style="margin: 2rem 0 1rem;">Comments</h3>
                 ${currentUser ? `
                     <div class="comment-form">
-                        <textarea class="comment-input" id="newCommentText" placeholder="What are your thoughts?"></textarea>
-                        <button class="btn btn-primary" onclick="addComment('${post.id}', null)" style="margin-top: 0.75rem;">
-                            Comment
-                        </button>
+                        <textarea class="comment-input" id="newComment" placeholder="What are your thoughts?"></textarea>
+                        <button class="btn btn-primary" onclick="window.addComment('${post.id}', null)" style="margin-top: 0.5rem;">Comment</button>
                     </div>
                 ` : '<p style="color: var(--text-muted);">Sign in to comment</p>'}
-                
                 <div class="comments-list">
                     ${renderComments(comments.filter(c => !c.parent_comment_id), comments, post.id)}
                 </div>
@@ -650,151 +421,120 @@ function renderPostDetail(post, comments) {
     `;
 }
 
+// Render comments
 function renderComments(comments, allComments, postId) {
     if (comments.length === 0) {
-        return '<p style="color: var(--text-muted); padding: 2rem 0;">No comments yet. Be the first!</p>';
+        return '<p style="color: var(--text-muted); padding: 2rem 0;">No comments yet</p>';
     }
     
-    return comments.map(comment => {
-        const replies = allComments.filter(c => c.parent_comment_id === comment.id);
-        const timeAgo = getTimeAgo(comment.created_at);
-        const canDelete = currentUser && (currentUser.id === comment.user_id || currentUser.role === 'teacher');
+    return comments.map(c => {
+        const replies = allComments.filter(r => r.parent_comment_id === c.id);
+        const canDelete = currentUser && (currentUser.id === c.user_id || currentUser.role === 'teacher');
         
         return `
             <div class="comment">
                 <div class="comment-header">
-                    <span class="comment-author">${comment.profiles.username}</span>
-                    <span class="comment-time">${timeAgo}</span>
+                    <span class="comment-author">${c.profiles.username}</span>
+                    <span class="comment-time">${getTimeAgo(c.created_at)}</span>
                 </div>
-                <div class="comment-text">${escapeHtml(comment.content)}</div>
+                <div class="comment-text">${escapeHtml(c.content)}</div>
                 <div class="comment-actions">
-                    ${currentUser ? `
-                        <button class="action-btn" onclick="showReplyForm('${comment.id}')">💬 Reply</button>
-                    ` : ''}
-                    ${canDelete ? `<button class="action-btn" onclick="deleteComment('${comment.id}', '${postId}')">🗑️ Delete</button>` : ''}
+                    ${currentUser ? `<button class="action-btn" onclick="window.showReplyForm('${c.id}')">💬 Reply</button>` : ''}
+                    ${canDelete ? `<button class="action-btn" onclick="window.deleteComment('${c.id}', '${postId}')">🗑️ Delete</button>` : ''}
                 </div>
-                <div id="reply-form-${comment.id}" style="display: none; margin-top: 1rem;">
-                    <textarea class="comment-input" id="reply-text-${comment.id}" placeholder="Write a reply..."></textarea>
-                    <button class="btn btn-primary" onclick="addComment('${postId}', '${comment.id}')" style="margin-top: 0.5rem;">
-                        Reply
-                    </button>
+                <div id="reply-${c.id}" style="display:none; margin-top:1rem;">
+                    <textarea class="comment-input" id="reply-text-${c.id}" placeholder="Write a reply..."></textarea>
+                    <button class="btn btn-primary" onclick="window.addComment('${postId}', '${c.id}')" style="margin-top:0.5rem;">Reply</button>
                 </div>
-                ${replies.length > 0 ? `
-                    <div class="nested-comments">
-                        ${renderComments(replies, allComments, postId)}
-                    </div>
-                ` : ''}
+                ${replies.length > 0 ? `<div class="nested-comments">${renderComments(replies, allComments, postId)}</div>` : ''}
             </div>
         `;
     }).join('');
 }
 
-window.addComment = addComment;
-window.deleteComment = deleteComment;
-window.showReplyForm = showReplyForm;
-
-async function addComment(postId, parentCommentId) {
-    if (!currentUser) {
-        alert('Please sign in to comment');
-        return;
-    }
+// Add comment
+window.addComment = async function(postId, parentId) {
+    if (!currentUser) return;
     
-    const textId = parentCommentId ? `reply-text-${parentCommentId}` : 'newCommentText';
-    const textElement = document.getElementById(textId);
+    const textId = parentId ? `reply-text-${parentId}` : 'newComment';
+    const text = document.getElementById(textId)?.value?.trim();
     
-    if (!textElement) {
-        console.error('Comment text element not found:', textId);
-        return;
-    }
-    
-    const text = textElement.value.trim();
-    
-    if (!text) {
-        alert('Please enter a comment');
-        return;
-    }
+    if (!text) return;
     
     try {
-        const { error } = await supabase
-            .from('comments')
-            .insert([{
-                post_id: postId,
-                parent_comment_id: parentCommentId,
-                user_id: currentUser.id,
-                content: text
-            }]);
+        await supabase.from('comments').insert([{
+            post_id: postId,
+            parent_comment_id: parentId,
+            user_id: currentUser.id,
+            content: text
+        }]);
         
-        if (error) {
-            console.error('Error adding comment:', error);
-            alert('Error adding comment: ' + error.message);
-        } else {
-            console.log('✅ Comment added');
-            openPost(postId); // Reload post with comments
-        }
+        window.openPost(postId);
     } catch (err) {
-        console.error('Unexpected error adding comment:', err);
+        console.error('Comment error:', err);
     }
-}
+};
 
-async function deleteComment(commentId, postId) {
-    if (!confirm('Are you sure you want to delete this comment?')) return;
+// Delete comment
+window.deleteComment = async function(commentId, postId) {
+    if (!confirm('Delete this comment?')) return;
     
     try {
-        const { error } = await supabase
-            .from('comments')
-            .delete()
-            .eq('id', commentId);
-        
-        if (error) {
-            console.error('Error deleting comment:', error);
-            alert('Error deleting comment: ' + error.message);
-        } else {
-            console.log('✅ Comment deleted');
-            openPost(postId); // Reload post
-        }
+        await supabase.from('comments').delete().eq('id', commentId);
+        window.openPost(postId);
     } catch (err) {
-        console.error('Unexpected error deleting comment:', err);
+        console.error('Delete error:', err);
     }
-}
+};
 
-function showReplyForm(commentId) {
-    const form = document.getElementById(`reply-form-${commentId}`);
+// Show reply form
+window.showReplyForm = function(commentId) {
+    const form = document.getElementById(`reply-${commentId}`);
     if (form) {
         form.style.display = form.style.display === 'none' ? 'block' : 'none';
     }
-}
+};
 
-// ============================================
-// EVENT LISTENERS
-// ============================================
+// Close modal
+window.closeModal = function(modalId) {
+    document.getElementById(modalId)?.classList.remove('active');
+};
+
+// Set up event listeners
 function setupEventListeners() {
-    console.log('Setting up event listeners...');
+    // Create subreddit button
+    document.getElementById('createSubredditBtn')?.addEventListener('click', () => {
+        document.getElementById('createSubredditModal').classList.add('active');
+    });
     
-    // Create Subreddit
-    const createSubredditBtn = document.getElementById('createSubredditBtn');
-    if (createSubredditBtn) {
-        createSubredditBtn.addEventListener('click', () => {
-            document.getElementById('createSubredditModal').classList.add('active');
-        });
-    }
+    // Create subreddit form
+    document.getElementById('createSubredditForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        if (!currentUser || currentUser.role !== 'teacher') return;
+        
+        const name = document.getElementById('subredditName').value.trim();
+        const description = document.getElementById('subredditDescription').value.trim();
+        
+        try {
+            await supabase.from('subreddits').insert([{
+                name: name.toLowerCase(),
+                description,
+                created_by: currentUser.id
+            }]);
+            
+            await loadSubreddits();
+            window.closeModal('createSubredditModal');
+            e.target.reset();
+        } catch (err) {
+            console.error('Create subreddit error:', err);
+        }
+    });
     
-    const createSubredditForm = document.getElementById('createSubredditForm');
-    if (createSubredditForm) {
-        createSubredditForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const name = document.getElementById('subredditName').value.trim();
-            const description = document.getElementById('subredditDescription').value.trim();
-            createSubreddit(name, description);
-        });
-    }
-    
-    // Create Post
-    const createPostBtn = document.getElementById('createPostBtn');
-    if (createPostBtn) {
-        createPostBtn.addEventListener('click', () => {
-            document.getElementById('createPostModal').classList.add('active');
-        });
-    }
+    // Create post button
+    document.getElementById('createPostBtn')?.addEventListener('click', () => {
+        document.getElementById('createPostModal').classList.add('active');
+    });
     
     // Post type tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -803,38 +543,49 @@ function setupEventListeners() {
             btn.classList.add('active');
             
             const type = btn.dataset.type;
-            document.querySelectorAll('.post-content-section').forEach(section => {
-                section.style.display = 'none';
-            });
-            const contentSection = document.getElementById(`${type}PostContent`);
-            if (contentSection) {
-                contentSection.style.display = 'block';
-            }
+            document.querySelectorAll('.post-content-section').forEach(s => s.style.display = 'none');
+            document.getElementById(`${type}PostContent`).style.display = 'block';
         });
     });
     
-    const createPostForm = document.getElementById('createPostForm');
-    if (createPostForm) {
-        createPostForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const subredditId = document.getElementById('postSubreddit').value;
-            const title = document.getElementById('postTitle').value.trim();
-            const activeTab = document.querySelector('.tab-btn.active').dataset.type;
+    // Create post form
+    document.getElementById('createPostForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        if (!currentUser) return;
+        
+        const subredditId = document.getElementById('postSubreddit').value;
+        const title = document.getElementById('postTitle').value.trim();
+        const activeType = document.querySelector('.tab-btn.active').dataset.type;
+        
+        let content = '';
+        let url = '';
+        
+        if (activeType === 'text') {
+            content = document.getElementById('postContent').value.trim();
+        } else if (activeType === 'link') {
+            url = document.getElementById('postUrl').value.trim();
+        } else if (activeType === 'image') {
+            url = document.getElementById('postImageUrl').value.trim();
+        }
+        
+        try {
+            await supabase.from('posts').insert([{
+                subreddit_id: subredditId,
+                user_id: currentUser.id,
+                title,
+                content: activeType === 'text' ? content : null,
+                post_type: activeType,
+                url: activeType !== 'text' ? url : null
+            }]);
             
-            let content = '';
-            let url = '';
-            
-            if (activeTab === 'text') {
-                content = document.getElementById('postContent').value.trim();
-            } else if (activeTab === 'link') {
-                url = document.getElementById('postUrl').value.trim();
-            } else if (activeTab === 'image') {
-                url = document.getElementById('postImageUrl').value.trim();
-            }
-            
-            createPost(subredditId, title, content, activeTab, url);
-        });
-    }
+            await loadPosts();
+            window.closeModal('createPostModal');
+            e.target.reset();
+        } catch (err) {
+            console.error('Create post error:', err);
+        }
+    });
     
     // Sort buttons
     document.querySelectorAll('.sort-btn').forEach(btn => {
@@ -846,77 +597,32 @@ function setupEventListeners() {
         });
     });
     
-    console.log('✅ Event listeners set up');
-}
-
-// ============================================
-// MODAL FUNCTIONS
-// ============================================
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.remove('active');
-    }
-}
-
-window.closeModal = closeModal;
-
-// Close modal when clicking outside
-document.querySelectorAll('.modal').forEach(modal => {
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.classList.remove('active');
-        }
+    // Close modals on outside click
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+            }
+        });
     });
-});
-
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
-function showLoading() {
-    const spinner = document.getElementById('loadingSpinner');
-    if (spinner) {
-        spinner.style.display = 'flex';
-    }
+    
+    console.log('✅ Event listeners configured');
 }
 
-function hideLoading() {
-    const spinner = document.getElementById('loadingSpinner');
-    if (spinner) {
-        spinner.style.display = 'none';
-    }
-}
-
+// Utility functions
 function escapeHtml(text) {
-    const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, m => map[m]);
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function getTimeAgo(timestamp) {
-    const now = new Date();
-    const then = new Date(timestamp);
-    const seconds = Math.floor((now - then) / 1000);
-    
-    const intervals = {
-        year: 31536000,
-        month: 2592000,
-        week: 604800,
-        day: 86400,
-        hour: 3600,
-        minute: 60
-    };
+    const seconds = Math.floor((new Date() - new Date(timestamp)) / 1000);
+    const intervals = { year: 31536000, month: 2592000, week: 604800, day: 86400, hour: 3600, minute: 60 };
     
     for (const [unit, secondsInUnit] of Object.entries(intervals)) {
         const interval = Math.floor(seconds / secondsInUnit);
-        if (interval >= 1) {
-            return `${interval} ${unit}${interval > 1 ? 's' : ''} ago`;
-        }
+        if (interval >= 1) return `${interval} ${unit}${interval > 1 ? 's' : ''} ago`;
     }
     
     return 'just now';
