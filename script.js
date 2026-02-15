@@ -123,6 +123,17 @@ function switchTab(id, skipReload) {
         event.currentTarget.classList.add('active');
     }
 
+    // FIX 3: Hide preview panel for docket and admin tabs, show for all others
+    const previewPanel = document.querySelector('.preview-panel');
+    const inputPanel = document.querySelector('.input-panel');
+    if (id === 'docket' || id === 'admin') {
+        if (previewPanel) previewPanel.style.display = 'none';
+        if (inputPanel) inputPanel.style.flex = '1';  // Let input panel take full width
+    } else {
+        if (previewPanel) previewPanel.style.display = 'flex';
+        if (inputPanel) inputPanel.style.flex = '1';  // Reset to normal flex
+    }
+
     if (!skipReload) {
         if (id === 'admin'  && supabaseClient) renderAdminCaseList();
         if (id === 'docket' && supabaseClient) loadDocket();
@@ -292,16 +303,35 @@ function downloadPDF() {
     const title   = document.getElementById('assignedCase')?.value ||
                     document.getElementById('projectTitle')?.value || 'Brief';
 
+    // Save original styles
+    const papers = element.querySelectorAll('.paper');
+    const originalStyles = Array.from(papers).map(p => ({
+        minHeight: p.style.minHeight,
+        height: p.style.height
+    }));
+
+    // Temporarily force each page to be exactly 11in tall so footers position correctly
+    papers.forEach(p => {
+        p.style.minHeight = '11in';
+        p.style.height = '11in';
+    });
+
     const opt = {
         margin:       0,
         filename:     title + '.pdf',
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 },
         jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak:    { mode: 'legacy' }  // Use legacy mode - most reliable with explicit CSS breaks
+        pagebreak:    { mode: 'legacy' }
     };
 
-    html2pdf().from(element).set(opt).save();
+    html2pdf().from(element).set(opt).save().then(() => {
+        // Restore original styles after PDF generation
+        papers.forEach((p, i) => {
+            p.style.minHeight = originalStyles[i].minHeight;
+            p.style.height = originalStyles[i].height;
+        });
+    });
 }
 
 // ─── CASE DROPDOWN ───────────────────────────────────────────────────────────

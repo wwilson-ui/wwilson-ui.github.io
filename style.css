@@ -236,11 +236,13 @@ hr { border: 0; border-top: 1.5pt solid black; margin: 15px 0; }
         margin: 0 !important;
         padding: 1in !important;
         box-shadow: none !important;
-        /* Removed page-break rules - html2pdf handles pagination automatically */
+        page-break-after: always;  /* Force new page after each section */
+        break-after: page;
     }
 
     .paper:last-child {
-        /* Last page has no special rules */
+        page-break-after: auto !important;
+        break-after: auto !important;
     }
 
     /* Footer fixed at bottom of each printed page */
