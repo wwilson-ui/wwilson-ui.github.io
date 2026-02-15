@@ -26,9 +26,21 @@
             <div class="nav-right">
                 <!-- Auth section with default button -->
                 <div id="authSection" class="auth-section">
-                    <button class="btn btn-primary" onclick="signInWithGoogle()">
-                        Sign in with Google
-                    </button>
+                    <nav class="navbar">
+                        <div class="nav-container">
+                            <div class="nav-left">
+                                <h1 class="logo">MTPS<span class="logo-accent">Forum</span></h1>
+                                </div>
+                            <div class="nav-right">
+                                <div id="authSection" class="auth-section">
+                                    <button class="google-signin-btn" onclick="signInWithGoogle()">
+                                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google Logo">
+                                        <span>Sign in with Google</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
                 </div>
             </div>
         </div>
