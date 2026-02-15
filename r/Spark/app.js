@@ -98,10 +98,11 @@ function renderAuthButtons() {
     const authSection = document.getElementById('authSection');
     if (!authSection) return;
     
+    // We use the same HTML structure here as in the index.html
     authSection.innerHTML = `
         <button class="google-signin-btn" onclick="signInWithGoogle()">
             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google Logo">
-            Sign in with Google
+            <span>Sign in with Google</span>
         </button>
     `;
 }
