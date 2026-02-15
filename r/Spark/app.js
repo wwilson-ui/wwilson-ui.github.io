@@ -11,19 +11,28 @@ let supabase;
 // INITIALIZATION
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
-    // Initialize Supabase client
-    if (window.supabase && typeof window.supabase.createClient === 'function') {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log('Supabase client initialized');
-    } else {
-        console.error('Supabase library not loaded');
-        return;
-    }
+    console.log('DOM loaded, initializing app...');
     
-    await checkAuth();
-    await loadSubreddits();
-    await loadPosts();
-    setupEventListeners();
+    // Wait a moment for Supabase library to be fully loaded
+    setTimeout(async () => {
+        try {
+            // Initialize Supabase client
+            if (window.supabase && typeof window.supabase.createClient === 'function') {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log('✅ Supabase client initialized successfully');
+                
+                await checkAuth();
+                await loadSubreddits();
+                await loadPosts();
+                setupEventListeners();
+            } else {
+                console.error('❌ Supabase library not loaded properly');
+                alert('Error: Supabase library failed to load. Please refresh the page.');
+            }
+        } catch (error) {
+            console.error('❌ Error during initialization:', error);
+        }
+    }, 100);
 });
 
 // ============================================
@@ -31,6 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ============================================
 async function checkAuth() {
     try {
+        console.log('Checking authentication status...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -40,20 +50,25 @@ async function checkAuth() {
         }
         
         if (session) {
-            console.log('User is signed in:', session.user.email);
+            console.log('✅ User is signed in:', session.user.email);
             await loadUserProfile(session.user);
         } else {
-            console.log('No active session, showing sign in button');
+            console.log('ℹ️  No active session');
             renderAuthButtons();
         }
         
         // Listen for auth changes
         supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log('Auth state changed:', event);
+            console.log('🔄 Auth state changed:', event);
+            
             if (event === 'SIGNED_IN' && session) {
+                console.log('User signed in:', session.user.email);
                 await loadUserProfile(session.user);
-                location.reload();
+                // Reload page content
+                await loadSubreddits();
+                await loadPosts();
             } else if (event === 'SIGNED_OUT') {
+                console.log('User signed out');
                 currentUser = null;
                 renderAuthButtons();
                 location.reload();
@@ -66,43 +81,70 @@ async function checkAuth() {
 }
 
 async function loadUserProfile(user) {
-    const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+    try {
+        const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+        
+        if (error) {
+            console.error('Error loading profile:', error);
+            // Profile might not exist yet, wait a moment and try again
+            setTimeout(async () => {
+                const { data: retryProfile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single();
+                
+                if (retryProfile) {
+                    currentUser = retryProfile;
+                    renderUserInfo();
+                    showUserButtons();
+                }
+            }, 2000);
+            return;
+        }
+        
+        if (profile) {
+            currentUser = profile;
+            console.log('✅ Profile loaded:', profile.username, '(' + profile.role + ')');
+            renderUserInfo();
+            showUserButtons();
+        }
+    } catch (err) {
+        console.error('Unexpected error loading profile:', err);
+    }
+}
+
+function showUserButtons() {
+    // Show create post button for ALL users
+    const createPostBtn = document.getElementById('createPostBtn');
+    if (createPostBtn) {
+        createPostBtn.style.display = 'block';
+    }
     
-    if (profile) {
-        currentUser = profile;
-        renderUserInfo();
-        
-        // Show create post button for ALL users
-        const createPostBtn = document.getElementById('createPostBtn');
-        if (createPostBtn) {
-            createPostBtn.style.display = 'block';
+    // Show create subreddit button only for teachers
+    if (currentUser && currentUser.role === 'teacher') {
+        const createSubredditBtn = document.getElementById('createSubredditBtn');
+        if (createSubredditBtn) {
+            createSubredditBtn.style.display = 'block';
         }
-        
-        // Show create subreddit button only for teachers
-        if (profile.role === 'teacher') {
-            const createSubredditBtn = document.getElementById('createSubredditBtn');
-            if (createSubredditBtn) {
-                createSubredditBtn.style.display = 'block';
-            }
-        }
-    } else {
-        console.error('Error loading profile:', error);
     }
 }
 
 function renderAuthButtons() {
     const authSection = document.getElementById('authSection');
-    if (!authSection) return;
+    if (!authSection) {
+        console.error('❌ authSection element not found!');
+        return;
+    }
     
-    // We use the same HTML structure here as in the index.html
+    console.log('📝 Rendering sign-in button');
     authSection.innerHTML = `
-        <button class="google-signin-btn" onclick="signInWithGoogle()">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google Logo">
-            <span>Sign in with Google</span>
+        <button class="btn btn-primary" onclick="signInWithGoogle()">
+            Sign in with Google
         </button>
     `;
 }
@@ -110,11 +152,11 @@ function renderAuthButtons() {
 function renderUserInfo() {
     const authSection = document.getElementById('authSection');
     if (!authSection) {
-        console.error('authSection element not found!');
+        console.error('❌ authSection element not found!');
         return;
     }
     
-    console.log('Rendering user info for:', currentUser.username);
+    console.log('📝 Rendering user info for:', currentUser.username);
     const initial = currentUser.username ? currentUser.username[0].toUpperCase() : 'U';
     
     authSection.innerHTML = `
@@ -122,7 +164,7 @@ function renderUserInfo() {
             <div class="user-avatar">${initial}</div>
             <div>
                 <div class="user-name">Logged in as ${currentUser.username}</div>
-                <div class="user-role">${currentUser.role}</div>
+                <div class="user-role">${currentUser.role.toUpperCase()}</div>
             </div>
         </div>
         <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
@@ -130,51 +172,79 @@ function renderUserInfo() {
 }
 
 async function signInWithGoogle() {
+    console.log('🔐 Attempting to sign in with Google...');
+    
+    if (!supabase) {
+        alert('Supabase is not initialized. Please refresh the page.');
+        return;
+    }
+    
     try {
-        const { error } = await supabase.auth.signInWithOAuth({
+        const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin,
-                queryParams: {
-                    hd: 'mtps.us' // This forces the school domain picker
-                }
+                redirectTo: window.location.origin
             }
         });
-        if (error) throw error;
+        
+        if (error) {
+            console.error('❌ Error signing in:', error);
+            alert('Error signing in: ' + error.message);
+        } else {
+            console.log('✅ Sign in initiated successfully');
+        }
     } catch (err) {
-        console.error('Sign in error:', err);
-        alert('Error: ' + err.message);
+        console.error('❌ Unexpected error during sign in:', err);
+        alert('Unexpected error: ' + err.message);
     }
 }
 
-// Make function globally accessible
-window.signInWithGoogle = signInWithGoogle;
-
 async function signOut() {
-    await supabase.auth.signOut();
+    console.log('🔐 Signing out...');
+    try {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            console.error('Error signing out:', error);
+        }
+    } catch (err) {
+        console.error('Unexpected error signing out:', err);
+    }
 }
 
-// Make function globally accessible
+// Make functions globally accessible
+window.signInWithGoogle = signInWithGoogle;
 window.signOut = signOut;
 
 // ============================================
 // SUBREDDITS
 // ============================================
 async function loadSubreddits() {
-    const { data, error } = await supabase
-        .from('subreddits')
-        .select('*')
-        .order('name');
-    
-    if (data) {
-        subreddits = data;
-        renderSubreddits();
+    try {
+        const { data, error } = await supabase
+            .from('subreddits')
+            .select('*')
+            .order('name');
+        
+        if (error) {
+            console.error('Error loading subreddits:', error);
+            return;
+        }
+        
+        if (data) {
+            subreddits = data;
+            console.log('✅ Loaded', subreddits.length, 'communities');
+            renderSubreddits();
+        }
+    } catch (err) {
+        console.error('Unexpected error loading subreddits:', err);
     }
 }
 
 function renderSubreddits() {
     const list = document.getElementById('subredditsList');
     const select = document.getElementById('postSubreddit');
+    
+    if (!list) return;
     
     if (subreddits.length === 0) {
         list.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">No communities yet</p>';
@@ -212,28 +282,37 @@ function filterBySubreddit(subredditId) {
     renderSubreddits();
 }
 
+window.filterBySubreddit = filterBySubreddit;
+
 async function createSubreddit(name, description) {
     if (!currentUser || currentUser.role !== 'teacher') {
         alert('Only teachers can create communities');
         return;
     }
     
-    const { data, error } = await supabase
-        .from('subreddits')
-        .insert([{
-            name: name.toLowerCase(),
-            description,
-            created_by: currentUser.id
-        }])
-        .select()
-        .single();
-    
-    if (error) {
-        alert('Error creating community: ' + error.message);
-    } else {
-        await loadSubreddits();
-        closeModal('createSubredditModal');
-        document.getElementById('createSubredditForm').reset();
+    try {
+        const { data, error } = await supabase
+            .from('subreddits')
+            .insert([{
+                name: name.toLowerCase(),
+                description,
+                created_by: currentUser.id
+            }])
+            .select()
+            .single();
+        
+        if (error) {
+            console.error('Error creating community:', error);
+            alert('Error creating community: ' + error.message);
+        } else {
+            console.log('✅ Community created:', name);
+            await loadSubreddits();
+            closeModal('createSubredditModal');
+            document.getElementById('createSubredditForm').reset();
+        }
+    } catch (err) {
+        console.error('Unexpected error creating community:', err);
+        alert('Unexpected error: ' + err.message);
     }
 }
 
@@ -243,40 +322,51 @@ async function createSubreddit(name, description) {
 async function loadPosts() {
     showLoading();
     
-    let query = supabase
-        .from('posts')
-        .select(`
-            *,
-            profiles:user_id (username, role),
-            subreddits:subreddit_id (name)
-        `);
-    
-    if (currentSubreddit) {
-        query = query.eq('subreddit_id', currentSubreddit.id);
-    }
-    
-    // Apply sorting
-    if (currentSort === 'hot') {
-        query = query.order('vote_count', { ascending: false });
-    } else if (currentSort === 'new') {
-        query = query.order('created_at', { ascending: false });
-    } else if (currentSort === 'top') {
-        query = query.order('vote_count', { ascending: false });
-    }
-    
-    const { data, error } = await query;
-    
-    hideLoading();
-    
-    if (data) {
-        renderPosts(data);
-    } else if (error) {
-        console.error('Error loading posts:', error);
+    try {
+        let query = supabase
+            .from('posts')
+            .select(`
+                *,
+                profiles:user_id (username, role),
+                subreddits:subreddit_id (name)
+            `);
+        
+        if (currentSubreddit) {
+            query = query.eq('subreddit_id', currentSubreddit.id);
+        }
+        
+        // Apply sorting
+        if (currentSort === 'hot') {
+            query = query.order('vote_count', { ascending: false });
+        } else if (currentSort === 'new') {
+            query = query.order('created_at', { ascending: false });
+        } else if (currentSort === 'top') {
+            query = query.order('vote_count', { ascending: false });
+        }
+        
+        const { data, error } = await query;
+        
+        hideLoading();
+        
+        if (error) {
+            console.error('Error loading posts:', error);
+            return;
+        }
+        
+        if (data) {
+            console.log('✅ Loaded', data.length, 'posts');
+            renderPosts(data);
+        }
+    } catch (err) {
+        hideLoading();
+        console.error('Unexpected error loading posts:', err);
     }
 }
 
 function renderPosts(posts) {
     const container = document.getElementById('postsContainer');
+    
+    if (!container) return;
     
     if (posts.length === 0) {
         container.innerHTML = `
@@ -289,14 +379,11 @@ function renderPosts(posts) {
     }
     
     container.innerHTML = posts.map(post => {
-        const userVote = null; // We'll implement this next
-        return createPostCard(post, userVote);
+        return createPostCard(post);
     }).join('');
 }
 
-function createPostCard(post, userVote) {
-    const upvoteClass = userVote === 1 ? 'upvoted' : '';
-    const downvoteClass = userVote === -1 ? 'downvoted' : '';
+function createPostCard(post) {
     const timeAgo = getTimeAgo(post.created_at);
     
     let contentHtml = '';
@@ -324,13 +411,13 @@ function createPostCard(post, userVote) {
     return `
         <div class="post-card" data-post-id="${post.id}">
             <div class="vote-section">
-                <button class="vote-btn ${upvoteClass}" onclick="vote('${post.id}', 1, 'post')" ${!currentUser ? 'disabled' : ''}>
+                <button class="vote-btn" onclick="vote('${post.id}', 1, 'post')" ${!currentUser ? 'disabled' : ''}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 4L3 15h6v5h6v-5h6z"/>
                     </svg>
                 </button>
                 <div class="vote-count">${post.vote_count || 0}</div>
-                <button class="vote-btn ${downvoteClass}" onclick="vote('${post.id}', -1, 'post')" ${!currentUser ? 'disabled' : ''}>
+                <button class="vote-btn" onclick="vote('${post.id}', -1, 'post')" ${!currentUser ? 'disabled' : ''}>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 20L3 9h6V4h6v5h6z"/>
                     </svg>
@@ -354,84 +441,160 @@ function createPostCard(post, userVote) {
     `;
 }
 
+window.vote = vote;
+window.openPost = openPost;
+window.deletePost = deletePost;
+
+async function vote(targetId, voteType, type) {
+    if (!currentUser) {
+        alert('Please sign in to vote');
+        return;
+    }
+    
+    try {
+        const voteData = {
+            user_id: currentUser.id,
+            vote_type: voteType
+        };
+        
+        if (type === 'post') {
+            voteData.post_id = targetId;
+        } else {
+            voteData.comment_id = targetId;
+        }
+        
+        // Check if user already voted
+        const { data: existingVote } = await supabase
+            .from('votes')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .eq(type === 'post' ? 'post_id' : 'comment_id', targetId)
+            .single();
+        
+        if (existingVote) {
+            if (existingVote.vote_type === voteType) {
+                // Remove vote
+                await supabase
+                    .from('votes')
+                    .delete()
+                    .eq('id', existingVote.id);
+            } else {
+                // Change vote
+                await supabase
+                    .from('votes')
+                    .update({ vote_type: voteType })
+                    .eq('id', existingVote.id);
+            }
+        } else {
+            // New vote
+            await supabase
+                .from('votes')
+                .insert([voteData]);
+        }
+        
+        await loadPosts();
+    } catch (err) {
+        console.error('Error voting:', err);
+    }
+}
+
 async function createPost(subredditId, title, content, postType, url) {
     if (!currentUser) {
         alert('Please sign in to post');
         return;
     }
     
-    const { data, error } = await supabase
-        .from('posts')
-        .insert([{
-            subreddit_id: subredditId,
-            user_id: currentUser.id,
-            title,
-            content: postType === 'text' ? content : null,
-            post_type: postType,
-            url: postType !== 'text' ? url : null
-        }])
-        .select()
-        .single();
-    
-    if (error) {
-        alert('Error creating post: ' + error.message);
-    } else {
-        await loadPosts();
-        closeModal('createPostModal');
-        document.getElementById('createPostForm').reset();
+    try {
+        const { data, error } = await supabase
+            .from('posts')
+            .insert([{
+                subreddit_id: subredditId,
+                user_id: currentUser.id,
+                title,
+                content: postType === 'text' ? content : null,
+                post_type: postType,
+                url: postType !== 'text' ? url : null
+            }])
+            .select()
+            .single();
+        
+        if (error) {
+            console.error('Error creating post:', error);
+            alert('Error creating post: ' + error.message);
+        } else {
+            console.log('✅ Post created');
+            await loadPosts();
+            closeModal('createPostModal');
+            document.getElementById('createPostForm').reset();
+        }
+    } catch (err) {
+        console.error('Unexpected error creating post:', err);
+        alert('Unexpected error: ' + err.message);
     }
 }
 
 async function deletePost(postId) {
     if (!confirm('Are you sure you want to delete this post?')) return;
     
-    const { error } = await supabase
-        .from('posts')
-        .delete()
-        .eq('id', postId);
-    
-    if (error) {
-        alert('Error deleting post: ' + error.message);
-    } else {
-        await loadPosts();
+    try {
+        const { error } = await supabase
+            .from('posts')
+            .delete()
+            .eq('id', postId);
+        
+        if (error) {
+            console.error('Error deleting post:', error);
+            alert('Error deleting post: ' + error.message);
+        } else {
+            console.log('✅ Post deleted');
+            await loadPosts();
+        }
+    } catch (err) {
+        console.error('Unexpected error deleting post:', err);
     }
 }
 
 async function openPost(postId) {
     showLoading();
     
-    const { data: post, error } = await supabase
-        .from('posts')
-        .select(`
-            *,
-            profiles:user_id (username, role),
-            subreddits:subreddit_id (name)
-        `)
-        .eq('id', postId)
-        .single();
-    
-    if (error) {
+    try {
+        const { data: post, error } = await supabase
+            .from('posts')
+            .select(`
+                *,
+                profiles:user_id (username, role),
+                subreddits:subreddit_id (name)
+            `)
+            .eq('id', postId)
+            .single();
+        
+        if (error) {
+            hideLoading();
+            console.error('Error loading post:', error);
+            alert('Error loading post');
+            return;
+        }
+        
+        const { data: comments, error: commentsError } = await supabase
+            .from('comments')
+            .select(`
+                *,
+                profiles:user_id (username, role)
+            `)
+            .eq('post_id', postId)
+            .order('created_at', { ascending: true });
+        
         hideLoading();
-        alert('Error loading post');
-        return;
+        
+        const modal = document.getElementById('postDetailModal');
+        const content = document.getElementById('postDetailContent');
+        
+        content.innerHTML = renderPostDetail(post, comments || []);
+        modal.classList.add('active');
+    } catch (err) {
+        hideLoading();
+        console.error('Unexpected error opening post:', err);
     }
-    
-    const { data: comments, error: commentsError } = await supabase
-        .from('comments')
-        .select(`
-            *,
-            profiles:user_id (username, role)
-        `)
-        .eq('post_id', postId)
-        .order('created_at', { ascending: true });
-    
-    hideLoading();
-    
-    const modal = document.getElementById('postDetailModal');
-    const content = document.getElementById('postDetailContent');
-    
-    content.innerHTML = renderPostDetail(post, comments || []);
-    modal.classList.add('active');
 }
 
 function renderPostDetail(post, comments) {
@@ -526,6 +689,10 @@ function renderComments(comments, allComments, postId) {
     }).join('');
 }
 
+window.addComment = addComment;
+window.deleteComment = deleteComment;
+window.showReplyForm = showReplyForm;
+
 async function addComment(postId, parentCommentId) {
     if (!currentUser) {
         alert('Please sign in to comment');
@@ -533,121 +700,101 @@ async function addComment(postId, parentCommentId) {
     }
     
     const textId = parentCommentId ? `reply-text-${parentCommentId}` : 'newCommentText';
-    const text = document.getElementById(textId).value.trim();
+    const textElement = document.getElementById(textId);
+    
+    if (!textElement) {
+        console.error('Comment text element not found:', textId);
+        return;
+    }
+    
+    const text = textElement.value.trim();
     
     if (!text) {
         alert('Please enter a comment');
         return;
     }
     
-    const { error } = await supabase
-        .from('comments')
-        .insert([{
-            post_id: postId,
-            parent_comment_id: parentCommentId,
-            user_id: currentUser.id,
-            content: text
-        }]);
-    
-    if (error) {
-        alert('Error adding comment: ' + error.message);
-    } else {
-        openPost(postId); // Reload post with comments
+    try {
+        const { error } = await supabase
+            .from('comments')
+            .insert([{
+                post_id: postId,
+                parent_comment_id: parentCommentId,
+                user_id: currentUser.id,
+                content: text
+            }]);
+        
+        if (error) {
+            console.error('Error adding comment:', error);
+            alert('Error adding comment: ' + error.message);
+        } else {
+            console.log('✅ Comment added');
+            openPost(postId); // Reload post with comments
+        }
+    } catch (err) {
+        console.error('Unexpected error adding comment:', err);
     }
 }
 
 async function deleteComment(commentId, postId) {
     if (!confirm('Are you sure you want to delete this comment?')) return;
     
-    const { error } = await supabase
-        .from('comments')
-        .delete()
-        .eq('id', commentId);
-    
-    if (error) {
-        alert('Error deleting comment: ' + error.message);
-    } else {
-        openPost(postId); // Reload post
+    try {
+        const { error } = await supabase
+            .from('comments')
+            .delete()
+            .eq('id', commentId);
+        
+        if (error) {
+            console.error('Error deleting comment:', error);
+            alert('Error deleting comment: ' + error.message);
+        } else {
+            console.log('✅ Comment deleted');
+            openPost(postId); // Reload post
+        }
+    } catch (err) {
+        console.error('Unexpected error deleting comment:', err);
     }
 }
 
 function showReplyForm(commentId) {
     const form = document.getElementById(`reply-form-${commentId}`);
-    form.style.display = form.style.display === 'none' ? 'block' : 'none';
-}
-
-// ============================================
-// VOTING
-// ============================================
-async function vote(targetId, voteType, type) {
-    if (!currentUser) {
-        alert('Please sign in to vote');
-        return;
+    if (form) {
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
     }
-    
-    const voteData = {
-        user_id: currentUser.id,
-        vote_type: voteType
-    };
-    
-    if (type === 'post') {
-        voteData.post_id = targetId;
-    } else {
-        voteData.comment_id = targetId;
-    }
-    
-    // Check if user already voted
-    const { data: existingVote } = await supabase
-        .from('votes')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .eq(type === 'post' ? 'post_id' : 'comment_id', targetId)
-        .single();
-    
-    if (existingVote) {
-        if (existingVote.vote_type === voteType) {
-            // Remove vote
-            await supabase
-                .from('votes')
-                .delete()
-                .eq('id', existingVote.id);
-        } else {
-            // Change vote
-            await supabase
-                .from('votes')
-                .update({ vote_type: voteType })
-                .eq('id', existingVote.id);
-        }
-    } else {
-        // New vote
-        await supabase
-            .from('votes')
-            .insert([voteData]);
-    }
-    
-    await loadPosts();
 }
 
 // ============================================
 // EVENT LISTENERS
 // ============================================
 function setupEventListeners() {
-    // Create Subreddit
-    document.getElementById('createSubredditBtn').addEventListener('click', () => {
-        document.getElementById('createSubredditModal').classList.add('active');
-    });
+    console.log('Setting up event listeners...');
     
-    document.getElementById('createSubredditForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const name = document.getElementById('subredditName').value.trim();
-        const description = document.getElementById('subredditDescription').value.trim();
-        createSubreddit(name, description);
-    });
+    // Create Subreddit
+    const createSubredditBtn = document.getElementById('createSubredditBtn');
+    if (createSubredditBtn) {
+        createSubredditBtn.addEventListener('click', () => {
+            document.getElementById('createSubredditModal').classList.add('active');
+        });
+    }
+    
+    const createSubredditForm = document.getElementById('createSubredditForm');
+    if (createSubredditForm) {
+        createSubredditForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('subredditName').value.trim();
+            const description = document.getElementById('subredditDescription').value.trim();
+            createSubreddit(name, description);
+        });
+    }
     
     // Create Post
-    document.getElementById('createPostBtn').addEventListener('click', () => {
-        document.getElementById('createPostModal').classList.add('active');
-    });
+    const createPostBtn = document.getElementById('createPostBtn');
+    if (createPostBtn) {
+        createPostBtn.addEventListener('click', () => {
+            document.getElementById('createPostModal').classList.add('active');
+        });
+    }
     
     // Post type tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -659,29 +806,35 @@ function setupEventListeners() {
             document.querySelectorAll('.post-content-section').forEach(section => {
                 section.style.display = 'none';
             });
-            document.getElementById(`${type}PostContent`).style.display = 'block';
+            const contentSection = document.getElementById(`${type}PostContent`);
+            if (contentSection) {
+                contentSection.style.display = 'block';
+            }
         });
     });
     
-    document.getElementById('createPostForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const subredditId = document.getElementById('postSubreddit').value;
-        const title = document.getElementById('postTitle').value.trim();
-        const activeTab = document.querySelector('.tab-btn.active').dataset.type;
-        
-        let content = '';
-        let url = '';
-        
-        if (activeTab === 'text') {
-            content = document.getElementById('postContent').value.trim();
-        } else if (activeTab === 'link') {
-            url = document.getElementById('postUrl').value.trim();
-        } else if (activeTab === 'image') {
-            url = document.getElementById('postImageUrl').value.trim();
-        }
-        
-        createPost(subredditId, title, content, activeTab, url);
-    });
+    const createPostForm = document.getElementById('createPostForm');
+    if (createPostForm) {
+        createPostForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const subredditId = document.getElementById('postSubreddit').value;
+            const title = document.getElementById('postTitle').value.trim();
+            const activeTab = document.querySelector('.tab-btn.active').dataset.type;
+            
+            let content = '';
+            let url = '';
+            
+            if (activeTab === 'text') {
+                content = document.getElementById('postContent').value.trim();
+            } else if (activeTab === 'link') {
+                url = document.getElementById('postUrl').value.trim();
+            } else if (activeTab === 'image') {
+                url = document.getElementById('postImageUrl').value.trim();
+            }
+            
+            createPost(subredditId, title, content, activeTab, url);
+        });
+    }
     
     // Sort buttons
     document.querySelectorAll('.sort-btn').forEach(btn => {
@@ -693,19 +846,20 @@ function setupEventListeners() {
         });
     });
     
-    // Search (basic implementation)
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-        // You can implement search functionality here
-        console.log('Search:', e.target.value);
-    });
+    console.log('✅ Event listeners set up');
 }
 
 // ============================================
 // MODAL FUNCTIONS
 // ============================================
 function closeModal(modalId) {
-    document.getElementById(modalId).classList.remove('active');
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('active');
+    }
 }
+
+window.closeModal = closeModal;
 
 // Close modal when clicking outside
 document.querySelectorAll('.modal').forEach(modal => {
@@ -720,11 +874,17 @@ document.querySelectorAll('.modal').forEach(modal => {
 // UTILITY FUNCTIONS
 // ============================================
 function showLoading() {
-    document.getElementById('loadingSpinner').style.display = 'flex';
+    const spinner = document.getElementById('loadingSpinner');
+    if (spinner) {
+        spinner.style.display = 'flex';
+    }
 }
 
 function hideLoading() {
-    document.getElementById('loadingSpinner').style.display = 'none';
+    const spinner = document.getElementById('loadingSpinner');
+    if (spinner) {
+        spinner.style.display = 'none';
+    }
 }
 
 function escapeHtml(text) {
