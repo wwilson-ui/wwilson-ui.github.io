@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTPS Forum</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-left">
+                <h1 class="logo">MTPS<span class="logo-accent">Forum</span></h1>
+                <div class="search-container" id="searchContainer">
+                    <input type="text" id="searchInput" placeholder="Search subreddits, posts..." class="search-input">
+                    <svg class="search-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 12L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="nav-right">
+                <div id="authSection" class="auth-section"></div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Communities</h3>
+                <div id="subredditsList" class="subreddits-list"></div>
+                <button id="createSubredditBtn" class="create-btn" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    New Community
+                </button>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Sort By</h3>
+                <div class="sort-buttons">
+                    <button class="sort-btn active" data-sort="hot">🔥 Hot</button>
+                    <button class="sort-btn" data-sort="new">⚡ New</button>
+                    <button class="sort-btn" data-sort="top">⭐ Top</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Posts Feed -->
+        <main class="feed">
+            <div class="feed-header">
+                <h2 id="feedTitle">All Posts</h2>
+                <button id="createPostBtn" class="create-post-btn" style="display: none;">Create Post</button>
+            </div>
+            <div id="postsContainer" class="posts-container"></div>
+        </main>
+    </div>
+
+    <!-- Create Subreddit Modal -->
+    <div id="createSubredditModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create a Community</h2>
+                <button class="close-btn" onclick="closeModal('createSubredditModal')">&times;</button>
+            </div>
+            <form id="createSubredditForm">
+                <div class="form-group">
+                    <label for="subredditName">Community Name</label>
+                    <input type="text" id="subredditName" required placeholder="e.g., announcements">
+                </div>
+                <div class="form-group">
+                    <label for="subredditDescription">Description</label>
+                    <textarea id="subredditDescription" rows="3" placeholder="What is this community about?"></textarea>
+                </div>
+                <button type="submit" class="submit-btn">Create Community</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Post Modal -->
+    <div id="createPostModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create a Post</h2>
+                <button class="close-btn" onclick="closeModal('createPostModal')">&times;</button>
+            </div>
+            <form id="createPostForm">
+                <div class="form-group">
+                    <label for="postSubreddit">Community</label>
+                    <select id="postSubreddit" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="postTitle">Title</label>
+                    <input type="text" id="postTitle" required placeholder="An interesting title...">
+                </div>
+                <div class="post-type-tabs">
+                    <button type="button" class="tab-btn active" data-type="text">Text</button>
+                    <button type="button" class="tab-btn" data-type="link">Link</button>
+                    <button type="button" class="tab-btn" data-type="image">Image</button>
+                </div>
+                <div id="textPostContent" class="post-content-section">
+                    <div class="form-group">
+                        <label for="postContent">Content</label>
+                        <textarea id="postContent" rows="6" placeholder="Share your thoughts..."></textarea>
+                    </div>
+                </div>
+                <div id="linkPostContent" class="post-content-section" style="display: none;">
+                    <div class="form-group">
+                        <label for="postUrl">URL</label>
+                        <input type="url" id="postUrl" placeholder="https://example.com">
+                    </div>
+                </div>
+                <div id="imagePostContent" class="post-content-section" style="display: none;">
+                    <div class="form-group">
+                        <label for="postImageUrl">Image URL</label>
+                        <input type="url" id="postImageUrl" placeholder="https://example.com/image.jpg">
+                    </div>
+                </div>
+                <button type="submit" class="submit-btn">Post</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Post Detail Modal -->
+    <div id="postDetailModal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <button class="close-btn" onclick="closeModal('postDetailModal')">&times;</button>
+            </div>
+            <div id="postDetailContent"></div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
