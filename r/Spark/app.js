@@ -5,12 +5,16 @@ window.addEventListener('load', async () => {
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     const signInBtn = document.getElementById('signInBtn');
-    signInBtn.onclick = async () => {
-        await sb.auth.signInWithOAuth({
-            provider: 'google',
-            options: { redirectTo: 'https://wwilson-ui.github.io/r/Spark/' }
-        });
-    };
+    if (signInBtn) {
+        signInBtn.onclick = async () => {
+            console.log('Sign in clicked');
+            const { error } = await sb.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo: 'https://wwilson-ui.github.io/r/Spark/' }
+            });
+            if (error) console.error('Sign in error:', error);
+        };
+    }
     
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
@@ -27,7 +31,7 @@ window.addEventListener('load', async () => {
                             ${user.role === 'teacher' ? '<span class="teacher-badge">Teacher</span>' : ''}
                         </div>
                     </div>
-                    <button class="btn-logout" onclick="sb.auth.signOut()">Sign Out</button>
+                    <button class="btn-logout" onclick="signOutUser()">Sign Out</button>
                 </div>
             `;
             document.getElementById('createPostBtn').style.display = 'block';
@@ -201,6 +205,10 @@ window.addComment = async (postId, parentId) => {
 };
 
 window.closeModal = (id) => document.getElementById(id).classList.remove('active');
+
+window.signOutUser = async () => {
+    if (sb) await sb.auth.signOut();
+};
 
 function setup() {
     document.getElementById('createSubredditBtn').onclick = () => document.getElementById('subredditModal').classList.add('active');
