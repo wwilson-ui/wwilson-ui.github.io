@@ -95,8 +95,8 @@ async function loadMyVotes() {
     }
 }
 
-// 2. The Main Vote Function
-async function vote(id, typeValue, itemType = 'post') { // typeValue is 1 or -1
+// 2. The Main Vote Function - GLOBAL
+window.vote = async function(id, typeValue, itemType = 'post') { // typeValue is 1 or -1
     console.log('🗳️ Vote called:', { id, typeValue, itemType, currentUser });
     
     if (!currentUser) {
@@ -237,13 +237,13 @@ function updateVoteUI(id, newValue, type) {
     }
 }
 
-async function signIn() {
+window.signIn = async function() {
     await sb.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: 'https://wwilson-ui.github.io/r/Spark/', queryParams: { hd: 'mtps.us' } }
     });
-}
-async function signOut() { await sb.auth.signOut(); window.location.reload(); }
+};
+window.signOut = async function() { await sb.auth.signOut(); window.location.reload(); };
 
 // ================= POSTS & FEED =================
 async function loadPosts() {
@@ -380,19 +380,19 @@ function renderComments(comments, container) {
     });
 }
 
-function replyToComment(cid, name) {
+window.replyToComment = function(cid, name) {
     if (!currentUser) return alert("Please sign in");
     const box = document.getElementById(`reply-box-${cid}`);
     box.style.display = box.style.display === 'none' ? 'block' : 'none';
-}
+};
 
-async function submitReply(pid) {
+window.submitReply = async function(pid) {
     const input = document.getElementById(`reply-input-${pid}`);
     const content = input.value.trim();
     if (!content) return;
     await sb.from('comments').insert([{ post_id: currentOpenPostId, user_id: currentUser.id, content, parent_id: pid }]);
     loadDetailComments(currentOpenPostId);
-}
+};
 
 // ================= HELPERS (Sidebars, Deletion, etc) =================
 // (These are unchanged, just including so the file is complete)
@@ -422,11 +422,11 @@ async function loadSubreddits() {
     });
 }
 
-function selectSub(id) { currentSubFilter = id; showFeed(); loadSubreddits(); loadPosts(); }
+window.selectSub = function(id) { currentSubFilter = id; showFeed(); loadSubreddits(); loadPosts(); };
 
-async function deletePost(id) { if(confirm('Delete post?')) { await sb.from('posts').delete().eq('id', id); loadPosts(); } }
-async function deleteSub(id, name) { if(confirm(`Delete r/${name}?`)) { await sb.from('subreddits').delete().eq('id', id); loadSubreddits(); loadPosts(); } }
-async function deleteComment(id) { if(confirm('Delete comment?')) { await sb.from('comments').delete().eq('id', id); loadDetailComments(currentOpenPostId); } }
+window.deletePost = async function(id) { if(confirm('Delete post?')) { await sb.from('posts').delete().eq('id', id); loadPosts(); } };
+window.deleteSub = async function(id, name) { if(confirm(`Delete r/${name}?`)) { await sb.from('subreddits').delete().eq('id', id); loadSubreddits(); loadPosts(); } };
+window.deleteComment = async function(id) { if(confirm('Delete comment?')) { await sb.from('comments').delete().eq('id', id); loadDetailComments(currentOpenPostId); } };
 
 function getAnonName(id) {
     let hash = 0; for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
