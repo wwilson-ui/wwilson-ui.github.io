@@ -97,10 +97,16 @@ async function loadMyVotes() {
 
 // 2. The Main Vote Function
 async function vote(id, typeValue, itemType = 'post') { // typeValue is 1 or -1
-    if (!currentUser) return alert("Please sign in to vote.");
+    console.log('🗳️ Vote called:', { id, typeValue, itemType, currentUser });
+    
+    if (!currentUser) {
+        alert("Please sign in to vote.");
+        return;
+    }
 
     // Check current state
     const currentVote = itemType === 'post' ? myVotes.posts[id] : myVotes.comments[id];
+    console.log('Current vote state:', currentVote);
     
     // DECIDE ACTION:
     // If clicking the same button -> DELETE vote (toggle off)
@@ -109,6 +115,7 @@ async function vote(id, typeValue, itemType = 'post') { // typeValue is 1 or -1
     
     let action = 'upsert';
     if (currentVote === typeValue) action = 'delete';
+    console.log('Action:', action);
 
     // Optimistic UI Update (Instant feedback)
     updateVoteUI(id, action === 'delete' ? 0 : typeValue, itemType);
@@ -120,7 +127,13 @@ async function vote(id, typeValue, itemType = 'post') { // typeValue is 1 or -1
         if (itemType === 'post') query = query.eq('post_id', id);
         else query = query.eq('comment_id', id);
         
-        await query;
+        const { error } = await query;
+        console.log('Delete result:', { error });
+        
+        if (error) {
+            console.error('❌ Delete vote failed:', error);
+            alert('Error deleting vote: ' + error.message);
+        }
         
         // Update local state
         if (itemType === 'post') delete myVotes.posts[id];
@@ -141,15 +154,21 @@ async function vote(id, typeValue, itemType = 'post') { // typeValue is 1 or -1
             payload.comment_id = id;
             payload.post_id = null;
         }
+        
+        console.log('Upserting payload:', payload);
 
-        const { error } = await sb.from('votes').upsert(payload, { 
-            onConflict: itemType === 'post' ? 'user_id, post_id' : 'user_id, comment_id' 
+        const { data, error } = await sb.from('votes').upsert(payload, { 
+            onConflict: itemType === 'post' ? 'user_id,post_id' : 'user_id,comment_id' 
         });
 
+        console.log('Upsert result:', { data, error });
+
         if (error) {
-            console.error('Vote failed:', error);
+            console.error('❌ Vote failed:', error);
+            alert('Vote error: ' + error.message);
             // Revert UI if needed
         } else {
+            console.log('✅ Vote successful');
             // Update local state
             if (itemType === 'post') myVotes.posts[id] = typeValue;
             else myVotes.comments[id] = typeValue;
