@@ -10,7 +10,7 @@
 <body>
 
     <nav class="navbar">
-        <a href="#" class="logo">
+        <a href="#" class="logo" onclick="location.reload()">
             <div class="logo-circle">⚡</div>
             r/Spark
         </a>
@@ -18,28 +18,37 @@
             </div>
     </nav>
 
-    <main class="container">
-        <div id="actionBar" class="action-bar" style="display: none;">
-            <div class="create-input" onclick="openCreateModal()">Create a Post...</div>
-            <button id="createSubBtn" class="google-btn" style="display:none;" onclick="openSubModal()">+ Subreddit</button>
-        </div>
+    <div class="layout-grid">
+        
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>Sub-Spark Communities</h3>
+                <button id="sidebarAddBtn" class="circle-plus-btn" onclick="openSubModal()" style="display:none;">+</button>
+            </div>
+            
+            <ul id="subredditList" class="sub-list">
+                <li class="loading-text">Loading communities...</li>
+            </ul>
+        </aside>
 
-        <div style="margin-bottom: 10px;">
-            <select id="subredditFilter" class="google-btn" style="border-radius: 4px;">
-                <option value="all">All Subreddits</option>
-            </select>
-        </div>
+        <main class="main-content">
+            
+            <div id="actionBar" class="action-bar" style="display: none;">
+                <div class="create-input" onclick="openCreateModal()">Create a Post...</div>
+                </div>
 
-        <div id="postsFeed">
-            <div style="text-align: center; padding: 40px; color: #777;">Loading...</div>
-        </div>
-    </main>
+            <div id="postsFeed">
+                <div style="text-align: center; padding: 40px; color: #777;">Select a community or sign in...</div>
+            </div>
+        </main>
+
+    </div>
 
     <div id="createPostModal" class="modal">
         <div class="modal-content">
-            <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+            <div class="modal-header">
                 <h2>Create Post</h2>
-                <button onclick="closeModal('createPostModal')" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>
+                <button class="close-modal-btn" onclick="closeModal('createPostModal')">&times;</button>
             </div>
             <form id="createPostForm">
                 <div class="form-group">
@@ -69,7 +78,10 @@
 
     <div id="createSubModal" class="modal">
         <div class="modal-content">
-            <h2>Create New Subreddit</h2>
+            <div class="modal-header">
+                <h2>Create New Subreddit</h2>
+                <button class="close-modal-btn" onclick="closeModal('createSubModal')">&times;</button>
+            </div>
             <form id="createSubForm">
                 <div class="form-group">
                     <label>Name</label>
