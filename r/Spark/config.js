@@ -1,4 +1,4 @@
 // Supabase Configuration
 // These are just constants, not creating the client yet
-var SUPABASE_URL = 'https://dfmugytablgldpkadfrl.supabase.co';
-var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmbXVneXRhYmxnbGRwa2FkZnJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1MTQyOTYsImV4cCI6MjA4NjA5MDI5Nn0.DYwDl1XAe5xlskaNyKJiDiojBohEi0Im-az2qR1X5nY';
+var SUPABASE_URL = 'https://mvxuubwbtkhdbhuadxtu.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHV1YndidGtoZGJodWFkeHR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQyMDgsImV4cCI6MjA4Njc2MDIwOH0.FzsVt0bmWnrc3pYUWfJyS-9PE9oJY1ZzoGbax3q_LGk';
