@@ -35,20 +35,20 @@ async function checkUser() {
     const authSection = document.getElementById('authSection');
 
     if (session) {
-        // Fetch Profile for Role
+        // ... (Keep your existing logged-in logic here if it's already working) ...
+        // If you need the full block again, let me know, but usually you just need to change the 'else' below:
+        
         const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
         currentUser = profile || { role: 'student', email: session.user.email, id: session.user.id };
         
-        // HARDCODED TEACHER OVERRIDE for safety
         if (currentUser.email === 'wwilson@mtps.us') {
             currentUser.role = 'teacher';
         }
         isTeacher = currentUser.role === 'teacher';
 
-        // Update UI
         authSection.innerHTML = `
             <div style="display:flex;gap:10px;align-items:center;">
-                <span>${isTeacher ? '👨‍🏫 Teacher' : '🎓 Student'}</span>
+                <span class="user-role-badge">${isTeacher ? '👨‍🏫 Teacher' : '🎓 Student'}</span>
                 <button class="google-btn" onclick="signOut()">Sign Out</button>
             </div>
         `;
@@ -56,10 +56,10 @@ async function checkUser() {
         if (isTeacher) document.getElementById('createSubBtn').style.display = 'block';
 
     } else {
-        // Show Login Button
+        // --- THIS IS THE PART THAT ADDS THE LOGO ---
         authSection.innerHTML = `
             <button class="google-btn" onclick="signIn()">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="G" width="18" height="18">
                 Sign in with Google
             </button>
         `;
