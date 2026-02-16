@@ -73,7 +73,7 @@ function setupGoogleSignIn() {
                 var result = await supabaseClient.auth.signInWithOAuth({
                     provider: 'google',
                     options: {
-                        redirectTo: window.location.origin,
+                        redirectTo: 'https://wwilson-ui.github.io/r/Spark/index.html',
                         queryParams: {
                             access_type: 'offline',
                             prompt: 'consent',
