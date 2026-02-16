@@ -4,7 +4,7 @@ let sb = null;
 let currentUser = null;
 let isTeacher = false;
 let currentSubFilter = 'all';
-let currentOpenPostId = null; // Tracks which post is open in the modal
+let currentOpenPostId = null; 
 
 const ADJECTIVES = ['Happy', 'Brave', 'Calm', 'Swift', 'Wise', 'Bright', 'Clever', 'Kind', 'Bold'];
 const ANIMALS = ['Badger', 'Fox', 'Owl', 'Eagle', 'Bear', 'Dolphin', 'Wolf', 'Hawk', 'Tiger'];
@@ -12,16 +12,12 @@ const ANIMALS = ['Badger', 'Fox', 'Owl', 'Eagle', 'Bear', 'Dolphin', 'Wolf', 'Ha
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
         sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-    } else {
-        alert('Supabase not loaded'); return;
-    }
+    } else { alert('Supabase not loaded'); return; }
 
-    // Modal Close Logic
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeModal('createPostModal');
             closeModal('createSubModal');
-            closeModal('viewPostModal');
         }
     });
 
@@ -30,6 +26,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadPosts(); 
     setupFormListeners();
 });
+
+// ================= NAVIGATION =================
+function showFeed() {
+    document.getElementById('postView').style.display = 'none';
+    document.getElementById('feedView').style.display = 'block';
+    currentOpenPostId = null;
+}
+
+function openPostPage(post, authorName, realIdentity) {
+    currentOpenPostId = post.id;
+
+    // Toggle Views
+    document.getElementById('feedView').style.display = 'none';
+    document.getElementById('postView').style.display = 'block';
+    window.scrollTo(0, 0); // Scroll to top
+
+    // Fill Data
+    document.getElementById('detailSub').textContent = `r/${post.subreddits ? post.subreddits.name : 'Unknown'}`;
+    document.getElementById('detailAuthor').innerHTML = `${authorName} <span style="color:#ff4500;">${realIdentity}</span>`;
+    document.getElementById('detailTitle').textContent = post.title;
+    
+    const contentDiv = document.getElementById('detailContent');
+    contentDiv.innerHTML = post.content ? escapeHtml(post.content).replace(/\n/g, '<br>') : '';
+    
+    const imgEl = document.getElementById('detailImage');
+    if (post.image_url) { imgEl.src = post.image_url; imgEl.style.display = 'block'; }
+    else { imgEl.style.display = 'none'; }
+    
+    const linkEl = document.getElementById('detailLink');
+    if (post.url) { linkEl.href = post.url; linkEl.textContent = `🔗 ${post.url}`; linkEl.style.display = 'block'; }
+    else { linkEl.style.display = 'none'; }
+
+    // Show Input if logged in
+    document.getElementById('detailCommentInput').style.display = currentUser ? 'block' : 'none';
+
+    // Load Comments
+    loadDetailComments(post.id);
+}
 
 // ================= AUTH =================
 async function checkUser() {
@@ -40,7 +74,6 @@ async function checkUser() {
     if (session) {
         const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
         currentUser = profile || { role: 'student', email: session.user.email, id: session.user.id };
-        
         if (currentUser.email === 'wwilson@mtps.us') currentUser.role = 'teacher';
         isTeacher = currentUser.role === 'teacher';
 
@@ -53,11 +86,9 @@ async function checkUser() {
                 <button class="google-btn" onclick="signOut()" style="padding: 4px 10px; font-size: 0.8rem;">Sign Out</button>
             </div>
         `;
-        
         if (actionBar) actionBar.style.display = 'flex';
         const sidebarAddBtn = document.getElementById('sidebarAddBtn');
         if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
-
     } else {
         authSection.innerHTML = `
             <button class="google-btn" onclick="signIn()">
@@ -75,11 +106,7 @@ async function signIn() {
         options: { redirectTo: 'https://wwilson-ui.github.io/r/Spark/', queryParams: { hd: 'mtps.us' } }
     });
 }
-
-async function signOut() {
-    await sb.auth.signOut();
-    window.location.reload();
-}
+async function signOut() { await sb.auth.signOut(); window.location.reload(); }
 
 // ================= POSTS & FEED =================
 async function loadPosts() {
@@ -97,30 +124,24 @@ async function loadPosts() {
         feed.innerHTML = '<div style="padding:40px; text-align:center; color:#777;">No posts yet. Be the first!</div>';
         return;
     }
-
     posts.forEach(post => feed.appendChild(createPostElement(post)));
 }
 
 function createPostElement(post) {
     const div = document.createElement('div');
-    div.className = 'post-card clickable-card'; // Added clickable class
+    div.className = 'post-card clickable-card';
     
-    // Anonymity Logic
     const isAuthor = currentUser && currentUser.id === post.user_id;
     const authorName = getAnonName(post.user_id);
     const realIdentity = (isTeacher || isAuthor) ? ` (${post.profiles?.email || 'me'})` : '';
 
-    // We store the full post data on the element so we can open it later
     div.onclick = (e) => {
-        // Don't open if they clicked the vote buttons or delete button
         if (e.target.closest('button')) return;
-        openPostModal(post, authorName, realIdentity);
+        openPostPage(post, authorName, realIdentity);
     };
 
-    // Teacher Delete Button
     const deleteBtn = isTeacher ? `<button class="delete-icon" onclick="deletePost('${post.id}')">🗑</button>` : '';
 
-    // Feed View: Only Title, Subreddit, Author, Score
     div.innerHTML = `
         <div class="post-header">
             <strong>r/${post.subreddits ? post.subreddits.name : 'Unknown'}</strong>
@@ -141,38 +162,9 @@ function createPostElement(post) {
     return div;
 }
 
-// ================= VIEW POST MODAL =================
-async function openPostModal(post, authorName, realIdentity) {
-    currentOpenPostId = post.id;
-    
-    // 1. Populate Modal Content
-    document.getElementById('viewPostSub').textContent = `r/${post.subreddits ? post.subreddits.name : 'Unknown'}`;
-    document.getElementById('viewPostAuthor').innerHTML = `${authorName} <span style="color:#ff4500;">${realIdentity}</span>`;
-    document.getElementById('viewPostTitle').textContent = post.title;
-    
-    const contentDiv = document.getElementById('viewPostContent');
-    contentDiv.innerHTML = post.content ? escapeHtml(post.content).replace(/\n/g, '<br>') : '';
-    
-    const imgEl = document.getElementById('viewPostImage');
-    if (post.image_url) { imgEl.src = post.image_url; imgEl.style.display = 'block'; }
-    else { imgEl.style.display = 'none'; }
-    
-    const linkEl = document.getElementById('viewPostLink');
-    if (post.url) { linkEl.href = post.url; linkEl.textContent = `🔗 ${post.url}`; linkEl.style.display = 'block'; }
-    else { linkEl.style.display = 'none'; }
-
-    // 2. Show Comment Input if logged in
-    document.getElementById('commentInputArea').style.display = currentUser ? 'block' : 'none';
-
-    // 3. Load Comments
-    loadModalComments(post.id);
-
-    // 4. Open Modal
-    document.getElementById('viewPostModal').classList.add('active');
-}
-
-async function loadModalComments(postId) {
-    const list = document.getElementById('modalCommentsList');
+// ================= COMMENTS =================
+async function loadDetailComments(postId) {
+    const list = document.getElementById('detailCommentsList');
     list.innerHTML = 'Loading comments...';
     
     const { data: comments } = await sb.from('comments')
@@ -190,19 +182,13 @@ async function submitNewComment() {
     if (!content) return;
 
     const { error } = await sb.from('comments').insert([{
-        post_id: currentOpenPostId,
-        user_id: currentUser.id,
-        content: content
+        post_id: currentOpenPostId, user_id: currentUser.id, content: content
     }]);
 
     if (error) alert(error.message);
-    else {
-        txt.value = '';
-        loadModalComments(currentOpenPostId); // Refresh comments
-    }
+    else { txt.value = ''; loadDetailComments(currentOpenPostId); }
 }
 
-// ================= HELPERS (Same as before) =================
 function buildCommentTree(comments) {
     const map = {}; const roots = [];
     comments.forEach(c => { c.children = []; map[c.id] = c; });
@@ -242,45 +228,35 @@ function renderComments(comments, container) {
     });
 }
 
-function replyToComment(commentId, name) {
-    // Only show reply box if logged in
-    if (!currentUser) return alert("Please sign in to reply");
-    const box = document.getElementById(`reply-box-${commentId}`);
+function replyToComment(cid, name) {
+    if (!currentUser) return alert("Please sign in");
+    const box = document.getElementById(`reply-box-${cid}`);
     box.style.display = box.style.display === 'none' ? 'block' : 'none';
 }
 
-async function submitReply(parentId) {
-    const input = document.getElementById(`reply-input-${parentId}`);
+async function submitReply(pid) {
+    const input = document.getElementById(`reply-input-${pid}`);
     const content = input.value.trim();
     if (!content) return;
-
-    const { error } = await sb.from('comments').insert([{
-        post_id: currentOpenPostId,
-        user_id: currentUser.id,
-        content: content,
-        parent_id: parentId
-    }]);
-
-    if (!error) loadModalComments(currentOpenPostId);
+    await sb.from('comments').insert([{ post_id: currentOpenPostId, user_id: currentUser.id, content, parent_id: pid }]);
+    loadDetailComments(currentOpenPostId);
 }
 
-// Sidebars & Deletion
+// ================= HELPERS (Sidebars, Deletion, etc) =================
+// (These are unchanged, just including so the file is complete)
 async function loadSubreddits() {
     const list = document.getElementById('subredditList');
     const postSelect = document.getElementById('postSubreddit');
     const { data: subs } = await sb.from('subreddits').select('*').order('name');
-    
     list.innerHTML = ''; postSelect.innerHTML = '';
     
-    // All
     const allLi = document.createElement('li');
     allLi.className = `sub-item ${currentSubFilter === 'all' ? 'active' : ''}`;
     allLi.innerHTML = `<span>r/All</span>`;
-    allLi.onclick = () => { currentSubFilter = 'all'; loadSubreddits(); loadPosts(); };
+    allLi.onclick = () => { currentSubFilter = 'all'; showFeed(); loadSubreddits(); loadPosts(); };
     list.appendChild(allLi);
 
     if (subs) subs.forEach(sub => {
-        // Sidebar
         const li = document.createElement('li');
         li.className = `sub-item ${currentSubFilter === sub.id ? 'active' : ''}`;
         let html = `<span onclick="selectSub('${sub.id}')">r/${sub.name}</span>`;
@@ -288,21 +264,18 @@ async function loadSubreddits() {
         li.innerHTML = html;
         list.appendChild(li);
 
-        // Dropdown
         const opt = document.createElement('option');
         opt.value = sub.id; opt.textContent = sub.name;
         postSelect.appendChild(opt);
     });
 }
 
-function selectSub(id) { currentSubFilter = id; loadSubreddits(); loadPosts(); }
+function selectSub(id) { currentSubFilter = id; showFeed(); loadSubreddits(); loadPosts(); }
 
-// Deletion
 async function deletePost(id) { if(confirm('Delete post?')) { await sb.from('posts').delete().eq('id', id); loadPosts(); } }
 async function deleteSub(id, name) { if(confirm(`Delete r/${name}?`)) { await sb.from('subreddits').delete().eq('id', id); loadSubreddits(); loadPosts(); } }
-async function deleteComment(id) { if(confirm('Delete comment?')) { await sb.from('comments').delete().eq('id', id); loadModalComments(currentOpenPostId); } }
+async function deleteComment(id) { if(confirm('Delete comment?')) { await sb.from('comments').delete().eq('id', id); loadDetailComments(currentOpenPostId); } }
 
-// Utils
 function getAnonName(id) {
     let hash = 0; for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
     const adj = ADJECTIVES[Math.abs(hash) % ADJECTIVES.length];
