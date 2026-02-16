@@ -31,39 +31,56 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // ================= AUTHENTICATION =================
 async function checkUser() {
+    // 1. Get the session safely
     const { data: { session } } = await sb.auth.getSession();
     const authSection = document.getElementById('authSection');
+    const actionBar = document.getElementById('actionBar');
 
     if (session) {
-        // ... (Keep your existing logged-in logic here if it's already working) ...
-        // If you need the full block again, let me know, but usually you just need to change the 'else' below:
-        
+        // --- LOGGED IN STATE ---
+        // Fetch user profile to check role
         const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+        
+        // Fallback if profile is missing (creates a temporary user object)
         currentUser = profile || { role: 'student', email: session.user.email, id: session.user.id };
         
+        // Safety Override for Teacher
         if (currentUser.email === 'wwilson@mtps.us') {
             currentUser.role = 'teacher';
         }
         isTeacher = currentUser.role === 'teacher';
 
+        // Render the User Badge
         authSection.innerHTML = `
-            <div style="display:flex;gap:10px;align-items:center;">
-                <span class="user-role-badge">${isTeacher ? '👨‍🏫 Teacher' : '🎓 Student'}</span>
-                <button class="google-btn" onclick="signOut()">Sign Out</button>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <div style="display:flex; flex-direction:column; align-items:flex-end; line-height:1.2;">
+                    <span style="font-weight:bold; font-size:0.9rem;">${currentUser.email.split('@')[0]}</span>
+                    <span style="font-size:0.75rem; color:${isTeacher ? '#0079D3' : '#00D9A5'}; font-weight:bold; text-transform:uppercase;">
+                        ${isTeacher ? 'Teacher' : 'Student'}
+                    </span>
+                </div>
+                <button class="google-btn" onclick="signOut()" style="padding: 5px 12px; font-size: 0.8rem;">Sign Out</button>
             </div>
         `;
-        document.getElementById('actionBar').style.display = 'flex';
-        if (isTeacher) document.getElementById('createSubBtn').style.display = 'block';
+        
+        // Show the "Create Post" bar
+        if (actionBar) actionBar.style.display = 'flex';
+        
+        // Show "Create Subreddit" button ONLY if teacher
+        const createSubBtn = document.getElementById('createSubBtn');
+        if (createSubBtn && isTeacher) createSubBtn.style.display = 'block';
 
     } else {
-        // --- THIS IS THE PART THAT ADDS THE LOGO ---
+        // --- LOGGED OUT STATE ---
+        // This is the fixed button with the working logo
         authSection.innerHTML = `
             <button class="google-btn" onclick="signIn()">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="G" width="18" height="18">
+                <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="G" style="width:18px; height:18px;">
                 Sign in with Google
             </button>
         `;
-        document.getElementById('actionBar').style.display = 'none';
+        
+        if (actionBar) actionBar.style.display = 'none';
     }
 }
 
