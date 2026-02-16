@@ -4,7 +4,6 @@ window.addEventListener('load', async () => {
     await new Promise(r => setTimeout(r, 800));
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
-    // Sign in button
     document.getElementById('signInBtn').onclick = () => {
         sb.auth.signInWithOAuth({
             provider: 'google',
@@ -12,18 +11,18 @@ window.addEventListener('load', async () => {
         });
     };
     
-    // Check session
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
         const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
         if (profile) {
             user = profile;
+            const displayName = user.role === 'teacher' ? user.username + ' (Teacher)' : user.display_name;
             document.getElementById('authSection').innerHTML = `
                 <div class="user-badge">
                     <div class="user-info">
-                        <div class="user-avatar">${user.username[0].toUpperCase()}</div>
+                        <div class="user-avatar">${displayName[0].toUpperCase()}</div>
                         <div>
-                            <div style="font-weight:600">${user.username}</div>
+                            <div style="font-weight:600">${displayName}</div>
                             <div style="font-size:0.8rem;color:var(--text-muted)">${user.role}</div>
                         </div>
                     </div>
@@ -61,38 +60,107 @@ window.filter = (id) => {
 };
 
 async function loadPosts() {
-    let q = sb.from('posts').select('*, profiles!posts_user_id_fkey(username), subreddits(name)');
+    let q = sb.from('posts').select('*, profiles!posts_user_id_fkey(username, display_name, role), subreddits(name)');
     if (current) q = q.eq('subreddit_id', current.id);
     q = sort === 'new' ? q.order('created_at', { ascending: false }) : q.order('vote_count', { ascending: false });
-    const { data } = await q;
+    const { data: posts } = await q;
     
     const container = document.getElementById('postsContainer');
-    if (!data || data.length === 0) {
+    if (!posts || posts.length === 0) {
         container.innerHTML = '<div class="empty"><h3>No posts yet</h3></div>';
         return;
     }
     
-    container.innerHTML = data.map(p => {
-        const { data: votes } = sb.from('votes').select('vote_type').eq('post_id', p.id).eq('user_id', user?.id);
+    // Render each post with comments inline
+    for (const p of posts) {
+        const { data: votes } = await sb.from('votes').select('vote_type').eq('post_id', p.id).eq('user_id', user?.id);
         const v = votes?.[0]?.vote_type || 0;
-        const del = user && (user.id === p.user_id || user.role === 'teacher');
-        return `
-            <div class="post-card">
+        const del = user && (user.role === 'teacher' || user.id === p.user_id);
+        
+        // Get comments for this post
+        const { data: comments } = await sb.from('comments').select('*, profiles!comments_user_id_fkey(username, display_name, role)').eq('post_id', p.id).order('created_at');
+        
+        const displayName = user?.role === 'teacher' ? p.profiles.username : p.profiles.display_name;
+        const showRealName = user?.role === 'teacher' ? `<span class="comment-real-name">(${p.profiles.username})</span>` : '';
+        
+        container.innerHTML += `
+            <div class="post-card" id="post-${p.id}">
                 <div class="vote-section">
                     <button class="vote-btn ${v === 1 ? 'upvoted' : ''}" onclick="vote('${p.id}', 1, 'post')" ${!user ? 'disabled' : ''}>▲</button>
                     <div class="vote-count">${p.vote_count || 0}</div>
                     <button class="vote-btn ${v === -1 ? 'downvoted' : ''}" onclick="vote('${p.id}', -1, 'post')" ${!user ? 'disabled' : ''}>▼</button>
                 </div>
                 <div class="post-content">
-                    <div class="post-meta">${p.subreddits.name} • ${p.profiles.username} • ${ago(p.created_at)}</div>
-                    <h3 class="post-title" onclick="openPost('${p.id}')">${esc(p.title)}</h3>
-                    ${p.content ? `<div class="post-text">${esc(p.content.substring(0, 300))}${p.content.length > 300 ? '...' : ''}</div>` : ''}
+                    <div class="post-meta">${p.subreddits.name} • ${displayName} ${showRealName} • ${ago(p.created_at)}</div>
+                    <h3 class="post-title">${esc(p.title)}</h3>
+                    ${p.content ? `<div class="post-text">${esc(p.content)}</div>` : ''}
                     ${p.url ? `<div class="post-text"><a href="${p.url}" target="_blank">${p.url}</a></div>` : ''}
                     <div class="post-actions">
-                        <button class="action-btn" onclick="openPost('${p.id}')">💬 ${p.comment_count || 0}</button>
-                        ${del ? `<button class="action-btn" onclick="del('post','${p.id}')">🗑️</button>` : ''}
+                        <button class="action-btn" onclick="toggleComments('${p.id}')">💬 ${p.comment_count || 0} Comments</button>
+                        ${del ? `<button class="action-btn" onclick="del('post','${p.id}')">🗑️ Delete</button>` : ''}
+                    </div>
+                    <div class="comments-section" id="comments-${p.id}" style="display:none">
+                        ${user ? `
+                            <textarea class="comment-input" id="new-comment-${p.id}" placeholder="Add a comment"></textarea>
+                            <button class="btn-primary" onclick="addComment('${p.id}', null)" style="margin-top:0.5rem">Comment</button>
+                        ` : '<p style="color:var(--text-muted);margin-top:1rem">Sign in to comment</p>'}
+                        <div style="margin-top:1rem">${renderComments(comments?.filter(c => !c.parent_comment_id) || [], comments || [], p.id)}</div>
                     </div>
                 </div>
+            </div>
+        `;
+    }
+}
+
+window.toggleComments = (postId) => {
+    const section = document.getElementById(`comments-${postId}`);
+    section.style.display = section.style.display === 'none' ? 'block' : 'none';
+};
+
+window.toggleCollapse = (commentId) => {
+    const body = document.getElementById(`body-${commentId}`);
+    const nested = document.getElementById(`nested-${commentId}`);
+    const btn = document.getElementById(`collapse-${commentId}`);
+    
+    if (body.classList.contains('collapsed')) {
+        body.classList.remove('collapsed');
+        if (nested) nested.style.display = 'block';
+        btn.textContent = '[-]';
+    } else {
+        body.classList.add('collapsed');
+        if (nested) nested.style.display = 'none';
+        btn.textContent = '[+]';
+    }
+};
+
+function renderComments(comments, all, postId) {
+    if (comments.length === 0) return '<p style="color:var(--text-muted);margin-top:1rem">No comments yet</p>';
+    return comments.map(c => {
+        const replies = all.filter(r => r.parent_comment_id === c.id);
+        const del = user && (user.role === 'teacher' || user.id === c.user_id);
+        const displayName = user?.role === 'teacher' ? c.profiles.username : c.profiles.display_name;
+        const showRealName = user?.role === 'teacher' ? `<span class="comment-real-name">(${c.profiles.username})</span>` : '';
+        
+        return `
+            <div class="comment">
+                <div class="comment-header">
+                    <button class="collapse-btn" id="collapse-${c.id}" onclick="toggleCollapse('${c.id}')">[-]</button>
+                    <span class="comment-author">${displayName}</span>
+                    ${showRealName}
+                    <span class="comment-time">${ago(c.created_at)}</span>
+                </div>
+                <div class="comment-body" id="body-${c.id}">
+                    <div>${esc(c.content)}</div>
+                    <div class="comment-actions">
+                        ${user ? `<button class="action-btn" onclick="toggleReply('${c.id}')">Reply</button>` : ''}
+                        ${del ? `<button class="action-btn" onclick="del('comment','${c.id}','${postId}')">Delete</button>` : ''}
+                    </div>
+                    <div class="reply-form" id="reply-${c.id}">
+                        <textarea class="comment-input" id="text-${c.id}" placeholder="Write a reply"></textarea>
+                        <button class="btn-primary" onclick="addComment('${postId}','${c.id}')" style="margin-top:0.5rem">Reply</button>
+                    </div>
+                </div>
+                ${replies.length > 0 ? `<div class="nested-comments" id="nested-${c.id}">${renderComments(replies, all, postId)}</div>` : ''}
             </div>
         `;
     }).join('');
@@ -111,78 +179,33 @@ window.vote = async (id, type, target) => {
     } else {
         await sb.from('votes').insert([{ user_id: user.id, [col]: id, vote_type: type }]);
     }
+    document.getElementById('postsContainer').innerHTML = '';
     loadPosts();
 };
 
-window.del = async (type, id) => {
-    if (!confirm('Delete?')) return;
+window.del = async (type, id, postId) => {
+    if (!confirm('Delete this ' + type + '?')) return;
     await sb.from(type === 'post' ? 'posts' : 'comments').delete().eq('id', id);
-    if (type === 'post') loadPosts(); else openPost(document.querySelector('.modal.active').dataset.postId);
+    document.getElementById('postsContainer').innerHTML = '';
+    loadPosts();
 };
-
-window.openPost = async (id) => {
-    const { data: post } = await sb.from('posts').select('*, profiles!posts_user_id_fkey(username), subreddits(name)').eq('id', id).single();
-    const { data: comments } = await sb.from('comments').select('*, profiles!comments_user_id_fkey(username)').eq('post_id', id).order('created_at');
-    
-    const modal = document.getElementById('commentModal');
-    modal.dataset.postId = id;
-    const del = user && (user.id === post.user_id || user.role === 'teacher');
-    
-    document.getElementById('postDetail').innerHTML = `
-        <div class="post-meta">${post.subreddits.name} • ${post.profiles.username} • ${ago(post.created_at)}</div>
-        <h2 class="post-title">${esc(post.title)}</h2>
-        ${post.content ? `<div class="post-text">${esc(post.content)}</div>` : ''}
-        ${post.url ? `<div class="post-text"><a href="${post.url}" target="_blank">${post.url}</a></div>` : ''}
-        ${del ? `<button class="action-btn" onclick="del('post','${post.id}');closeModal('commentModal')">🗑️ Delete</button>` : ''}
-        <h3 style="margin:2rem 0 1rem">Comments</h3>
-        ${user ? `
-            <textarea class="comment-input" id="newComment" placeholder="Share your thoughts"></textarea>
-            <button class="btn-primary" onclick="addComment('${id}', null)" style="margin-top:0.5rem">Comment</button>
-        ` : '<p style="color:var(--text-muted)">Sign in to comment</p>'}
-        <div style="margin-top:1.5rem">${renderComments(comments?.filter(c => !c.parent_comment_id) || [], comments || [], id)}</div>
-    `;
-    modal.classList.add('active');
-};
-
-function renderComments(comments, all, postId) {
-    if (comments.length === 0) return '<p style="color:var(--text-muted)">No comments yet</p>';
-    return comments.map(c => {
-        const replies = all.filter(r => r.parent_comment_id === c.id);
-        const del = user && (user.id === c.user_id || user.role === 'teacher');
-        return `
-            <div class="comment">
-                <div class="comment-header">
-                    <span class="comment-author">${c.profiles.username}</span>
-                    <span class="comment-time">${ago(c.created_at)}</span>
-                </div>
-                <div>${esc(c.content)}</div>
-                <div class="comment-actions">
-                    ${user ? `<button class="action-btn" onclick="reply('${c.id}')">Reply</button>` : ''}
-                    ${del ? `<button class="action-btn" onclick="del('comment','${c.id}')">Delete</button>` : ''}
-                </div>
-                <div id="reply-${c.id}" style="display:none;margin-top:0.5rem">
-                    <textarea class="comment-input" id="text-${c.id}"></textarea>
-                    <button class="btn-primary" onclick="addComment('${postId}','${c.id}')" style="margin-top:0.5rem">Reply</button>
-                </div>
-                ${replies.length > 0 ? `<div class="nested-comments">${renderComments(replies, all, postId)}</div>` : ''}
-            </div>
-        `;
-    }).join('');
-}
 
 window.addComment = async (postId, parentId) => {
-    const text = document.getElementById(parentId ? `text-${parentId}` : 'newComment').value.trim();
+    const textId = parentId ? `text-${parentId}` : `new-comment-${postId}`;
+    const text = document.getElementById(textId).value.trim();
     if (!text) return;
     await sb.from('comments').insert([{ post_id: postId, parent_comment_id: parentId, user_id: user.id, content: text }]);
-    openPost(postId);
+    document.getElementById('postsContainer').innerHTML = '';
+    loadPosts();
+    setTimeout(() => {
+        document.getElementById(`comments-${postId}`).style.display = 'block';
+    }, 100);
 };
 
-window.reply = (id) => {
-    const el = document.getElementById(`reply-${id}`);
-    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+window.toggleReply = (id) => {
+    const form = document.getElementById(`reply-${id}`);
+    form.classList.toggle('active');
 };
-
-window.closeModal = (id) => document.getElementById(id).classList.remove('active');
 
 function setup() {
     document.getElementById('createSubredditBtn').onclick = () => document.getElementById('subredditModal').classList.add('active');
@@ -199,27 +222,23 @@ function setup() {
     };
     
     document.getElementById('createPostBtn').onclick = () => document.getElementById('postModal').classList.add('active');
-    document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
-        document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-        t.classList.add('active');
-        const type = t.dataset.type;
-        document.getElementById('postContent').style.display = type === 'text' ? 'block' : 'none';
-        document.getElementById('postUrl').style.display = type !== 'text' ? 'block' : 'none';
-    });
     
     document.getElementById('postForm').onsubmit = async (e) => {
         e.preventDefault();
-        const type = document.querySelector('.tab.active').dataset.type;
+        const content = document.getElementById('postContent').value.trim();
+        const url = document.getElementById('postUrl').value.trim();
+        
         await sb.from('posts').insert([{
             subreddit_id: document.getElementById('postSubreddit').value,
             user_id: user.id,
             title: document.getElementById('postTitle').value.trim(),
-            content: type === 'text' ? document.getElementById('postContent').value.trim() : null,
-            post_type: type,
-            url: type !== 'text' ? document.getElementById('postUrl').value.trim() : null
+            content: content || null,
+            post_type: url ? 'link' : 'text',
+            url: url || null
         }]);
         closeModal('postModal');
         e.target.reset();
+        document.getElementById('postsContainer').innerHTML = '';
         loadPosts();
     };
     
@@ -227,6 +246,7 @@ function setup() {
         document.querySelectorAll('.sort-btn').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
         sort = b.dataset.sort;
+        document.getElementById('postsContainer').innerHTML = '';
         loadPosts();
     });
     
@@ -234,6 +254,8 @@ function setup() {
         if (e.target === m) m.classList.remove('active');
     });
 }
+
+window.closeModal = (id) => document.getElementById(id).classList.remove('active');
 
 function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 function ago(t) {
