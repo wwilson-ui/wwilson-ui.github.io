@@ -5,6 +5,7 @@ let currentUser = null;
 let isTeacher = false;
 let currentSubFilter = 'all';
 let currentOpenPostId = null; 
+let myVotes = { posts: {}, comments: {} }; // ADDED: Track user votes
 
 const ADJECTIVES = ['Happy', 'Brave', 'Calm', 'Swift', 'Wise', 'Bright', 'Clever', 'Kind', 'Bold'];
 const ANIMALS = ['Badger', 'Fox', 'Owl', 'Eagle', 'Bear', 'Dolphin', 'Wolf', 'Hawk', 'Tiger'];
@@ -76,12 +77,10 @@ async function checkUser() {
         currentUser = profile || { role: 'student', email: session.user.email, id: session.user.id };
         if (currentUser.email === 'wwilson@mtps.us') currentUser.role = 'teacher';
         isTeacher = currentUser.role === 'teacher';
+        
+        // Load user's votes
+        await loadMyVotes();
 
-
-                // ... (Keep your existing ADJECTIVES, ANIMALS, and setup listeners) ...
-
-// GLOBAL VOTE STATE
-let myVotes = { posts: {}, comments: {} };
 
 // 1. Load Votes when user logs in
 async function loadMyVotes() {
@@ -260,6 +259,11 @@ function createPostElement(post) {
     };
 
     const deleteBtn = isTeacher ? `<button class="delete-icon" onclick="deletePost('${post.id}')">🗑</button>` : '';
+    
+    // Get current user's vote for this post
+    const userVote = myVotes.posts[post.id] || 0;
+    const upActive = userVote === 1 ? 'active' : '';
+    const downActive = userVote === -1 ? 'active' : '';
 
     div.innerHTML = `
         <div class="post-header">
@@ -272,9 +276,9 @@ function createPostElement(post) {
         <div class="post-title" style="font-size: 1.1rem; margin-bottom: 5px;">${escapeHtml(post.title)}</div>
         
         <div class="post-footer">
-            <button class="vote-btn" onclick="vote('${post.id}', 1)">⬆</button>
-            <span>${(post.up_votes || 0) - (post.down_votes || 0)}</span>
-            <button class="vote-btn" onclick="vote('${post.id}', -1)">⬇</button>
+            <button id="btn-up-post-${post.id}" class="vote-btn up ${upActive}" onclick="vote('${post.id}', 1, 'post')">⬆</button>
+            <span id="score-post-${post.id}" class="score-text">${post.vote_count || 0}</span>
+            <button id="btn-down-post-${post.id}" class="vote-btn down ${downActive}" onclick="vote('${post.id}', -1, 'post')">⬇</button>
             <span style="font-weight:normal; font-size:0.8rem; margin-left:10px;">Click to view comments</span>
         </div>
     `;
@@ -328,6 +332,11 @@ function renderComments(comments, container) {
         const authorName = getAnonName(c.user_id);
         const realIdentity = (isTeacher || (currentUser && currentUser.id === c.user_id)) ? `(${c.profiles?.email || 'me'})` : '';
         const deleteBtn = isTeacher ? `<button class="delete-sub-x" onclick="deleteComment('${c.id}')">✕</button>` : '';
+        
+        // Get current user's vote for this comment
+        const userVote = myVotes.comments[c.id] || 0;
+        const upActive = userVote === 1 ? 'active' : '';
+        const downActive = userVote === -1 ? 'active' : '';
 
         div.innerHTML = `
             <div class="comment-header">
@@ -335,7 +344,12 @@ function renderComments(comments, container) {
                 ${deleteBtn}
             </div>
             <div style="margin-top:2px;">${escapeHtml(c.content)}</div>
-            <div style="margin-top:5px; font-size:0.8rem; color:#888; cursor:pointer;" onclick="replyToComment('${c.id}', '${authorName}')">Reply</div>
+            <div style="margin-top:8px; display:flex; align-items:center; gap:8px;">
+                <button id="btn-up-comment-${c.id}" class="vote-btn up ${upActive}" onclick="vote('${c.id}', 1, 'comment')">⬆</button>
+                <span id="score-comment-${c.id}" class="score-text" style="font-size:0.85rem;">${c.vote_count || 0}</span>
+                <button id="btn-down-comment-${c.id}" class="vote-btn down ${downActive}" onclick="vote('${c.id}', -1, 'comment')">⬇</button>
+                <span style="margin-left:10px; font-size:0.8rem; color:#888; cursor:pointer;" onclick="replyToComment('${c.id}', '${authorName}')">Reply</span>
+            </div>
             <div id="reply-box-${c.id}" style="display:none; margin-top:5px;">
                 <input type="text" id="reply-input-${c.id}" placeholder="Reply to ${authorName}..." style="width:100%; padding:5px;">
                 <button onclick="submitReply('${c.id}')" style="margin-top:5px; padding:2px 8px;">Send</button>
