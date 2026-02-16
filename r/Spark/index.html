@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>r/Spark</title>
+    <title>MTPS Spark</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,7 +13,7 @@
     <nav class="navbar">
         <div class="container">
             <div class="nav-left">
-                <h1 class="logo">r/Spark</h1>
+                <h1 class="logo">MTPS Spark</h1>
             </div>
             <div class="nav-right">
                 <div id="authSection">
@@ -57,7 +57,7 @@
         </main>
     </div>
 
-    <!-- Create Subreddit Modal -->
+    <!-- Modals -->
     <div id="subredditModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('subredditModal')">&times;</span>
@@ -70,7 +70,6 @@
         </div>
     </div>
 
-    <!-- Create Post Modal -->
     <div id="postModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('postModal')">&times;</span>
@@ -78,11 +77,22 @@
             <form id="postForm">
                 <select id="postSubreddit" required></select>
                 <input type="text" id="postTitle" placeholder="Title" required>
-                <textarea id="postContent" placeholder="Text content (optional)" rows="6"></textarea>
-                <input type="url" id="postLink" placeholder="Link URL (optional)">
-                <input type="url" id="postImage" placeholder="Image URL (optional)">
+                <div class="tabs">
+                    <button type="button" class="tab active" data-type="text">Text</button>
+                    <button type="button" class="tab" data-type="link">Link</button>
+                    <button type="button" class="tab" data-type="image">Image</button>
+                </div>
+                <textarea id="postContent" placeholder="Content"></textarea>
+                <input type="url" id="postUrl" placeholder="URL" style="display:none">
                 <button type="submit" class="btn-primary">Post</button>
             </form>
+        </div>
+    </div>
+
+    <div id="commentModal" class="modal">
+        <div class="modal-content large">
+            <span class="close" onclick="closeModal('commentModal')">&times;</span>
+            <div id="postDetail"></div>
         </div>
     </div>
 
