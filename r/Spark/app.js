@@ -330,11 +330,21 @@ function setupFormListeners() {
     
     document.getElementById('createSubForm').onsubmit = async (e) => {
         e.preventDefault();
-        const name = document.getElementById('subName').value;
-        const { error } = await sb.from('subreddits').insert([{ name }]);
-        if (error) alert(error.message);
-        else {
+        if (!currentUser) {
+            alert('You must be signed in');
+            return;
+        }
+        const name = document.getElementById('subName').value.trim().toLowerCase();
+        const { error } = await sb.from('subreddits').insert([{ 
+            name: name,
+            created_by: currentUser.id 
+        }]);
+        if (error) {
+            console.error('Subreddit creation error:', error);
+            alert('Error: ' + error.message);
+        } else {
             closeModal('createSubModal');
+            document.getElementById('subName').value = '';
             loadSubreddits();
         }
     };
