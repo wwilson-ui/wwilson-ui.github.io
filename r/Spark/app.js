@@ -77,6 +77,125 @@ async function checkUser() {
         if (currentUser.email === 'wwilson@mtps.us') currentUser.role = 'teacher';
         isTeacher = currentUser.role === 'teacher';
 
+
+                // ... (Keep your existing ADJECTIVES, ANIMALS, and setup listeners) ...
+
+// GLOBAL VOTE STATE
+let myVotes = { posts: {}, comments: {} };
+
+// 1. Load Votes when user logs in
+async function loadMyVotes() {
+    if (!currentUser) return;
+    const { data } = await sb.from('votes').select('*').eq('user_id', currentUser.id);
+    if (data) {
+        myVotes = { posts: {}, comments: {} }; // Reset
+        data.forEach(v => {
+            if (v.post_id) myVotes.posts[v.post_id] = v.vote_type;
+            if (v.comment_id) myVotes.comments[v.comment_id] = v.vote_type;
+        });
+    }
+}
+
+// 2. The Main Vote Function
+async function vote(id, typeValue, itemType = 'post') { // typeValue is 1 or -1
+    if (!currentUser) return alert("Please sign in to vote.");
+
+    // Check current state
+    const currentVote = itemType === 'post' ? myVotes.posts[id] : myVotes.comments[id];
+    
+    // DECIDE ACTION:
+    // If clicking the same button -> DELETE vote (toggle off)
+    // If clicking different button -> UPSERT (change vote)
+    // If no previous vote -> UPSERT (add vote)
+    
+    let action = 'upsert';
+    if (currentVote === typeValue) action = 'delete';
+
+    // Optimistic UI Update (Instant feedback)
+    updateVoteUI(id, action === 'delete' ? 0 : typeValue, itemType);
+
+    if (action === 'delete') {
+        // DELETE VOTE
+        // We match user_id AND the specific post/comment id
+        let query = sb.from('votes').delete().eq('user_id', currentUser.id);
+        if (itemType === 'post') query = query.eq('post_id', id);
+        else query = query.eq('comment_id', id);
+        
+        await query;
+        
+        // Update local state
+        if (itemType === 'post') delete myVotes.posts[id];
+        else delete myVotes.comments[id];
+
+    } else {
+        // INSERT/UPDATE VOTE
+        const payload = {
+            user_id: currentUser.id,
+            vote_type: typeValue
+        };
+        
+        // Handle your constraint: One ID must be null
+        if (itemType === 'post') {
+            payload.post_id = id;
+            payload.comment_id = null; 
+        } else {
+            payload.comment_id = id;
+            payload.post_id = null;
+        }
+
+        const { error } = await sb.from('votes').upsert(payload, { 
+            onConflict: itemType === 'post' ? 'user_id, post_id' : 'user_id, comment_id' 
+        });
+
+        if (error) {
+            console.error('Vote failed:', error);
+            // Revert UI if needed
+        } else {
+            // Update local state
+            if (itemType === 'post') myVotes.posts[id] = typeValue;
+            else myVotes.comments[id] = typeValue;
+        }
+    }
+}
+
+// 3. Helper to update colors/numbers instantly
+function updateVoteUI(id, newValue, type) {
+    const btnUp = document.getElementById(`btn-up-${type}-${id}`);
+    const btnDown = document.getElementById(`btn-down-${type}-${id}`);
+    const scoreSpan = document.getElementById(`score-${type}-${id}`);
+
+    if (!btnUp || !btnDown || !scoreSpan) return;
+
+    // Calculate visual score change
+    let currentScore = parseInt(scoreSpan.innerText) || 0;
+    const oldValue = (type === 'post' ? myVotes.posts[id] : myVotes.comments[id]) || 0;
+
+    // Remove old effect
+    if (oldValue === 1) currentScore--;
+    if (oldValue === -1) currentScore++;
+
+    // Add new effect
+    if (newValue === 1) currentScore++;
+    if (newValue === -1) currentScore--;
+
+    scoreSpan.innerText = currentScore;
+
+    // Update Colors
+    btnUp.classList.remove('active');
+    btnDown.classList.remove('active');
+    
+    if (newValue === 1) btnUp.classList.add('active');
+    if (newValue === -1) btnDown.classList.add('active');
+}
+
+// ... (Make sure to call loadMyVotes() inside your checkUser() or init function) ...
+
+
+
+
+
+        
+
         authSection.innerHTML = `
             <div style="display:flex; gap:10px; align-items:center;">
                 <div style="text-align:right; line-height:1.2;">
