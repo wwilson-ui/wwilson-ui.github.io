@@ -57,7 +57,7 @@
         </main>
     </div>
 
-    <!-- Modals -->
+    <!-- Create Subreddit Modal -->
     <div id="subredditModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('subredditModal')">&times;</span>
@@ -70,6 +70,7 @@
         </div>
     </div>
 
+    <!-- Create Post Modal -->
     <div id="postModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('postModal')">&times;</span>
@@ -77,8 +78,9 @@
             <form id="postForm">
                 <select id="postSubreddit" required></select>
                 <input type="text" id="postTitle" placeholder="Title" required>
-                <textarea id="postContent" placeholder="Content (optional)" rows="6"></textarea>
-                <input type="url" id="postUrl" placeholder="Link or Image URL (optional)">
+                <textarea id="postContent" placeholder="Text content (optional)" rows="6"></textarea>
+                <input type="url" id="postLink" placeholder="Link URL (optional)">
+                <input type="url" id="postImage" placeholder="Image URL (optional)">
                 <button type="submit" class="btn-primary">Post</button>
             </form>
         </div>
