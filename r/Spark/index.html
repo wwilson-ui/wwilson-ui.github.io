@@ -30,13 +30,42 @@
         </aside>
 
         <main class="main-content">
-            <div id="actionBar" class="action-bar" style="display: none;">
-                <div class="create-input" onclick="openCreateModal()">Create a Post...</div>
+            
+            <div id="feedView">
+                <div id="actionBar" class="action-bar" style="display: none;">
+                    <div class="create-input" onclick="openCreateModal()">Create a Post...</div>
+                </div>
+                <div id="postsFeed">
+                    <div style="text-align: center; padding: 40px; color: #777;">Loading feed...</div>
+                </div>
             </div>
 
-            <div id="postsFeed">
-                <div style="text-align: center; padding: 40px; color: #777;">Loading feed...</div>
+            <div id="postView" style="display: none;">
+                <button class="back-btn" onclick="showFeed()">← Back to Feed</button>
+                
+                <div class="post-card full-post-card">
+                    <div class="post-header">
+                        <span id="detailSub"></span> • Posted by <span id="detailAuthor"></span>
+                    </div>
+                    
+                    <h1 id="detailTitle" class="detail-title"></h1>
+                    <div id="detailContent" class="detail-text"></div>
+                    <img id="detailImage" class="detail-img" style="display:none;">
+                    <a id="detailLink" class="detail-link" target="_blank" style="display:none;"></a>
+
+                    <hr class="divider">
+
+                    <div class="comments-section">
+                        <h3>Comments</h3>
+                        <div id="detailCommentInput" style="display:none; margin-bottom: 20px;">
+                            <textarea id="newCommentText" class="comment-box" placeholder="What are your thoughts?" rows="3"></textarea>
+                            <button onclick="submitNewComment()" class="submit-btn small-btn" style="margin-top:10px; width:auto;">Comment</button>
+                        </div>
+                        <div id="detailCommentsList"></div>
+                    </div>
+                </div>
             </div>
+
         </main>
     </div>
 
@@ -85,35 +114,6 @@
                 </div>
                 <button type="submit" class="submit-btn">Create</button>
             </form>
-        </div>
-    </div>
-
-    <div id="viewPostModal" class="modal">
-        <div class="modal-content large-modal">
-            <div class="modal-header">
-                <div style="font-size:0.8rem; color:#777;">
-                    <span id="viewPostSub">r/Subreddit</span> • Posted by <span id="viewPostAuthor">User</span>
-                </div>
-                <button class="close-modal-btn" onclick="closeModal('viewPostModal')">&times;</button>
-            </div>
-            
-            <div class="view-post-scroll-area">
-                <h2 id="viewPostTitle" style="margin: 10px 0;">Post Title</h2>
-                <div id="viewPostContent" class="view-post-text"></div>
-                <img id="viewPostImage" class="view-post-img" style="display:none;">
-                <a id="viewPostLink" class="view-post-link" target="_blank" style="display:none;"></a>
-
-                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-
-                <div class="modal-comments-section">
-                    <h3>Comments</h3>
-                    <div id="commentInputArea" style="margin-bottom: 20px; display:none;">
-                        <textarea id="newCommentText" class="comment-box" placeholder="What are your thoughts?" rows="3"></textarea>
-                        <button onclick="submitNewComment()" class="submit-btn small-btn" style="margin-top:10px; width:auto;">Comment</button>
-                    </div>
-                    <div id="modalCommentsList"></div>
-                </div>
-            </div>
         </div>
     </div>
 
