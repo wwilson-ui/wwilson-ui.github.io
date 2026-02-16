@@ -1,216 +1,229 @@
-// Global variables - using var to avoid conflicts
+// Global variables
 var supabaseClient;
 var currentUser = null;
 var currentSubreddit = null;
 var currentSort = 'hot';
 var subreddits = [];
 
-// Initialize everything when page loads
+// Initialize when page loads
 window.addEventListener('load', async function() {
-    console.log('===============================================');
-    console.log('🚀 PAGE LOADED - Starting initialization...');
-    console.log('===============================================');
-    console.log('Current URL:', window.location.href);
-    console.log('Supabase URL from config:', SUPABASE_URL);
-    console.log('Supabase key exists:', !!SUPABASE_ANON_KEY);
+    console.log('='.repeat(50));
+    console.log('PAGE LOADED - Initializing MTPS Forum');
+    console.log('='.repeat(50));
     
-    // Give Supabase library time to load
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    console.log('Window.supabase exists:', !!window.supabase);
-    console.log('Window.supabase.createClient exists:', !!(window.supabase && window.supabase.createClient));
-    
-    // Initialize Supabase
     if (window.supabase && window.supabase.createClient) {
-        try {
-            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            console.log('✅ Supabase client created');
-            console.log('Supabase client object:', supabaseClient);
-            console.log('Supabase.auth exists:', !!supabaseClient.auth);
-            
-            // Set up Google sign-in button
-            setupGoogleSignIn();
-            
-            // Check if user is already logged in
-            await checkAuth();
-            
-            // Load content
-            await loadSubreddits();
-            await loadPosts();
-            
-            // Set up event listeners
-            setupEventListeners();
-            
-            console.log('✅ Initialization complete');
-        } catch (err) {
-            console.error('❌ Error during initialization:', err);
-            alert('Initialization error: ' + err.message);
-        }
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('✅ Supabase client created');
+        console.log('URL:', SUPABASE_URL);
+        
+        setupGoogleSignIn();
+        await checkAuth();
+        await loadSubreddits();
+        await loadPosts();
+        setupEventListeners();
+        
+        console.log('✅ Initialization complete');
     } else {
         console.error('❌ Supabase library not loaded');
-        console.error('window.supabase:', window.supabase);
-        alert('Error: Supabase library failed to load. Please refresh the page.');
+        alert('Error: Please refresh the page');
     }
 });
 
-// Set up the Google sign-in button
 function setupGoogleSignIn() {
     var btn = document.getElementById('googleSignInBtn');
-    console.log('Setting up sign-in button, found:', btn);
-    
     if (btn) {
-        btn.onclick = async function(e) {
-            console.log('🔐 SIGN IN BUTTON CLICKED!');
-            console.log('Event:', e);
-            console.log('Supabase client exists:', !!supabaseClient);
-            console.log('Supabase auth exists:', !!supabaseClient?.auth);
-            
-            // Test alert to confirm button works
-            alert('Button clicked! Check console for details.');
+        btn.onclick = async function() {
+            console.log('🔐 Starting Google sign-in...');
             
             try {
-                console.log('Attempting OAuth sign-in...');
-                var result = await supabaseClient.auth.signInWithOAuth({
+                var { data, error } = await supabaseClient.auth.signInWithOAuth({
                     provider: 'google',
                     options: {
-                        redirectTo: 'https://wwilson-ui.github.io/r/Spark/index.html',
-                        queryParams: {
-                            access_type: 'offline',
-                            prompt: 'consent',
-                        }
+                        redirectTo: window.location.origin
                     }
                 });
                 
-                console.log('OAuth response - data:', result.data, 'error:', result.error);
-                
-                if (result.error) {
-                    console.error('❌ Sign in error:', result.error);
-                    alert('Sign in failed: ' + result.error.message);
+                if (error) {
+                    console.error('❌ Sign-in error:', error);
+                    alert('Sign-in failed: ' + error.message);
                 } else {
-                    console.log('✅ Sign in initiated, data:', result.data);
+                    console.log('✅ Redirecting to Google...');
                 }
             } catch (err) {
                 console.error('❌ Unexpected error:', err);
-                alert('Unexpected error: ' + err.message);
+                alert('Error: ' + err.message);
             }
         };
-        
-        console.log('✅ Sign-in button configured');
-    } else {
-        console.error('❌ Sign-in button not found in DOM');
-        alert('ERROR: Sign-in button element not found!');
+        console.log('✅ Google sign-in button configured');
     }
 }
 
-// Check authentication status
 async function checkAuth() {
+    console.log('\n--- Checking Authentication ---');
+    
     try {
-        var result = await supabaseClient.auth.getSession();
-        var session = result.data.session;
+        var { data: { session }, error } = await supabaseClient.auth.getSession();
+        
+        console.log('Session check result:', { 
+            hasSession: !!session, 
+            error: error 
+        });
         
         if (session) {
-            console.log('✅ User logged in:', session.user.email);
+            console.log('✅ ACTIVE SESSION FOUND');
+            console.log('User email:', session.user.email);
+            console.log('User ID:', session.user.id);
+            
+            // Try to load profile
             await loadUserProfile(session.user);
         } else {
-            console.log('ℹ️  No active session');
+            console.log('ℹ️  No active session - user not signed in');
         }
         
-        // Listen for auth changes
+        // Listen for auth state changes
         supabaseClient.auth.onAuthStateChange(async (event, session) => {
-            console.log('Auth changed:', event);
+            console.log('\n🔄 AUTH STATE CHANGE:', event);
             
-            if (event === 'SIGNED_IN') {
+            if (event === 'SIGNED_IN' && session) {
+                console.log('User signed in:', session.user.email);
+                
+                // Wait a bit for the trigger to create the profile
+                console.log('Waiting 2 seconds for profile creation...');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
                 await loadUserProfile(session.user);
                 await loadSubreddits();
                 await loadPosts();
             } else if (event === 'SIGNED_OUT') {
+                console.log('User signed out');
                 currentUser = null;
                 location.reload();
+            } else if (event === 'TOKEN_REFRESHED') {
+                console.log('Token refreshed');
             }
         });
     } catch (err) {
-        console.error('Auth check error:', err);
+        console.error('❌ Auth check error:', err);
     }
 }
 
-// Load user profile
 async function loadUserProfile(user) {
+    console.log('\n--- Loading User Profile ---');
+    console.log('User ID:', user.id);
+    console.log('User email:', user.email);
+    
     try {
-        // Wait a moment for trigger to create profile
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        var result = await supabaseClient
+        var { data: profile, error } = await supabaseClient
             .from('profiles')
             .select('*')
             .eq('id', user.id)
             .single();
         
-        if (result.data) {
-            currentUser = result.data;
-            console.log('✅ Profile loaded:', result.data.username, result.data.role);
+        console.log('Profile query result:', { profile, error });
+        
+        if (error) {
+            console.error('❌ ERROR loading profile:', error);
+            
+            if (error.code === 'PGRST116') {
+                console.log('⚠️  Profile does not exist!');
+                console.log('This means either:');
+                console.log('1. The database schema was not run');
+                console.log('2. The trigger failed to create the profile');
+                console.log('3. Your email is not @mtps.us');
+                
+                alert('ERROR: Profile not found. Did you run the database schema? Is your email @mtps.us?');
+            }
+            
+            // Try again in 3 seconds
+            console.log('Retrying in 3 seconds...');
+            setTimeout(() => loadUserProfile(user), 3000);
+            return;
+        }
+        
+        if (profile) {
+            currentUser = profile;
+            console.log('✅ PROFILE LOADED SUCCESSFULLY');
+            console.log('Username:', profile.username);
+            console.log('Role:', profile.role);
+            console.log('Email:', profile.email);
+            
             updateAuthUI();
-        } else {
-            console.error('Profile not found:', result.error);
-            // Try again in 2 seconds
-            setTimeout(() => loadUserProfile(user), 2000);
+            showUserButtons();
         }
     } catch (err) {
-        console.error('Profile load error:', err);
+        console.error('❌ Unexpected error loading profile:', err);
     }
 }
 
-// Update the auth section UI
 function updateAuthUI() {
     var authSection = document.getElementById('authSection');
-    if (!authSection) return;
+    if (!authSection || !currentUser) return;
     
-    if (currentUser) {
-        var initial = currentUser.username ? currentUser.username[0].toUpperCase() : 'U';
-        authSection.innerHTML = `
-            <div class="user-info">
-                <div class="user-avatar">${initial}</div>
-                <div>
-                    <div class="user-name">Logged in as ${currentUser.username}</div>
-                    <div class="user-role">${currentUser.role.toUpperCase()}</div>
-                </div>
+    console.log('\n--- Updating Auth UI ---');
+    console.log('Showing user info for:', currentUser.username);
+    
+    var initial = currentUser.username ? currentUser.username[0].toUpperCase() : 'U';
+    
+    authSection.innerHTML = `
+        <div class="user-info">
+            <div class="user-avatar">${initial}</div>
+            <div>
+                <div class="user-name">Logged in as ${currentUser.username}</div>
+                <div class="user-role">${currentUser.role.toUpperCase()}</div>
             </div>
-            <button class="btn btn-secondary" id="signOutBtn">Sign Out</button>
-        `;
-        
-        // Set up sign out button
-        document.getElementById('signOutBtn').onclick = async function() {
-            await supabaseClient.auth.signOut();
-        };
-        
-        // Show create post button
-        document.getElementById('createPostBtn').style.display = 'block';
-        
-        // Show create subreddit button for teachers
-        if (currentUser.role === 'teacher') {
-            document.getElementById('createSubredditBtn').style.display = 'block';
+        </div>
+        <button class="btn btn-secondary" id="signOutBtn">Sign Out</button>
+    `;
+    
+    document.getElementById('signOutBtn').onclick = async function() {
+        console.log('🔓 Signing out...');
+        await supabaseClient.auth.signOut();
+    };
+    
+    console.log('✅ Auth UI updated');
+}
+
+function showUserButtons() {
+    console.log('\n--- Showing User Buttons ---');
+    
+    // Show create post button for everyone
+    var createPostBtn = document.getElementById('createPostBtn');
+    if (createPostBtn) {
+        createPostBtn.style.display = 'block';
+        console.log('✅ Create Post button shown');
+    }
+    
+    // Show create subreddit button for teachers
+    if (currentUser.role === 'teacher') {
+        var createSubBtn = document.getElementById('createSubredditBtn');
+        if (createSubBtn) {
+            createSubBtn.style.display = 'block';
+            console.log('✅ Create Subreddit button shown (teacher)');
         }
     }
 }
 
-// Load subreddits
 async function loadSubreddits() {
     try {
-        var result = await supabaseClient
+        var { data, error } = await supabaseClient
             .from('subreddits')
             .select('*')
             .order('name');
         
-        if (result.data) {
-            subreddits = result.data;
-            console.log('✅ Loaded', result.data.length, 'communities');
+        if (data) {
+            subreddits = data;
+            console.log('✅ Loaded', data.length, 'communities');
             renderSubreddits();
+        } else if (error) {
+            console.error('Error loading subreddits:', error);
         }
     } catch (err) {
         console.error('Error loading subreddits:', err);
     }
 }
 
-// Render subreddits list
 function renderSubreddits() {
     var list = document.getElementById('subredditsList');
     if (!list) return;
@@ -232,7 +245,6 @@ function renderSubreddits() {
         `).join('')}
     `;
     
-    // Update post form dropdown
     var select = document.getElementById('postSubreddit');
     if (select) {
         select.innerHTML = subreddits.map(sub => 
@@ -241,7 +253,6 @@ function renderSubreddits() {
     }
 }
 
-// Filter posts by subreddit
 window.filterBySubreddit = function(subredditId) {
     if (subredditId) {
         currentSubreddit = subreddits.find(s => s.id === subredditId);
@@ -254,7 +265,6 @@ window.filterBySubreddit = function(subredditId) {
     renderSubreddits();
 };
 
-// Load posts
 async function loadPosts() {
     try {
         var query = supabaseClient
@@ -269,25 +279,25 @@ async function loadPosts() {
             query = query.eq('subreddit_id', currentSubreddit.id);
         }
         
-        // Sort
         if (currentSort === 'new') {
             query = query.order('created_at', { ascending: false });
         } else {
             query = query.order('vote_count', { ascending: false });
         }
         
-        var result = await query;
+        var { data, error } = await query;
         
-        if (result.data) {
-            console.log('✅ Loaded', result.data.length, 'posts');
-            renderPosts(result.data);
+        if (data) {
+            console.log('✅ Loaded', data.length, 'posts');
+            renderPosts(data);
+        } else if (error) {
+            console.error('Error loading posts:', error);
         }
     } catch (err) {
         console.error('Error loading posts:', err);
     }
 }
 
-// Render posts
 function renderPosts(posts) {
     var container = document.getElementById('postsContainer');
     if (!container) return;
@@ -300,7 +310,6 @@ function renderPosts(posts) {
     container.innerHTML = posts.map(post => createPostCard(post)).join('');
 }
 
-// Create post card HTML
 function createPostCard(post) {
     var timeAgo = getTimeAgo(post.created_at);
     var canDelete = currentUser && (currentUser.id === post.user_id || currentUser.role === 'teacher');
@@ -346,7 +355,6 @@ function createPostCard(post) {
     `;
 }
 
-// Vote on post
 window.vote = async function(postId, voteType) {
     if (!currentUser) {
         alert('Please sign in to vote');
@@ -354,25 +362,20 @@ window.vote = async function(postId, voteType) {
     }
     
     try {
-        var result = await supabaseClient
+        var { data: existingVote } = await supabaseClient
             .from('votes')
             .select('*')
             .eq('user_id', currentUser.id)
             .eq('post_id', postId)
             .single();
         
-        var existingVote = result.data;
-        
         if (existingVote) {
             if (existingVote.vote_type === voteType) {
-                // Remove vote
                 await supabaseClient.from('votes').delete().eq('id', existingVote.id);
             } else {
-                // Change vote
                 await supabaseClient.from('votes').update({ vote_type: voteType }).eq('id', existingVote.id);
             }
         } else {
-            // New vote
             await supabaseClient.from('votes').insert([{
                 user_id: currentUser.id,
                 post_id: postId,
@@ -386,7 +389,6 @@ window.vote = async function(postId, voteType) {
     }
 };
 
-// Delete post
 window.deletePost = async function(postId) {
     if (!confirm('Delete this post?')) return;
     
@@ -398,29 +400,27 @@ window.deletePost = async function(postId) {
     }
 };
 
-// Open post detail
 window.openPost = async function(postId) {
     try {
-        var postResult = await supabaseClient
+        var { data: post } = await supabaseClient
             .from('posts')
             .select(`*, profiles:user_id (username, role), subreddits:subreddit_id (name)`)
             .eq('id', postId)
             .single();
         
-        var commentsResult = await supabaseClient
+        var { data: comments } = await supabaseClient
             .from('comments')
             .select(`*, profiles:user_id (username, role)`)
             .eq('post_id', postId)
             .order('created_at');
         
-        document.getElementById('postDetailContent').innerHTML = renderPostDetail(postResult.data, commentsResult.data || []);
+        document.getElementById('postDetailContent').innerHTML = renderPostDetail(post, comments || []);
         document.getElementById('postDetailModal').classList.add('active');
     } catch (err) {
         console.error('Error opening post:', err);
     }
 };
 
-// Render post detail
 function renderPostDetail(post, comments) {
     var canDelete = currentUser && (currentUser.id === post.user_id || currentUser.role === 'teacher');
     
@@ -459,7 +459,6 @@ function renderPostDetail(post, comments) {
     `;
 }
 
-// Render comments
 function renderComments(comments, allComments, postId) {
     if (comments.length === 0) {
         return '<p style="color: var(--text-muted); padding: 2rem 0;">No comments yet</p>';
@@ -490,13 +489,11 @@ function renderComments(comments, allComments, postId) {
     }).join('');
 }
 
-// Add comment
 window.addComment = async function(postId, parentId) {
     if (!currentUser) return;
     
     var textId = parentId ? `reply-text-${parentId}` : 'newComment';
-    var textElement = document.getElementById(textId);
-    var text = textElement?.value?.trim();
+    var text = document.getElementById(textId)?.value?.trim();
     
     if (!text) return;
     
@@ -514,7 +511,6 @@ window.addComment = async function(postId, parentId) {
     }
 };
 
-// Delete comment
 window.deleteComment = async function(commentId, postId) {
     if (!confirm('Delete this comment?')) return;
     
@@ -526,7 +522,6 @@ window.deleteComment = async function(commentId, postId) {
     }
 };
 
-// Show reply form
 window.showReplyForm = function(commentId) {
     var form = document.getElementById(`reply-${commentId}`);
     if (form) {
@@ -534,14 +529,11 @@ window.showReplyForm = function(commentId) {
     }
 };
 
-// Close modal
 window.closeModal = function(modalId) {
     document.getElementById(modalId)?.classList.remove('active');
 };
 
-// Set up event listeners
 function setupEventListeners() {
-    // Create subreddit button
     var createSubBtn = document.getElementById('createSubredditBtn');
     if (createSubBtn) {
         createSubBtn.addEventListener('click', function() {
@@ -549,7 +541,6 @@ function setupEventListeners() {
         });
     }
     
-    // Create subreddit form
     var createSubForm = document.getElementById('createSubredditForm');
     if (createSubForm) {
         createSubForm.addEventListener('submit', async function(e) {
@@ -576,7 +567,6 @@ function setupEventListeners() {
         });
     }
     
-    // Create post button
     var createPostBtn = document.getElementById('createPostBtn');
     if (createPostBtn) {
         createPostBtn.addEventListener('click', function() {
@@ -584,7 +574,6 @@ function setupEventListeners() {
         });
     }
     
-    // Post type tabs
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.tab-btn').forEach(function(b) {
@@ -596,14 +585,10 @@ function setupEventListeners() {
             document.querySelectorAll('.post-content-section').forEach(function(s) {
                 s.style.display = 'none';
             });
-            var contentSection = document.getElementById(type + 'PostContent');
-            if (contentSection) {
-                contentSection.style.display = 'block';
-            }
+            document.getElementById(type + 'PostContent').style.display = 'block';
         });
     });
     
-    // Create post form
     var createPostForm = document.getElementById('createPostForm');
     if (createPostForm) {
         createPostForm.addEventListener('submit', async function(e) {
@@ -613,8 +598,7 @@ function setupEventListeners() {
             
             var subredditId = document.getElementById('postSubreddit').value;
             var title = document.getElementById('postTitle').value.trim();
-            var activeTab = document.querySelector('.tab-btn.active');
-            var activeType = activeTab.dataset.type;
+            var activeType = document.querySelector('.tab-btn.active').dataset.type;
             
             var content = '';
             var url = '';
@@ -642,11 +626,11 @@ function setupEventListeners() {
                 e.target.reset();
             } catch (err) {
                 console.error('Create post error:', err);
+                alert('Error creating post: ' + err.message);
             }
         });
     }
     
-    // Sort buttons
     document.querySelectorAll('.sort-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.sort-btn').forEach(function(b) {
@@ -658,7 +642,6 @@ function setupEventListeners() {
         });
     });
     
-    // Close modals on outside click
     document.querySelectorAll('.modal').forEach(function(modal) {
         modal.addEventListener('click', function(e) {
             if (e.target === modal) {
@@ -670,7 +653,6 @@ function setupEventListeners() {
     console.log('✅ Event listeners configured');
 }
 
-// Utility functions
 function escapeHtml(text) {
     var div = document.createElement('div');
     div.textContent = text;
@@ -682,8 +664,7 @@ function getTimeAgo(timestamp) {
     var intervals = { year: 31536000, month: 2592000, week: 604800, day: 86400, hour: 3600, minute: 60 };
     
     for (var unit in intervals) {
-        var secondsInUnit = intervals[unit];
-        var interval = Math.floor(seconds / secondsInUnit);
+        var interval = Math.floor(seconds / intervals[unit]);
         if (interval >= 1) {
             return interval + ' ' + unit + (interval > 1 ? 's' : '') + ' ago';
         }
