@@ -233,6 +233,71 @@ body {
 }
 .view-post-link:hover { text-decoration: underline; }
 
+/* Back Button */
+.back-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.9rem;
+}
+.back-btn:hover { color: var(--primary); text-decoration: underline; }
+
+/* Full Page Post Style */
+.full-post-card {
+    background: white;
+    padding: 30px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    min-height: 80vh; /* Takes up substantial screen space */
+}
+
+.detail-title {
+    font-size: 1.6rem;
+    margin: 10px 0 20px 0;
+}
+
+.detail-text {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #1a1a1b;
+    margin-bottom: 20px;
+}
+
+.detail-img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    max-height: 600px;
+    object-fit: contain;
+    background: #f8f8f8;
+}
+
+.detail-link {
+    display: inline-block;
+    padding: 12px 16px;
+    background: #f0f7ff;
+    border: 1px solid #cce5ff;
+    border-radius: 4px;
+    color: #0079D3;
+    text-decoration: none;
+    margin-bottom: 20px;
+}
+
+.divider {
+    border: 0;
+    border-top: 1px solid #eee;
+    margin: 30px 0;
+}
+
+
+
+
 /* Comments */
 .comment-box {
     width: 100%;
