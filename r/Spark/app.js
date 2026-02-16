@@ -4,7 +4,6 @@ window.addEventListener('load', async () => {
     await new Promise(r => setTimeout(r, 800));
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
-    // Sign in button
     document.getElementById('signInBtn').onclick = () => {
         sb.auth.signInWithOAuth({
             provider: 'google',
@@ -12,7 +11,6 @@ window.addEventListener('load', async () => {
         });
     };
     
-    // Check session
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
         const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
