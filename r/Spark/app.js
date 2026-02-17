@@ -1,4 +1,4 @@
-// app.js - CLIENT SIDE CREATION VERSION
+// app.js - FINAL FIXED VERSION
 
 let sb = null;
 let currentUser = null;
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupFormListeners();
 });
 
-// ================= AUTHENTICATION (FIXED) =================
+// ================= AUTHENTICATION =================
 async function checkUser() {
     const { data: { session } } = await sb.auth.getSession();
     const authSection = document.getElementById('authSection');
@@ -40,56 +40,64 @@ async function checkUser() {
     if (session) {
         console.log('✅ Session active:', session.user.email);
         
-        // 1. Try to get the profile
-        let { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+        try {
+            // 1. Try to get the profile
+            let { data: profile, error: fetchError } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
 
-        // 2. If profile doesn't exist, CREATE IT NOW
-        if (!profile) {
-            console.log('✨ New user detected! Creating profile...');
-            const newProfile = {
-                id: session.user.id, // The crucial link
-                email: session.user.email,
-                username: session.user.email.split('@')[0],
-                role: 'student'
-            };
-            
-            const { error } = await sb.from('profiles').insert([newProfile]);
-            
-            if (error) {
-                console.error('Error creating profile:', error);
-                alert("Error setting up your profile. Please try logging out and back in.");
-                return;
+            // 2. If profile doesn't exist, CREATE IT NOW
+            if (!profile) {
+                console.log('✨ New user detected! Creating profile...');
+                const newProfile = {
+                    id: session.user.id,
+                    email: session.user.email,
+                    username: session.user.email.split('@')[0], // username is email prefix
+                    role: 'student'
+                };
+                
+                const { error: insertError } = await sb.from('profiles').insert([newProfile]);
+                
+                if (insertError) {
+                    throw insertError; // Jump to the catch block
+                }
+                // Use the object we just created
+                profile = newProfile;
             }
-            // Use the object we just created
-            profile = newProfile;
-        }
 
-        // 3. Set the current user
-        currentUser = profile;
-        
-        // Teacher Check
-        if (currentUser.email === 'wwilson@mtps.us') {
-            currentUser.role = 'teacher';
-        }
-        isTeacher = currentUser.role === 'teacher';
+            // 3. Set the current user
+            currentUser = profile;
+            
+            // Teacher Check
+            if (currentUser.email === 'wwilson@mtps.us') {
+                currentUser.role = 'teacher';
+            }
+            isTeacher = currentUser.role === 'teacher';
 
-        // Load Votes
-        await loadMyVotes();
+            // Load Votes
+            await loadMyVotes();
 
-        // Render UI
-        authSection.innerHTML = `
-            <div style="display:flex; gap:10px; align-items:center;">
-                <div style="text-align:right; line-height:1.2;">
-                    <div style="font-weight:bold; font-size:0.9rem;">${currentUser.username}</div>
-                    <div style="font-size:0.75rem; color:${isTeacher ? '#0079D3' : '#00D9A5'}; font-weight:bold; text-transform:uppercase;">${isTeacher ? 'TEACHER' : 'STUDENT'}</div>
+            // Render UI: Logged In
+            authSection.innerHTML = `
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <div style="text-align:right; line-height:1.2;">
+                        <div style="font-weight:bold; font-size:0.9rem;">${currentUser.username}</div>
+                        <div style="font-size:0.75rem; color:${isTeacher ? '#0079D3' : '#00D9A5'}; font-weight:bold; text-transform:uppercase;">${isTeacher ? 'TEACHER' : 'STUDENT'}</div>
+                    </div>
+                    <button class="google-btn" onclick="signOut()" style="padding: 4px 10px; font-size: 0.8rem;">Sign Out</button>
                 </div>
-                <button class="google-btn" onclick="signOut()" style="padding: 4px 10px; font-size: 0.8rem;">Sign Out</button>
-            </div>
-        `;
-        
-        if (actionBar) actionBar.style.display = 'flex';
-        const sidebarAddBtn = document.getElementById('sidebarAddBtn');
-        if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
+            `;
+            
+            if (actionBar) actionBar.style.display = 'flex';
+            const sidebarAddBtn = document.getElementById('sidebarAddBtn');
+            if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
+
+        } catch (err) {
+            console.error('❌ Critical Auth Error:', err);
+            // FAIL SAFE: Show Sign Out button even if error occurs
+            authSection.innerHTML = `
+                <div style="color:red; font-size:0.8rem; margin-right:10px;">Login Error: ${err.message}</div>
+                <button class="google-btn" onclick="signOut()">Force Sign Out</button>
+            `;
+        }
 
     } else {
         // Not Logged In
@@ -126,14 +134,11 @@ function showFeed() {
 
 function openPostPage(post, authorName, realIdentity) {
     currentOpenPostId = post.id;
-    console.log('📖 Opening post:', post.id);
 
-    // Toggle Views
     document.getElementById('feedView').style.display = 'none';
     document.getElementById('postView').style.display = 'block';
     window.scrollTo(0, 0);
 
-    // Fill Data
     document.getElementById('detailSub').textContent = `r/${post.subreddits ? post.subreddits.name : 'Unknown'}`;
     document.getElementById('detailAuthor').innerHTML = `${authorName} <span style="color:#ff4500;">${realIdentity}</span>`;
     document.getElementById('detailTitle').textContent = post.title;
@@ -149,11 +154,10 @@ function openPostPage(post, authorName, realIdentity) {
     if (post.url) { linkEl.href = post.url; linkEl.textContent = `🔗 ${post.url}`; linkEl.style.display = 'block'; }
     else { linkEl.style.display = 'none'; }
 
-    // VOTING (Using detail- prefix)
+    // VOTING
     const score = (post.up_votes || 0) - (post.down_votes || 0);
     const myVote = myVotes.posts[post.id] || 0;
 
-    // Inject Vote Buttons
     const titleEl = document.getElementById('detailTitle');
     const oldVote = document.getElementById('detail-vote-container');
     if (oldVote) oldVote.remove();
@@ -173,7 +177,6 @@ function openPostPage(post, authorName, realIdentity) {
         titleEl.parentNode.appendChild(voteDiv);
     }
 
-    // Show Comments Input
     document.getElementById('detailCommentInput').style.display = currentUser ? 'block' : 'none';
     loadDetailComments(post.id);
 }
