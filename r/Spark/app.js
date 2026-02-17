@@ -35,60 +35,54 @@ function showFeed() {
     currentOpenPostId = null;
 }
 
-// In app.js
-
 function openPostPage(post, authorName, realIdentity) {
     currentOpenPostId = post.id;
     console.log('📖 Opening post:', post.id);
 
-    // 1. Get the Modal Elements
-    const modal = document.getElementById('postDetailModal');
-    const contentDiv = document.getElementById('postDetailContent');
+    // Toggle Views
+    document.getElementById('feedView').style.display = 'none';
+    document.getElementById('postView').style.display = 'block';
+    window.scrollTo(0, 0);
+
+    // Fill Data
+    document.getElementById('detailSub').textContent = `r/${post.subreddits ? post.subreddits.name : 'Unknown'}`;
+    document.getElementById('detailAuthor').innerHTML = `${authorName} <span style="color:#ff4500;">${realIdentity}</span>`;
+    document.getElementById('detailTitle').textContent = post.title;
     
-    // 2. Calculate Score & Active Vote State
-    const score = (post.up_votes || 0) - (post.down_votes || 0);
-    const myVote = myVotes.posts[post.id] || 0; // 0, 1, or -1
+    const contentDiv = document.getElementById('detailContent');
+    contentDiv.innerHTML = post.content ? escapeHtml(post.content).replace(/\n/g, '<br>') : '';
     
-    const upActive = myVote === 1 ? 'active' : '';
-    const downActive = myVote === -1 ? 'active' : '';
-
-    // 3. Build the HTML String (Includes the new Detail IDs)
-    contentDiv.innerHTML = `
-        <div style="margin-bottom: 15px;">
-            <span style="font-size: 0.9rem; color: #555;">r/${post.subreddits ? escapeHtml(post.subreddits.name) : 'Unknown'}</span>
-            <span style="font-size: 0.9rem; color: #777;"> • Posted by ${authorName} <span style="color:#FF4500;">${realIdentity || ''}</span></span>
-        </div>
-
-        <h2 style="font-size: 1.5rem; margin-bottom: 10px;">${escapeHtml(post.title)}</h2>
-
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
-            <button id="detail-btn-up-post-${post.id}" class="vote-btn up ${upActive}" onclick="vote('${post.id}', 1, 'post')">⬆</button>
-            <span id="detail-score-post-${post.id}" class="score-text" style="font-size: 1.1rem;">${score}</span>
-            <button id="detail-btn-down-post-${post.id}" class="vote-btn down ${downActive}" onclick="vote('${post.id}', -1, 'post')">⬇</button>
-        </div>
-
-        ${post.image_url ? `<img src="${escapeHtml(post.image_url)}" class="post-image" style="width:100%; max-height:600px; object-fit:contain; border-radius:8px; margin-bottom:15px; display:block;">` : ''}
-
-        ${post.content ? `<div style="font-size: 1rem; line-height: 1.6; margin-bottom: 15px; white-space: pre-wrap;">${escapeHtml(post.content)}</div>` : ''}
-
-        ${post.url ? `<a href="${escapeHtml(post.url)}" target="_blank" style="display:block; color:#0079D3; margin-bottom:15px;">🔗 ${escapeHtml(post.url)}</a>` : ''}
-
-        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-
-        <div id="detailCommentInput" style="margin-bottom: 20px; display: ${currentUser ? 'block' : 'none'};">
-            <textarea id="newCommentText" class="comment-box" placeholder="What are your thoughts?" rows="3" style="width:100%; margin-bottom:10px; padding:10px;"></textarea>
-            <button class="submit-btn small-btn" onclick="submitComment('${post.id}')">Comment</button>
-        </div>
-
-        <div id="detailCommentsList"></div>
-    `;
-
-    // 4. Show the Modal
-    modal.classList.add('active');
+    const imgEl = document.getElementById('detailImage');
+    if (post.image_url) { imgEl.src = post.image_url; imgEl.style.display = 'block'; }
+    else { imgEl.style.display = 'none'; }
     
-    // 5. Load Comments
-    loadDetailComments(post.id);
-}
+    const linkEl = document.getElementById('detailLink');
+    if (post.url) { linkEl.href = post.url; linkEl.textContent = `🔗 ${post.url}`; linkEl.style.display = 'block'; }
+    else { linkEl.style.display = 'none'; }
+
+    // Add voting buttons to the expanded post view
+    const userVote = myVotes.posts[post.id] || 0;
+    const upActive = userVote === 1 ? 'active' : '';
+    const downActive = userVote === -1 ? 'active' : '';
+    
+    // Remove existing vote section if it exists
+    const existingVoteSection = document.getElementById('detailVoteSection');
+    if (existingVoteSection) existingVoteSection.remove();
+    
+    // Create voting section
+    const voteSection = document.createElement('div');
+    voteSection.id = 'detailVoteSection';
+    voteSection.style.cssText = 'display: flex; align-items: center; gap: 15px; margin: 20px 0; padding: 15px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee;';
+    
+    // Create upvote button
+    const upBtn = document.createElement('button');
+    upBtn.id = `btn-up-post-${post.id}`;
+    upBtn.className = `vote-btn up ${upActive}`;
+    upBtn.textContent = '⬆';
+    upBtn.onclick = (e) => {
+        e.stopPropagation();
+        window.vote(post.id, 1, 'post');
+    };
     
     // Create score display
     const scoreSpan = document.createElement('span');
@@ -104,7 +98,6 @@ function openPostPage(post, authorName, realIdentity) {
     downBtn.textContent = '⬇';
     downBtn.onclick = (e) => {
         e.stopPropagation();
-        console.log('⬇ Downvote clicked in detail view');
         window.vote(post.id, -1, 'post');
     };
     
