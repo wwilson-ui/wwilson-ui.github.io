@@ -268,48 +268,46 @@ window.vote = async function(id, typeValue, itemType = 'post') { // typeValue is
 }
 
 // 3. Helper to update colors/numbers instantly
+
 function updateVoteUI(id, newValue, type) {
-    const btnUp = document.getElementById(`btn-up-${type}-${id}`);
-    const btnDown = document.getElementById(`btn-down-${type}-${id}`);
-    const scoreSpan = document.getElementById(`score-${type}-${id}`);
+    // 1. Define a helper that updates ONE set of buttons
+    const updateButtons = (prefix) => {
+        // Construct the ID (e.g., "btn-up-post-123" OR "detail-btn-up-post-123")
+        const idPrefix = prefix ? `${prefix}-` : ''; 
+        const btnUp = document.getElementById(`${idPrefix}btn-up-${type}-${id}`);
+        const btnDown = document.getElementById(`${idPrefix}btn-down-${type}-${id}`);
+        const scoreSpan = document.getElementById(`${idPrefix}score-${type}-${id}`);
 
-    console.log('🎨 updateVoteUI called:', { id, newValue, type });
-    console.log('🔍 Elements found:', { 
-        btnUp: !!btnUp, 
-        btnDown: !!btnDown, 
-        scoreSpan: !!scoreSpan,
-        btnUpId: `btn-up-${type}-${id}`,
-        btnDownId: `btn-down-${type}-${id}`,
-        scoreId: `score-${type}-${id}`
-    });
+        if (!btnUp || !btnDown || !scoreSpan) return; // Skip if elements aren't on screen
 
-    if (!btnUp || !btnDown || !scoreSpan) {
-        console.warn('⚠️ Vote UI elements not found, vote will still save but UI won\'t update immediately');
-        return;
-    }
+        // Calculate visual score change
+        let currentScore = parseInt(scoreSpan.innerText) || 0;
+        const oldValue = (type === 'post' ? myVotes.posts[id] : myVotes.comments[id]) || 0;
 
-    // Calculate visual score change
-    let currentScore = parseInt(scoreSpan.innerText) || 0;
-    const oldValue = (type === 'post' ? myVotes.posts[id] : myVotes.comments[id]) || 0;
+        // Undo old vote
+        if (oldValue === 1) currentScore--;
+        if (oldValue === -1) currentScore++;
 
-    // Remove old effect
-    if (oldValue === 1) currentScore--;
-    if (oldValue === -1) currentScore++;
+        // Apply new vote
+        if (newValue === 1) currentScore++;
+        if (newValue === -1) currentScore--;
 
-    // Add new effect
-    if (newValue === 1) currentScore++;
-    if (newValue === -1) currentScore--;
+        scoreSpan.innerText = currentScore;
 
-    scoreSpan.innerText = currentScore;
+        // Update Colors
+        btnUp.classList.remove('active');
+        btnDown.classList.remove('active');
+        
+        if (newValue === 1) btnUp.classList.add('active');
+        if (newValue === -1) btnDown.classList.add('active');
+    };
 
-    // Update Colors
-    btnUp.classList.remove('active');
-    btnDown.classList.remove('active');
+    // 2. Run the helper for BOTH locations
+    // Update the Main Feed (no prefix)
+    updateButtons('');
     
-    if (newValue === 1) btnUp.classList.add('active');
-    if (newValue === -1) btnDown.classList.add('active');
-    
-    console.log('✅ Vote UI updated successfully');
+    // Update the Detail View (prefix 'detail')
+    updateButtons('detail');
 }
 
 // ... (Make sure to call loadMyVotes() inside your checkUser() or init function) ...
