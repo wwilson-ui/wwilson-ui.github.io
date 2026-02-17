@@ -37,6 +37,8 @@ function showFeed() {
 
 function openPostPage(post, authorName, realIdentity) {
     currentOpenPostId = post.id;
+    
+    console.log('📖 Opening post:', post.id, 'Current votes:', myVotes);
 
     // Toggle Views
     document.getElementById('feedView').style.display = 'none';
@@ -64,20 +66,54 @@ function openPostPage(post, authorName, realIdentity) {
     const upActive = userVote === 1 ? 'active' : '';
     const downActive = userVote === -1 ? 'active' : '';
     
-    // Insert voting section after the link (or after content if no link)
-    const voteSection = document.createElement('div');
-    voteSection.id = 'detailVoteSection';
-    voteSection.style.cssText = 'display: flex; align-items: center; gap: 15px; margin: 20px 0; padding: 15px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee;';
-    voteSection.innerHTML = `
-        <button id="btn-up-post-${post.id}" class="vote-btn up ${upActive}" onclick="vote('${post.id}', 1, 'post')">⬆</button>
-        <span id="score-post-${post.id}" class="score-text" style="font-weight: bold; font-size: 1rem;">${post.vote_count || 0}</span>
-        <button id="btn-down-post-${post.id}" class="vote-btn down ${downActive}" onclick="vote('${post.id}', -1, 'post')">⬇</button>
-        <span style="color: var(--text-secondary); font-size: 0.9rem; margin-left: 10px;">Vote on this post</span>
-    `;
-    
     // Remove existing vote section if it exists
     const existingVoteSection = document.getElementById('detailVoteSection');
     if (existingVoteSection) existingVoteSection.remove();
+    
+    // Create voting section
+    const voteSection = document.createElement('div');
+    voteSection.id = 'detailVoteSection';
+    voteSection.style.cssText = 'display: flex; align-items: center; gap: 15px; margin: 20px 0; padding: 15px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee;';
+    
+    // Create upvote button
+    const upBtn = document.createElement('button');
+    upBtn.id = `btn-up-post-${post.id}`;
+    upBtn.className = `vote-btn up ${upActive}`;
+    upBtn.textContent = '⬆';
+    upBtn.onclick = (e) => {
+        e.stopPropagation();
+        console.log('⬆ Upvote clicked in detail view');
+        window.vote(post.id, 1, 'post');
+    };
+    
+    // Create score display
+    const scoreSpan = document.createElement('span');
+    scoreSpan.id = `score-post-${post.id}`;
+    scoreSpan.className = 'score-text';
+    scoreSpan.style.cssText = 'font-weight: bold; font-size: 1rem;';
+    scoreSpan.textContent = post.vote_count || 0;
+    
+    // Create downvote button
+    const downBtn = document.createElement('button');
+    downBtn.id = `btn-down-post-${post.id}`;
+    downBtn.className = `vote-btn down ${downActive}`;
+    downBtn.textContent = '⬇';
+    downBtn.onclick = (e) => {
+        e.stopPropagation();
+        console.log('⬇ Downvote clicked in detail view');
+        window.vote(post.id, -1, 'post');
+    };
+    
+    // Create helper text
+    const helperText = document.createElement('span');
+    helperText.style.cssText = 'color: var(--text-secondary); font-size: 0.9rem; margin-left: 10px;';
+    helperText.textContent = 'Vote on this post';
+    
+    // Assemble vote section
+    voteSection.appendChild(upBtn);
+    voteSection.appendChild(scoreSpan);
+    voteSection.appendChild(downBtn);
+    voteSection.appendChild(helperText);
     
     // Insert the vote section before the divider
     const divider = document.querySelector('#postView hr.divider');
@@ -196,6 +232,32 @@ window.vote = async function(id, typeValue, itemType = 'post') { // typeValue is
             // Update local state
             if (itemType === 'post') myVotes.posts[id] = typeValue;
             else myVotes.comments[id] = typeValue;
+            
+            // If we're in the detail view, refresh the vote buttons
+            if (currentOpenPostId && currentOpenPostId === id && itemType === 'post') {
+                console.log('🔄 Refreshing detail view vote buttons');
+                const voteSection = document.getElementById('detailVoteSection');
+                if (voteSection) {
+                    // Simply reload the vote count from database
+                    const { data: post } = await sb.from('posts').select('vote_count').eq('id', id).single();
+                    const scoreSpan = document.getElementById(`score-post-${id}`);
+                    if (scoreSpan && post) {
+                        scoreSpan.textContent = post.vote_count || 0;
+                    }
+                    
+                    // Update button states based on new vote
+                    const upBtn = document.getElementById(`btn-up-post-${id}`);
+                    const downBtn = document.getElementById(`btn-down-post-${id}`);
+                    if (upBtn && downBtn) {
+                        upBtn.classList.remove('active');
+                        downBtn.classList.remove('active');
+                        const newVote = myVotes.posts[id] || 0;
+                        if (newVote === 1) upBtn.classList.add('active');
+                        if (newVote === -1) downBtn.classList.add('active');
+                    }
+                    console.log('✅ Detail view updated');
+                }
+            }
         }
     }
 }
@@ -206,7 +268,20 @@ function updateVoteUI(id, newValue, type) {
     const btnDown = document.getElementById(`btn-down-${type}-${id}`);
     const scoreSpan = document.getElementById(`score-${type}-${id}`);
 
-    if (!btnUp || !btnDown || !scoreSpan) return;
+    console.log('🎨 updateVoteUI called:', { id, newValue, type });
+    console.log('🔍 Elements found:', { 
+        btnUp: !!btnUp, 
+        btnDown: !!btnDown, 
+        scoreSpan: !!scoreSpan,
+        btnUpId: `btn-up-${type}-${id}`,
+        btnDownId: `btn-down-${type}-${id}`,
+        scoreId: `score-${type}-${id}`
+    });
+
+    if (!btnUp || !btnDown || !scoreSpan) {
+        console.warn('⚠️ Vote UI elements not found, vote will still save but UI won\'t update immediately');
+        return;
+    }
 
     // Calculate visual score change
     let currentScore = parseInt(scoreSpan.innerText) || 0;
@@ -228,6 +303,8 @@ function updateVoteUI(id, newValue, type) {
     
     if (newValue === 1) btnUp.classList.add('active');
     if (newValue === -1) btnDown.classList.add('active');
+    
+    console.log('✅ Vote UI updated successfully');
 }
 
 // ... (Make sure to call loadMyVotes() inside your checkUser() or init function) ...
