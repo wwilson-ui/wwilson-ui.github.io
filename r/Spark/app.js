@@ -5,7 +5,9 @@ let currentUser = null;
 let isTeacher = false;
 let currentSubFilter = 'all';
 let currentOpenPostId = null; 
-let myVotes = { posts: {}, comments: {} }; // ADDED: Track user votes
+let myVotes = { posts: {}, comments: {} };
+let showRealNames = false; // Teacher setting for showing real names
+let currentSort = 'hot'; // hot, new, or top
 
 const ADJECTIVES = ['Happy', 'Brave', 'Calm', 'Swift', 'Wise', 'Bright', 'Clever', 'Kind', 'Bold'];
 const ANIMALS = ['Badger', 'Fox', 'Owl', 'Eagle', 'Bear', 'Dolphin', 'Wolf', 'Hawk', 'Tiger'];
@@ -23,6 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     await checkUser();
+    await loadTeacherSettings(); // Load teacher settings
     loadSubreddits();
     loadPosts(); 
     setupFormListeners();
@@ -34,6 +37,68 @@ function showFeed() {
     document.getElementById('feedView').style.display = 'block';
     currentOpenPostId = null;
 }
+
+// ================= TEACHER SETTINGS =================
+async function loadTeacherSettings() {
+    const { data } = await sb.from('teacher_settings').select('*').eq('setting_key', 'show_real_names').single();
+    if (data) {
+        showRealNames = data.setting_value;
+    }
+}
+
+window.toggleRealNames = async function() {
+    if (!isTeacher) return;
+    showRealNames = !showRealNames;
+    
+    const { error } = await sb.from('teacher_settings')
+        .update({ setting_value: showRealNames, updated_at: new Date().toISOString(), updated_by: currentUser.id })
+        .eq('setting_key', 'show_real_names');
+    
+    if (error) {
+        console.error('Failed to update setting:', error);
+        showRealNames = !showRealNames; // Revert
+    } else {
+        loadPosts(); // Reload to show/hide names
+    }
+};
+
+// ================= SORTING =================
+window.changeSortReload = function(sortType) {
+    currentSort = sortType;
+    document.querySelectorAll('.sort-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`[data-sort="${sortType}"]`).classList.add('active');
+    loadPosts();
+};
+
+// ================= FLAGGING =================
+window.flagContent = async function(contentId, contentType) {
+    if (!currentUser) return alert('Please sign in to flag content');
+    
+    const reason = prompt('Why are you flagging this content? (optional)');
+    if (reason === null) return; // User cancelled
+    
+    const payload = {
+        user_id: currentUser.id,
+        reason: reason || 'No reason provided',
+        reviewed: false
+    };
+    
+    if (contentType === 'post') {
+        payload.post_id = contentId;
+        payload.comment_id = null;
+    } else {
+        payload.comment_id = contentId;
+        payload.post_id = null;
+    }
+    
+    const { error } = await sb.from('flags').insert([payload]);
+    
+    if (error) {
+        alert('Error flagging content: ' + error.message);
+    } else {
+        alert('Content has been flagged for teacher review');
+    }
+};
 
 function openPostPage(post, authorName, realIdentity) {
     currentOpenPostId = post.id;
@@ -187,6 +252,14 @@ if (!profile || !profile.username) {
         if (actionBar) actionBar.style.display = 'flex';
         const sidebarAddBtn = document.getElementById('sidebarAddBtn');
         if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
+        
+        // Show teacher controls
+        const teacherControls = document.getElementById('teacherControls');
+        if (teacherControls) teacherControls.style.display = isTeacher ? 'block' : 'none';
+        
+        // Set checkbox state
+        const toggleCheckbox = document.getElementById('toggleNamesCheckbox');
+        if (toggleCheckbox) toggleCheckbox.checked = showRealNames;
 
     } else {
         authSection.innerHTML = `
@@ -381,7 +454,18 @@ async function loadPosts() {
     const feed = document.getElementById('postsFeed');
     feed.innerHTML = '<div style="padding:20px; text-align:center;">Loading...</div>';
     
-    let query = sb.from('posts').select(`*, subreddits(name), profiles(email)`).order('created_at', { ascending: false });
+    let query = sb.from('posts').select(`*, subreddits(name), profiles(email)`);
+    
+    // Apply sorting
+    if (currentSort === 'new') {
+        query = query.order('created_at', { ascending: false });
+    } else if (currentSort === 'top') {
+        query = query.order('vote_count', { ascending: false });
+    } else { // hot (default)
+        // Hot algorithm: score / (hours since creation + 2)^1.5
+        query = query.order('vote_count', { ascending: false }).order('created_at', { ascending: false });
+    }
+    
     if (currentSubFilter !== 'all') query = query.eq('subreddit_id', currentSubFilter);
 
     const { data: posts, error } = await query;
@@ -401,14 +485,26 @@ function createPostElement(post) {
     
     const isAuthor = currentUser && currentUser.id === post.user_id;
     const authorName = getAnonName(post.user_id);
-    const realIdentity = (isTeacher || isAuthor) ? ` (${post.profiles?.email || 'me'})` : '';
+    
+    // Show real identity if: teacher AND (showRealNames is ON OR isAuthor)
+    let displayName = authorName;
+    if (isTeacher && showRealNames) {
+        displayName = `${post.profiles?.email?.split('@')[0] || 'Unknown'}`;
+    } else if (isAuthor) {
+        displayName = `${authorName} (you)`;
+    } else if (isTeacher) {
+        displayName = `${authorName} <span style="color:#999; font-size:0.75em;">(${post.profiles?.email || ''})</span>`;
+    }
 
     div.onclick = (e) => {
         if (e.target.closest('button')) return;
-        openPostPage(post, authorName, realIdentity);
+        openPostPage(post, authorName, post.profiles?.email || '');
     };
 
-    const deleteBtn = isTeacher ? `<button class="delete-icon" onclick="deletePost('${post.id}')">🗑</button>` : '';
+    // Action buttons
+    const deleteBtn = isTeacher ? `<button class="delete-icon" onclick="deletePost('${post.id}')" title="Delete post">🗑️</button>` : '';
+    const editBtn = isAuthor ? `<button class="delete-icon" onclick="editPost('${post.id}')" title="Edit post" style="color:#0079D3;">✏️</button>` : '';
+    const flagBtn = currentUser && !isAuthor && !isTeacher ? `<button class="delete-icon" onclick="flagContent('${post.id}', 'post')" title="Flag for teacher" style="color:#ff8800;">🚩</button>` : '';
     
     // Get current user's vote for this post
     const userVote = myVotes.posts[post.id] || 0;
@@ -419,9 +515,9 @@ function createPostElement(post) {
         <div class="post-header">
             <strong>r/${post.subreddits ? post.subreddits.name : 'Unknown'}</strong>
             <span>•</span>
-            <span>Posted by ${authorName} <span style="color:#ff4500; font-size:0.8em;">${realIdentity}</span></span>
+            <span>Posted by ${displayName}</span>
             <span style="flex-grow:1"></span>
-            ${deleteBtn}
+            ${editBtn}${flagBtn}${deleteBtn}
         </div>
         <div class="post-title" style="font-size: 1.1rem; margin-bottom: 5px;">${escapeHtml(post.title)}</div>
         
@@ -555,6 +651,28 @@ async function loadSubreddits() {
 
 window.selectSub = function(id) { currentSubFilter = id; showFeed(); loadSubreddits(); loadPosts(); };
 
+window.editPost = async function(id) {
+    // Fetch the post
+    const { data: post } = await sb.from('posts').select('*').eq('id', id).single();
+    if (!post) return alert('Post not found');
+    
+    // Populate the form
+    document.getElementById('postTitle').value = post.title;
+    document.getElementById('postContent').value = post.content || '';
+    document.getElementById('postImage').value = post.image_url || '';
+    document.getElementById('postLink').value = post.url || '';
+    document.getElementById('postSubreddit').value = post.subreddit_id;
+    
+    // Change form to edit mode
+    const form = document.getElementById('createPostForm');
+    form.dataset.editingId = id;
+    const submitBtn = form.querySelector('.submit-btn');
+    submitBtn.textContent = 'Update Post';
+    
+    // Open modal
+    document.getElementById('createPostModal').classList.add('active');
+};
+
 window.deletePost = async function(id) { if(confirm('Delete post?')) { await sb.from('posts').delete().eq('id', id); loadPosts(); } };
 window.deleteSub = async function(id, name) { if(confirm(`Delete r/${name}?`)) { await sb.from('subreddits').delete().eq('id', id); loadSubreddits(); loadPosts(); } };
 window.deleteComment = async function(id) { if(confirm('Delete comment?')) { await sb.from('comments').delete().eq('id', id); loadDetailComments(currentOpenPostId); } };
@@ -566,18 +684,42 @@ function getAnonName(id) {
     return `${adj} ${ani}`;
 }
 function setupFormListeners() {
-    document.getElementById('createPostForm').onsubmit = async (e) => {
+    const postForm = document.getElementById('createPostForm');
+    postForm.onsubmit = async (e) => {
         e.preventDefault();
-        const { error } = await sb.from('posts').insert([{
+        
+        const postData = {
             title: document.getElementById('postTitle').value,
             content: document.getElementById('postContent').value,
             url: document.getElementById('postLink').value,
             image_url: document.getElementById('postImage').value,
-            subreddit_id: document.getElementById('postSubreddit').value,
-            user_id: currentUser.id
-        }]);
-        if (!error) { closeModal('createPostModal'); loadPosts(); }
+            subreddit_id: document.getElementById('postSubreddit').value
+        };
+        
+        // Check if we're editing or creating
+        const editingId = postForm.dataset.editingId;
+        let error;
+        
+        if (editingId) {
+            // Update existing post
+            ({ error } = await sb.from('posts').update(postData).eq('id', editingId));
+            delete postForm.dataset.editingId;
+        } else {
+            // Create new post
+            postData.user_id = currentUser.id;
+            ({ error } = await sb.from('posts').insert([postData]));
+        }
+        
+        if (!error) { 
+            closeModal('createPostModal');
+            postForm.reset();
+            postForm.querySelector('.submit-btn').textContent = 'Post';
+            loadPosts();
+        } else {
+            alert('Error: ' + error.message);
+        }
     };
+    
     document.getElementById('createSubForm').onsubmit = async (e) => {
         e.preventDefault();
         const { error } = await sb.from('subreddits').insert([{
@@ -586,7 +728,22 @@ function setupFormListeners() {
         if (!error) { closeModal('createSubModal'); loadSubreddits(); }
     };
 }
-window.openCreateModal = () => document.getElementById('createPostModal').classList.add('active');
+
+window.openCreateModal = () => {
+    const form = document.getElementById('createPostForm');
+    delete form.dataset.editingId;
+    form.reset();
+    form.querySelector('.submit-btn').textContent = 'Post';
+    document.getElementById('createPostModal').classList.add('active');
+};
 window.openSubModal = () => document.getElementById('createSubModal').classList.add('active');
-window.closeModal = (id) => document.getElementById(id).classList.remove('active');
+window.closeModal = (id) => {
+    document.getElementById(id).classList.remove('active');
+    if (id === 'createPostModal') {
+        const form = document.getElementById('createPostForm');
+        delete form.dataset.editingId;
+        form.reset();
+        form.querySelector('.submit-btn').textContent = 'Post';
+    }
+};
 function escapeHtml(t) { return t ? t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") : ''; }
