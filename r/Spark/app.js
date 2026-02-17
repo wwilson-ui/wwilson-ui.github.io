@@ -13,7 +13,39 @@ const ANIMALS = ['Badger', 'Fox', 'Owl', 'Eagle', 'Bear', 'Dolphin', 'Wolf', 'Ha
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
         sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-    } else { alert('Supabase not loaded'); return; }
+        console.log('✅ Supabase client created');
+    } else { 
+        alert('Supabase not loaded'); 
+        return; 
+    }
+    
+    // Check if we're coming back from OAuth
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    console.log('🔍 Checking for OAuth callback...');
+    console.log('Hash params:', Object.fromEntries(hashParams));
+    console.log('URL params:', Object.fromEntries(urlParams));
+    
+    if (hashParams.has('access_token') || hashParams.has('error') || urlParams.has('code') || urlParams.has('error')) {
+        console.log('📥 OAuth callback detected!');
+        
+        if (hashParams.has('error') || urlParams.has('error')) {
+            const error = hashParams.get('error') || urlParams.get('error');
+            const errorDesc = hashParams.get('error_description') || urlParams.get('error_description');
+            console.error('❌ OAuth error:', error, errorDesc);
+            alert(`OAuth Error: ${error}\n${errorDesc || ''}`);
+        }
+        
+        // Let Supabase handle the session
+        const { data, error } = await sb.auth.getSession();
+        console.log('Session after OAuth:', { hasSession: !!data.session, error });
+        
+        if (error) {
+            console.error('❌ Error getting session after OAuth:', error);
+            alert('Failed to create session: ' + error.message);
+        }
+    }
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -414,14 +446,25 @@ function updateVoteUI(id, newValue, type) {
 
 window.signIn = async function() {
     console.log('🔐 Starting Google OAuth sign-in...');
+    
+    // Check if we're already on the redirect page
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    if (hashParams.has('access_token')) {
+        console.log('⚠️ Already have tokens in URL, but no session. Clearing and retrying...');
+        window.location.hash = '';
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
     const { data, error } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: { 
-            redirectTo: 'https://wwilson-ui.github.io/r/Spark/', 
+            redirectTo: window.location.origin + '/r/Spark/',
             queryParams: { 
-                hd: 'mtps.us',
-                prompt: 'select_account'
-            }
+                access_type: 'offline',
+                prompt: 'consent',
+                hd: 'mtps.us'
+            },
+            skipBrowserRedirect: false
         }
     });
     
@@ -429,7 +472,7 @@ window.signIn = async function() {
         console.error('❌ OAuth initiation error:', error);
         alert('Sign-in failed: ' + error.message);
     } else {
-        console.log('✅ OAuth redirect initiated');
+        console.log('✅ OAuth redirect initiated', data);
     }
 };
 window.signOut = async function() { 
