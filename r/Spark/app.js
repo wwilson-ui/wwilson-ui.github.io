@@ -59,6 +59,30 @@ function openPostPage(post, authorName, realIdentity) {
     if (post.url) { linkEl.href = post.url; linkEl.textContent = `🔗 ${post.url}`; linkEl.style.display = 'block'; }
     else { linkEl.style.display = 'none'; }
 
+    // Add voting buttons to the expanded post view
+    const userVote = myVotes.posts[post.id] || 0;
+    const upActive = userVote === 1 ? 'active' : '';
+    const downActive = userVote === -1 ? 'active' : '';
+    
+    // Insert voting section after the link (or after content if no link)
+    const voteSection = document.createElement('div');
+    voteSection.id = 'detailVoteSection';
+    voteSection.style.cssText = 'display: flex; align-items: center; gap: 15px; margin: 20px 0; padding: 15px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee;';
+    voteSection.innerHTML = `
+        <button id="btn-up-post-${post.id}" class="vote-btn up ${upActive}" onclick="vote('${post.id}', 1, 'post')">⬆</button>
+        <span id="score-post-${post.id}" class="score-text" style="font-weight: bold; font-size: 1rem;">${post.vote_count || 0}</span>
+        <button id="btn-down-post-${post.id}" class="vote-btn down ${downActive}" onclick="vote('${post.id}', -1, 'post')">⬇</button>
+        <span style="color: var(--text-secondary); font-size: 0.9rem; margin-left: 10px;">Vote on this post</span>
+    `;
+    
+    // Remove existing vote section if it exists
+    const existingVoteSection = document.getElementById('detailVoteSection');
+    if (existingVoteSection) existingVoteSection.remove();
+    
+    // Insert the vote section before the divider
+    const divider = document.querySelector('#postView hr.divider');
+    divider.parentNode.insertBefore(voteSection, divider);
+
     // Show Input if logged in
     document.getElementById('detailCommentInput').style.display = currentUser ? 'block' : 'none';
 
