@@ -269,31 +269,30 @@ window.vote = async function(id, typeValue, itemType = 'post') { // typeValue is
 // 3. Helper to update colors/numbers instantly
 
 function updateVoteUI(id, newValue, type) {
-    // 1. Define a helper that updates ONE set of buttons
+    // Defines a helper to update a specific set of buttons (Feed or Detail)
     const updateButtons = (prefix) => {
-        // Construct the ID (e.g., "btn-up-post-123" OR "detail-btn-up-post-123")
         const idPrefix = prefix ? `${prefix}-` : ''; 
         const btnUp = document.getElementById(`${idPrefix}btn-up-${type}-${id}`);
         const btnDown = document.getElementById(`${idPrefix}btn-down-${type}-${id}`);
         const scoreSpan = document.getElementById(`${idPrefix}score-${type}-${id}`);
 
-        if (!btnUp || !btnDown || !scoreSpan) return; // Skip if elements aren't on screen
+        if (!btnUp || !btnDown || !scoreSpan) return; // Skip if not found on screen
 
-        // Calculate visual score change
+        // 1. Calculate Score Change
         let currentScore = parseInt(scoreSpan.innerText) || 0;
         const oldValue = (type === 'post' ? myVotes.posts[id] : myVotes.comments[id]) || 0;
 
-        // Undo old vote
+        // Undo old vote locally
         if (oldValue === 1) currentScore--;
         if (oldValue === -1) currentScore++;
 
-        // Apply new vote
+        // Apply new vote locally
         if (newValue === 1) currentScore++;
         if (newValue === -1) currentScore--;
 
         scoreSpan.innerText = currentScore;
 
-        // Update Colors
+        // 2. Update Colors
         btnUp.classList.remove('active');
         btnDown.classList.remove('active');
         
@@ -301,14 +300,10 @@ function updateVoteUI(id, newValue, type) {
         if (newValue === -1) btnDown.classList.add('active');
     };
 
-    // 2. Run the helper for BOTH locations
-    // Update the Main Feed (no prefix)
-    updateButtons('');
-    
-    // Update the Detail View (prefix 'detail')
-    updateButtons('detail');
+    // Run the helper for BOTH locations
+    updateButtons('');       // Main Feed
+    updateButtons('detail'); // Expanded View
 }
-
 // ... (Make sure to call loadMyVotes() inside your checkUser() or init function) ...
 
 
