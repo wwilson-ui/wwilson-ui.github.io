@@ -35,17 +35,17 @@ function showFeed() {
     currentOpenPostId = null;
 }
 
+// In app.js
+
 function openPostPage(post, authorName, realIdentity) {
     currentOpenPostId = post.id;
     
-    console.log('📖 Opening post:', post.id, 'Current votes:', myVotes);
-
-    // Toggle Views
+    // ... (Keep existing code for hiding feed/showing postView) ...
     document.getElementById('feedView').style.display = 'none';
     document.getElementById('postView').style.display = 'block';
-    window.scrollTo(0, 0); // Scroll to top
+    window.scrollTo(0, 0);
 
-    // Fill Data
+    // ... (Keep existing code for filling Title, Content, Image, etc.) ...
     document.getElementById('detailSub').textContent = `r/${post.subreddits ? post.subreddits.name : 'Unknown'}`;
     document.getElementById('detailAuthor').innerHTML = `${authorName} <span style="color:#ff4500;">${realIdentity}</span>`;
     document.getElementById('detailTitle').textContent = post.title;
@@ -61,30 +61,35 @@ function openPostPage(post, authorName, realIdentity) {
     if (post.url) { linkEl.href = post.url; linkEl.textContent = `🔗 ${post.url}`; linkEl.style.display = 'block'; }
     else { linkEl.style.display = 'none'; }
 
-    // Add voting buttons to the expanded post view
-    const userVote = myVotes.posts[post.id] || 0;
-    const upActive = userVote === 1 ? 'active' : '';
-    const downActive = userVote === -1 ? 'active' : '';
+    // --- FIX STARTS HERE ---
+    // We add 'detail-' prefix to the IDs so they don't conflict with the main feed
+    const voteSection = `
+        <button id="detail-btn-up-post-${post.id}" class="vote-btn up" onclick="vote('${post.id}', 1, 'post')">⬆</button>
+        <span id="detail-score-post-${post.id}" class="score-text">${(post.up_votes||0) - (post.down_votes||0)}</span>
+        <button id="detail-btn-down-post-${post.id}" class="vote-btn down" onclick="vote('${post.id}', -1, 'post')">⬇</button>
+    `;
     
-    // Remove existing vote section if it exists
-    const existingVoteSection = document.getElementById('detailVoteSection');
-    if (existingVoteSection) existingVoteSection.remove();
+    // Inject the vote section
+    const detailTitle = document.getElementById('detailTitle');
+    const existingVote = document.getElementById('detail-vote-container');
+    if(existingVote) existingVote.remove();
     
-    // Create voting section
-    const voteSection = document.createElement('div');
-    voteSection.id = 'detailVoteSection';
-    voteSection.style.cssText = 'display: flex; align-items: center; gap: 15px; margin: 20px 0; padding: 15px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee;';
-    
-    // Create upvote button
-    const upBtn = document.createElement('button');
-    upBtn.id = `btn-up-post-${post.id}`;
-    upBtn.className = `vote-btn up ${upActive}`;
-    upBtn.textContent = '⬆';
-    upBtn.onclick = (e) => {
-        e.stopPropagation();
-        console.log('⬆ Upvote clicked in detail view');
-        window.vote(post.id, 1, 'post');
-    };
+    const voteDiv = document.createElement('div');
+    voteDiv.id = 'detail-vote-container';
+    voteDiv.style.display = 'flex'; voteDiv.style.alignItems = 'center'; voteDiv.style.gap = '10px'; voteDiv.style.marginBottom = '10px';
+    voteDiv.innerHTML = voteSection;
+    detailTitle.parentNode.insertBefore(voteDiv, detailTitle);
+
+    // Update UI state for these specific DETAIL buttons
+    const myVote = myVotes.posts[post.id];
+    if (myVote === 1) document.getElementById(`detail-btn-up-post-${post.id}`).classList.add('active');
+    if (myVote === -1) document.getElementById(`detail-btn-down-post-${post.id}`).classList.add('active');
+    // --- FIX ENDS HERE ---
+
+    // Show Comments Input
+    document.getElementById('detailCommentInput').style.display = currentUser ? 'block' : 'none';
+    loadDetailComments(post.id);
+}
     
     // Create score display
     const scoreSpan = document.createElement('span');
