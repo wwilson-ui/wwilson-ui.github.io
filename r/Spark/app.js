@@ -74,9 +74,9 @@ function openPostPage(post, authorName, realIdentity) {
     voteSection.id = 'detailVoteSection';
     voteSection.style.cssText = 'display: flex; align-items: center; gap: 15px; margin: 20px 0; padding: 15px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee;';
     
-    // Create upvote button
+    // Create upvote button with 'detail-' prefix
     const upBtn = document.createElement('button');
-    upBtn.id = `btn-up-post-${post.id}`;
+    upBtn.id = `detail-btn-up-post-${post.id}`;
     upBtn.className = `vote-btn up ${upActive}`;
     upBtn.textContent = '⬆';
     upBtn.onclick = (e) => {
@@ -84,16 +84,16 @@ function openPostPage(post, authorName, realIdentity) {
         window.vote(post.id, 1, 'post');
     };
     
-    // Create score display
+    // Create score display with 'detail-' prefix
     const scoreSpan = document.createElement('span');
-    scoreSpan.id = `score-post-${post.id}`;
+    scoreSpan.id = `detail-score-post-${post.id}`;
     scoreSpan.className = 'score-text';
     scoreSpan.style.cssText = 'font-weight: bold; font-size: 1rem;';
     scoreSpan.textContent = post.vote_count || 0;
     
-    // Create downvote button
+    // Create downvote button with 'detail-' prefix
     const downBtn = document.createElement('button');
-    downBtn.id = `btn-down-post-${post.id}`;
+    downBtn.id = `detail-btn-down-post-${post.id}`;
     downBtn.className = `vote-btn down ${downActive}`;
     downBtn.textContent = '⬇';
     downBtn.onclick = (e) => {
@@ -237,14 +237,14 @@ window.vote = async function(id, typeValue, itemType = 'post') { // typeValue is
                 if (voteSection) {
                     // Simply reload the vote count from database
                     const { data: post } = await sb.from('posts').select('vote_count').eq('id', id).single();
-                    const scoreSpan = document.getElementById(`score-post-${id}`);
+                    const scoreSpan = document.getElementById(`detail-score-post-${id}`);
                     if (scoreSpan && post) {
                         scoreSpan.textContent = post.vote_count || 0;
                     }
                     
                     // Update button states based on new vote
-                    const upBtn = document.getElementById(`btn-up-post-${id}`);
-                    const downBtn = document.getElementById(`btn-down-post-${id}`);
+                    const upBtn = document.getElementById(`detail-btn-up-post-${id}`);
+                    const downBtn = document.getElementById(`detail-btn-down-post-${id}`);
                     if (upBtn && downBtn) {
                         upBtn.classList.remove('active');
                         downBtn.classList.remove('active');
