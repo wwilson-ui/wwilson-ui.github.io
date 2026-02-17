@@ -135,72 +135,47 @@ function openPostPage(post, authorName, realIdentity) {
 // ================= AUTH =================
 async function checkUser() {
     const { data: { session } } = await sb.auth.getSession();
-    const authSection = document.getElementById('authSection');
-    const actionBar = document.getElementById('actionBar');
-
+    
     if (session) {
-        console.log('✅ Session found:', session.user.email);
-        
-        // Try to get profile, with retries for new users
-        let profile = null;
-        let attempts = 0;
-        const maxAttempts = 5;
-        
-        while (!profile && attempts < maxAttempts) {
-            const { data, error } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
-            
-            if (data) {
-                profile = data;
-                console.log('✅ Profile loaded:', profile);
-            } else if (error) {
-                console.log(`⏳ Profile not ready yet (attempt ${attempts + 1}/${maxAttempts}), waiting...`, error.message);
-                await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
-            }
-            attempts++;
-        }
-        
+        // Attempt to fetch profile
+        let { data: profile } = await sb
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+        // RETRY LOGIC: If profile is missing (first login), wait 1s and try once more
         if (!profile) {
-            console.error('❌ Profile not found after retries');
-            alert('There was an issue creating your profile. Please try signing in again.');
-            await sb.auth.signOut();
-            location.reload();
-            return;
+            console.log("⚠️ Profile not found immediately. Waiting for trigger...");
+            await new Promise(r => setTimeout(r, 1000));
+            const retry = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+            profile = retry.data;
         }
-        
-        currentUser = profile;
-        
-        // Override role for teacher
-        if (currentUser.email === 'wwilson@mtps.us') {
-            currentUser.role = 'teacher';
+            
+        if (profile) {
+            currentUser = profile;
+            
+            // Generate a 'fake' identity if not present (for anonymity features)
+            if (!currentUser.fake_identity) {
+                currentUser.fake_identity = generateIdentity(currentUser.username);
+            }
+
+            console.log('✅ Logged in as:', currentUser.username);
+            
+            // Load their votes
+            if (typeof loadMyVotes === 'function') {
+                await loadMyVotes();
+            }
+
+            updateAuthUI();
+        } else {
+            console.error("❌ User authenticated, but Profile missing in database.");
+            currentUser = null;
+            updateAuthUI();
         }
-        
-        isTeacher = currentUser.role === 'teacher';
-        
-        // Load user's votes
-        await loadMyVotes();
-        
-        // Update UI
-        authSection.innerHTML = `
-            <div style="display:flex; gap:10px; align-items:center;">
-                <div style="text-align:right; line-height:1.2;">
-                    <div style="font-weight:bold; font-size:0.9rem;">${currentUser.email.split('@')[0]}</div>
-                    <div style="font-size:0.75rem; color:${isTeacher ? '#0079D3' : '#00D9A5'}; font-weight:bold; text-transform:uppercase;">${isTeacher ? 'TEACHER' : 'STUDENT'}</div>
-                </div>
-                <button class="google-btn" onclick="signOut()" style="padding: 4px 10px; font-size: 0.8rem;">Sign Out</button>
-            </div>
-        `;
-        if (actionBar) actionBar.style.display = 'flex';
-        const sidebarAddBtn = document.getElementById('sidebarAddBtn');
-        if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
     } else {
-        console.log('ℹ️ No session');
-        authSection.innerHTML = `
-            <button class="google-btn" onclick="signIn()">
-                <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="G" style="width:18px; height:18px;">
-                Sign in with Google
-            </button>
-        `;
-        if (actionBar) actionBar.style.display = 'none';
+        currentUser = null;
+        updateAuthUI();
     }
 }
 
