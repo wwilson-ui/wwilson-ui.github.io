@@ -139,13 +139,71 @@ async function checkUser() {
     const actionBar = document.getElementById('actionBar');
 
     if (session) {
-        const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
-        currentUser = profile || { role: 'student', email: session.user.email, id: session.user.id };
-        if (currentUser.email === 'wwilson@mtps.us') currentUser.role = 'teacher';
+        console.log('✅ Session found:', session.user.email);
+        
+        // Try to get profile, with retries for new users
+        let profile = null;
+        let attempts = 0;
+        const maxAttempts = 5;
+        
+        while (!profile && attempts < maxAttempts) {
+            const { data, error } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+            
+            if (data) {
+                profile = data;
+                console.log('✅ Profile loaded:', profile);
+            } else if (error) {
+                console.log(`⏳ Profile not ready yet (attempt ${attempts + 1}/${maxAttempts}), waiting...`, error.message);
+                await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+            }
+            attempts++;
+        }
+        
+        if (!profile) {
+            console.error('❌ Profile not found after retries');
+            alert('There was an issue creating your profile. Please try signing in again.');
+            await sb.auth.signOut();
+            location.reload();
+            return;
+        }
+        
+        currentUser = profile;
+        
+        // Override role for teacher
+        if (currentUser.email === 'wwilson@mtps.us') {
+            currentUser.role = 'teacher';
+        }
+        
         isTeacher = currentUser.role === 'teacher';
         
         // Load user's votes
         await loadMyVotes();
+        
+        // Update UI
+        authSection.innerHTML = `
+            <div style="display:flex; gap:10px; align-items:center;">
+                <div style="text-align:right; line-height:1.2;">
+                    <div style="font-weight:bold; font-size:0.9rem;">${currentUser.email.split('@')[0]}</div>
+                    <div style="font-size:0.75rem; color:${isTeacher ? '#0079D3' : '#00D9A5'}; font-weight:bold; text-transform:uppercase;">${isTeacher ? 'TEACHER' : 'STUDENT'}</div>
+                </div>
+                <button class="google-btn" onclick="signOut()" style="padding: 4px 10px; font-size: 0.8rem;">Sign Out</button>
+            </div>
+        `;
+        if (actionBar) actionBar.style.display = 'flex';
+        const sidebarAddBtn = document.getElementById('sidebarAddBtn');
+        if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
+    } else {
+        console.log('ℹ️ No session');
+        authSection.innerHTML = `
+            <button class="google-btn" onclick="signIn()">
+                <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="G" style="width:18px; height:18px;">
+                Sign in with Google
+            </button>
+        `;
+        if (actionBar) actionBar.style.display = 'none';
+    }
+}
+
 
 
 // 1. Load Votes when user logs in
@@ -305,36 +363,6 @@ function updateVoteUI(id, newValue, type) {
     // Run the helper for BOTH locations
     updateButtons('');       // Main Feed
     updateButtons('detail'); // Expanded View
-}
-// ... (Make sure to call loadMyVotes() inside your checkUser() or init function) ...
-
-
-
-
-
-        
-
-        authSection.innerHTML = `
-            <div style="display:flex; gap:10px; align-items:center;">
-                <div style="text-align:right; line-height:1.2;">
-                    <div style="font-weight:bold; font-size:0.9rem;">${currentUser.email.split('@')[0]}</div>
-                    <div style="font-size:0.75rem; color:${isTeacher ? '#0079D3' : '#00D9A5'}; font-weight:bold; text-transform:uppercase;">${isTeacher ? 'TEACHER' : 'STUDENT'}</div>
-                </div>
-                <button class="google-btn" onclick="signOut()" style="padding: 4px 10px; font-size: 0.8rem;">Sign Out</button>
-            </div>
-        `;
-        if (actionBar) actionBar.style.display = 'flex';
-        const sidebarAddBtn = document.getElementById('sidebarAddBtn');
-        if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
-    } else {
-        authSection.innerHTML = `
-            <button class="google-btn" onclick="signIn()">
-                <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="G" style="width:18px; height:18px;">
-                Sign in with Google
-            </button>
-        `;
-        if (actionBar) actionBar.style.display = 'none';
-    }
 }
 
 window.signIn = async function() {
