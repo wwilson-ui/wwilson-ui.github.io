@@ -84,7 +84,7 @@ function openPostPage(post, authorName, realIdentity) {
         window.vote(post.id, 1, 'post');
     };
     
-    // Create score display with 'detail-' prefix
+    // Create score display with 'detail-' prefix - initially use cached value
     const scoreSpan = document.createElement('span');
     scoreSpan.id = `detail-score-post-${post.id}`;
     scoreSpan.className = 'score-text';
@@ -115,6 +115,15 @@ function openPostPage(post, authorName, realIdentity) {
     // Insert the vote section before the divider
     const divider = document.querySelector('#postView hr.divider');
     divider.parentNode.insertBefore(voteSection, divider);
+
+    // Fetch fresh vote count from database asynchronously
+    (async () => {
+        const { data: freshPost } = await sb.from('posts').select('vote_count').eq('id', post.id).single();
+        if (freshPost && scoreSpan) {
+            scoreSpan.textContent = freshPost.vote_count || 0;
+            console.log('✅ Refreshed vote count:', freshPost.vote_count);
+        }
+    })();
 
     // Show Input if logged in
     document.getElementById('detailCommentInput').style.display = currentUser ? 'block' : 'none';
