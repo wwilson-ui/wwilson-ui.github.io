@@ -132,58 +132,49 @@ function openPostPage(post, authorName, realIdentity) {
     loadDetailComments(post.id);
 }
 
-// ================= AUTH =================
+// ================= AUTH (SELF-HEALING VERSION) =================
 async function checkUser() {
     const { data: { session } } = await sb.auth.getSession();
     const authSection = document.getElementById('authSection');
     const actionBar = document.getElementById('actionBar');
 
     if (session) {
-        console.log('✅ Session found:', session.user.email);
+        console.log('✅ Session active:', session.user.email);
         
-        // Try to get profile, with retries for new users
-        let profile = null;
-        let attempts = 0;
-        const maxAttempts = 5;
-        
-        while (!profile && attempts < maxAttempts) {
-            const { data, error } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
-            
-            if (data) {
-                profile = data;
-                console.log('✅ Profile loaded:', profile);
-            } else if (error) {
-                console.log(`⏳ Profile not ready yet (attempt ${attempts + 1}/${maxAttempts}), waiting...`, error.message);
-                await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
-            }
-            attempts++;
-        }
-        
+        // 1. Try to get the profile
+        let { data: profile, error: fetchError } = await sb.from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+        // 2. If profile is missing, CREATE it (Self-Healing)
         if (!profile) {
-            console.error('❌ Profile not found after retries');
-            alert('There was an issue creating your profile. Please try signing in again.');
-            await sb.auth.signOut();
-            location.reload();
-            return;
+            console.log('✨ Profile missing, creating one now...');
+            const { data: newProfile, error: insertError } = await sb.from('profiles').insert([{
+                id: session.user.id,
+                email: session.user.email,
+                username: session.user.email.split('@')[0],
+                role: session.user.email === 'wwilson@mtps.us' ? 'teacher' : 'student'
+            }]).select().single();
+            
+            if (insertError) {
+                console.error('❌ Could not create profile:', insertError);
+                authSection.innerHTML = `<button class="google-btn" onclick="signOut()">Auth Error: Click to Sign Out</button>`;
+                return;
+            }
+            profile = newProfile;
         }
-        
+
         currentUser = profile;
-        
-        // Override role for teacher
-        if (currentUser.email === 'wwilson@mtps.us') {
-            currentUser.role = 'teacher';
-        }
-        
         isTeacher = currentUser.role === 'teacher';
         
-        // Load user's votes
         await loadMyVotes();
         
         // Update UI
         authSection.innerHTML = `
             <div style="display:flex; gap:10px; align-items:center;">
                 <div style="text-align:right; line-height:1.2;">
-                    <div style="font-weight:bold; font-size:0.9rem;">${currentUser.email.split('@')[0]}</div>
+                    <div style="font-weight:bold; font-size:0.9rem;">${currentUser.username || currentUser.email.split('@')[0]}</div>
                     <div style="font-size:0.75rem; color:${isTeacher ? '#0079D3' : '#00D9A5'}; font-weight:bold; text-transform:uppercase;">${isTeacher ? 'TEACHER' : 'STUDENT'}</div>
                 </div>
                 <button class="google-btn" onclick="signOut()" style="padding: 4px 10px; font-size: 0.8rem;">Sign Out</button>
@@ -192,8 +183,8 @@ async function checkUser() {
         if (actionBar) actionBar.style.display = 'flex';
         const sidebarAddBtn = document.getElementById('sidebarAddBtn');
         if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
+
     } else {
-        console.log('ℹ️ No session');
         authSection.innerHTML = `
             <button class="google-btn" onclick="signIn()">
                 <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="G" style="width:18px; height:18px;">
@@ -366,12 +357,20 @@ function updateVoteUI(id, newValue, type) {
 }
 
 window.signIn = async function() {
+    // REMOVED 'hd' restriction to allow testing with any Google account
     await sb.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: 'https://wwilson-ui.github.io/r/Spark/', queryParams: { hd: 'mtps.us' } }
+        options: { 
+            redirectTo: 'https://wwilson-ui.github.io/r/Spark/' 
+        }
     });
 };
-window.signOut = async function() { await sb.auth.signOut(); window.location.reload(); };
+
+window.signOut = async function() { 
+    await sb.auth.signOut(); 
+    localStorage.clear(); // Clear local storage to ensure a fresh state
+    window.location.reload(); 
+};
 
 // ================= POSTS & FEED =================
 async function loadPosts() {
