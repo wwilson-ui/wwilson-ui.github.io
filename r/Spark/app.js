@@ -148,22 +148,26 @@ async function checkUser() {
             .single();
 
         // 2. If profile is missing, CREATE it (Self-Healing)
-        if (!profile) {
-            console.log('✨ Profile missing, creating one now...');
-            const { data: newProfile, error: insertError } = await sb.from('profiles').insert([{
-                id: session.user.id,
-                email: session.user.email,
-                username: session.user.email.split('@')[0],
-                role: session.user.email === 'wwilson@mtps.us' ? 'teacher' : 'student'
-            }]).select().single();
-            
-            if (insertError) {
-                console.error('❌ Could not create profile:', insertError);
-                authSection.innerHTML = `<button class="google-btn" onclick="signOut()">Auth Error: Click to Sign Out</button>`;
-                return;
-            }
-            profile = newProfile;
-        }
+        // 2. If profile is missing OR username is missing, FIX IT
+if (!profile || !profile.username) {
+    console.log('✨ Profile or username missing, fixing now...');
+    
+    // Generate a username from the email (e.g., "wwilson" from "wwilson@mtps.us")
+    const generatedUsername = session.user.email.split('@')[0];
+
+    const { data: updatedProfile, error: upsertError } = await sb.from('profiles').upsert({
+        id: session.user.id,
+        email: session.user.email,
+        username: generatedUsername,
+        role: session.user.email === 'wwilson@mtps.us' ? 'teacher' : 'student'
+    }).select().single();
+    
+    if (upsertError) {
+        console.error('❌ Could not fix profile:', upsertError);
+    } else {
+        profile = updatedProfile;
+    }
+}
 
         currentUser = profile;
         isTeacher = currentUser.role === 'teacher';
