@@ -1,44 +1,42 @@
-// app.js - FIXED & SIMPLIFIED
+// app.js - CLEAN & STABLE VERSION
 
 let sb = null;
 let currentUser = null;
 let isTeacher = false;
 let currentSubFilter = 'all';
-let currentOpenPostId = null; 
-let myVotes = { posts: {}, comments: {} }; 
+let currentOpenPostId = null;
+let myVotes = { posts: {}, comments: {} }; // Stores your votes locally
 
 // Fun identity generator
 const ADJECTIVES = ['Happy', 'Brave', 'Calm', 'Swift', 'Wise', 'Bright', 'Clever', 'Kind', 'Bold'];
 const ANIMALS = ['Badger', 'Fox', 'Owl', 'Eagle', 'Bear', 'Dolphin', 'Wolf', 'Hawk', 'Tiger'];
 
 document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        // 1. Initialize Supabase
-        if (typeof window.supabase === 'undefined') throw new Error('Supabase SDK not loaded.');
+    // 1. Initialize Supabase
+    if (typeof window.supabase !== 'undefined') {
         sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-
-        // 2. Setup Global Listeners
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeModal('createPostModal');
-                closeModal('createSubModal');
-                closeModal('postDetailModal');
-            }
-        });
-
-        // 3. Run Core Logic
-        await checkUser();     
-        await loadSubreddits();
-        await loadPosts();     
-        setupFormListeners();
-
-    } catch (err) {
-        console.error("CRITICAL APP ERROR:", err);
-        document.body.innerHTML = `<div style="padding:20px; color:red; text-align:center;"><h3>Something went wrong</h3><p>${err.message}</p></div>`;
+    } else {
+        alert('Supabase not loaded. Check your internet connection.');
+        return;
     }
+
+    // 2. Global Event Listeners
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeModal('createPostModal');
+            closeModal('createSubModal');
+            closeModal('postDetailModal');
+        }
+    });
+
+    // 3. Start the App
+    await checkUser();     
+    loadSubreddits();
+    loadPosts();
+    setupFormListeners();
 });
 
-// ================= AUTHENTICATION (ROBUST) =================
+// ================= AUTHENTICATION (SELF-HEALING) =================
 
 async function checkUser() {
     const { data: { session } } = await sb.auth.getSession();
@@ -46,62 +44,58 @@ async function checkUser() {
     const actionBar = document.getElementById('actionBar');
 
     if (session) {
-        // --- LOGGED IN ---
-        console.log('✅ User Session Found:', session.user.email);
+        console.log('✅ Session found:', session.user.email);
 
-        // 1. Try to fetch profile
+        // 1. Try to fetch existing profile
         let { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
 
-        // 2. FALLBACK: If profile missing, create it client-side immediately
+        // 2. AUTO-FIX: If profile is missing, create it immediately
         if (!profile) {
-            console.log('⚠️ Profile missing. Creating one now...');
-            const newProfile = {
+            console.log('⚠️ New user detected. Creating profile...');
+            const { data: newProfile, error } = await sb.from('profiles').insert([{
                 id: session.user.id,
                 email: session.user.email,
-                username: session.user.email.split('@')[0],
-                role: 'student' // Default role
-            };
-            
-            const { error: insertError } = await sb.from('profiles').insert([newProfile]);
-            
-            if (insertError) {
-                console.error('❌ Could not auto-create profile:', insertError);
-                // We don't return here; we let the UI load as "Guest" to prevent crashing
-            } else {
-                profile = newProfile; // Success! Use this profile.
+                username: session.user.email.split('@')[0], // Default username from email
+                role: 'student'
+            }]).select().single();
+
+            if (error) {
+                console.error('❌ Critical Error: Could not create profile.', error);
+                alert('Login failed: Could not create user profile.');
+                return;
             }
+            profile = newProfile;
         }
 
-        // 3. Set User State
-        if (profile) {
-            currentUser = profile;
-            // Teacher Override
-            if (currentUser.email === 'wwilson@mtps.us') {
-                currentUser.role = 'teacher';
-            }
-            isTeacher = currentUser.role === 'teacher';
-            
-            await loadMyVotes(); // Load votes safely
-            
-            // Render User UI
-            authSection.innerHTML = `
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <div style="text-align:right; line-height:1.2;">
-                        <div style="font-weight:bold; font-size:0.9rem;">${currentUser.username || 'User'}</div>
-                        <div style="font-size:0.75rem; color:${isTeacher ? '#0079D3' : '#00D9A5'}; font-weight:bold; text-transform:uppercase;">${isTeacher ? 'TEACHER' : 'STUDENT'}</div>
-                    </div>
-                    <button class="google-btn" onclick="signOut()" style="padding: 4px 10px; font-size: 0.8rem;">Sign Out</button>
-                </div>
-            `;
-            
-            if (actionBar) actionBar.style.display = 'flex';
-            const sidebarAddBtn = document.getElementById('sidebarAddBtn');
-            if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
+        // 3. Set Global User State
+        currentUser = profile;
+
+        // Teacher Override
+        if (currentUser.email === 'wwilson@mtps.us') {
+            currentUser.role = 'teacher';
         }
+        isTeacher = currentUser.role === 'teacher';
+
+        // Load User Data
+        await loadMyVotes();
+
+        // 4. Update UI
+        authSection.innerHTML = `
+            <div style="display:flex; gap:10px; align-items:center;">
+                <div style="text-align:right; line-height:1.2;">
+                    <div style="font-weight:bold; font-size:0.9rem;">${currentUser.username}</div>
+                    <div style="font-size:0.75rem; color:${isTeacher ? '#0079D3' : '#00D9A5'}; font-weight:bold; text-transform:uppercase;">${isTeacher ? 'TEACHER' : 'STUDENT'}</div>
+                </div>
+                <button class="google-btn" onclick="signOut()" style="padding: 4px 10px; font-size: 0.8rem;">Sign Out</button>
+            </div>
+        `;
+
+        if (actionBar) actionBar.style.display = 'flex';
+        const sidebarAddBtn = document.getElementById('sidebarAddBtn');
+        if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
 
     } else {
-        // --- NOT LOGGED IN ---
-        console.log('ℹ️ No User Session');
+        // Not Logged In
         authSection.innerHTML = `
             <button class="google-btn" onclick="signIn()">
                 <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="G" style="width:18px; height:18px;">
@@ -112,13 +106,12 @@ async function checkUser() {
     }
 }
 
-// Global Auth Functions
+// Auth Helpers
 window.signIn = async () => {
-    const { error } = await sb.auth.signInWithOAuth({
+    await sb.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: 'https://wwilson-ui.github.io/r/Spark/' }
     });
-    if (error) alert(error.message);
 };
 
 window.signOut = async () => {
@@ -145,20 +138,21 @@ window.vote = async (id, typeValue, itemType = 'post') => {
 
     const currentVote = itemType === 'post' ? myVotes.posts[id] : myVotes.comments[id];
     let action = 'upsert';
-    
-    // Toggle off
+
+    // Toggle off if clicking the same vote button
     if (currentVote === typeValue) action = 'delete';
 
-    // UI Update
+    // 1. Optimistic UI Update
     updateVoteUI(id, action === 'delete' ? 0 : typeValue, itemType);
 
-    // DB Update
+    // 2. Database Update
     if (action === 'delete') {
         let query = sb.from('votes').delete().eq('user_id', currentUser.id);
         if (itemType === 'post') query = query.eq('post_id', id);
         else query = query.eq('comment_id', id);
         await query;
-        
+
+        // Update local cache
         if (itemType === 'post') delete myVotes.posts[id];
         else delete myVotes.comments[id];
     } else {
@@ -169,13 +163,15 @@ window.vote = async (id, typeValue, itemType = 'post') => {
             comment_id: itemType === 'comment' ? id : null
         };
         await sb.from('votes').upsert(payload, { onConflict: itemType === 'post' ? 'user_id, post_id' : 'user_id, comment_id' });
-        
+
+        // Update local cache
         if (itemType === 'post') myVotes.posts[id] = typeValue;
         else myVotes.comments[id] = typeValue;
     }
 };
 
 function updateVoteUI(id, newValue, type) {
+    // Helper to update button states
     const updateButtons = (prefix) => {
         const idPrefix = prefix ? `${prefix}-` : ''; 
         const btnUp = document.getElementById(`${idPrefix}btn-up-${type}-${id}`);
@@ -187,18 +183,23 @@ function updateVoteUI(id, newValue, type) {
         let currentScore = parseInt(scoreSpan.innerText) || 0;
         const oldValue = (type === 'post' ? myVotes.posts[id] : myVotes.comments[id]) || 0;
 
+        // Undo old vote locally
         if (oldValue === 1) currentScore--;
         if (oldValue === -1) currentScore++;
+
+        // Apply new vote locally
         if (newValue === 1) currentScore++;
         if (newValue === -1) currentScore--;
 
         scoreSpan.innerText = currentScore;
         btnUp.classList.remove('active');
         btnDown.classList.remove('active');
+        
         if (newValue === 1) btnUp.classList.add('active');
         if (newValue === -1) btnDown.classList.add('active');
     };
 
+    // Update BOTH Main Feed and Detail View
     updateButtons('');       
     updateButtons('detail'); 
 }
@@ -227,11 +228,11 @@ async function loadPosts() {
     }
 
     if (posts.length === 0) {
-        feed.innerHTML = '<div style="text-align:center; padding:40px; color:#777;">No posts yet.</div>';
+        feed.innerHTML = '<div style="text-align:center; padding:40px; color:#777;">No posts yet. Be the first!</div>';
         return;
     }
 
-    // Cache for detail view
+    // Cache posts for quick access
     window.currentPostsCache = posts;
 
     feed.innerHTML = posts.map(post => {
@@ -262,7 +263,9 @@ async function loadPosts() {
 }
 
 window.openPostPageFromClick = (e, postId) => {
+    // Don't open if clicking a button
     if (e.target.closest('button')) return; 
+    
     const post = window.currentPostsCache.find(p => p.id === postId);
     if (post) {
         const authorName = post.profiles ? post.profiles.username : 'Unknown';
@@ -273,48 +276,88 @@ window.openPostPageFromClick = (e, postId) => {
 
 function openPostPage(post, authorName, realIdentity) {
     currentOpenPostId = post.id;
-    const modal = document.getElementById('postDetailModal');
-    const contentDiv = document.getElementById('postDetailContent');
+    const modal = document.getElementById('postDetailModal'); // Assuming you have this ID in index.html
+    // If you used 'postView' in your previous attempt, change the ID here to match your HTML
+    // Based on "index.html" snippet provided earlier, users might have "postDetailModal" or "postView" div
+    // We will assume the "Single Page App" style (postView) based on previous conversations.
+    // However, if you are using the Modal, ensure the ID matches.
+    // Let's use the layout from the "Single Page" approach which seemed preferred:
     
+    // Toggle Views
+    const feedView = document.getElementById('feedView');
+    const postView = document.getElementById('postView');
+    
+    // NOTE: If you are using Modals, swap this logic. 
+    // Assuming "Page View" style:
+    if (feedView && postView) {
+        feedView.style.display = 'none';
+        postView.style.display = 'block';
+        window.scrollTo(0, 0);
+    } else {
+        // Fallback to Modal if elements missing
+        const modal = document.getElementById('postDetailModal');
+        if (modal) modal.classList.add('active');
+    }
+
+    // Populate Content
     const score = (post.up_votes || 0) - (post.down_votes || 0);
     const myVote = myVotes.posts[post.id] || 0;
 
-    contentDiv.innerHTML = `
-        <div style="margin-bottom: 15px;">
-            <span style="font-size: 0.9rem; color: #555;">r/${post.subreddits ? escapeHtml(post.subreddits.name) : 'Unknown'}</span>
-            <span style="font-size: 0.9rem; color: #777;"> • Posted by ${authorName} <span style="color:#FF4500;">${realIdentity}</span></span>
-        </div>
+    // Fill elements (Check your index.html IDs!)
+    setText('detailSub', `r/${post.subreddits ? post.subreddits.name : 'Unknown'}`);
+    setHTML('detailAuthor', `${authorName} <span style="color:#FF4500;">${realIdentity}</span>`);
+    setText('detailTitle', post.title);
+    setHTML('detailContent', post.content ? escapeHtml(post.content).replace(/\n/g, '<br>') : '');
+    
+    const imgEl = document.getElementById('detailImage');
+    if (imgEl) {
+        imgEl.src = post.image_url || '';
+        imgEl.style.display = post.image_url ? 'block' : 'none';
+    }
+    
+    const linkEl = document.getElementById('detailLink');
+    if (linkEl) {
+        linkEl.href = post.url || '#';
+        linkEl.textContent = post.url ? `🔗 ${post.url}` : '';
+        linkEl.style.display = post.url ? 'block' : 'none';
+    }
 
-        <h2 style="font-size: 1.5rem; margin-bottom: 10px;">${escapeHtml(post.title)}</h2>
+    // Insert Vote Buttons via JS to ensure IDs are unique ('detail-')
+    // We look for a container or inject before title
+    const titleEl = document.getElementById('detailTitle');
+    if (titleEl) {
+        // Remove old vote container if exists
+        const oldVote = document.getElementById('detail-vote-container');
+        if (oldVote) oldVote.remove();
 
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+        const voteDiv = document.createElement('div');
+        voteDiv.id = 'detail-vote-container';
+        voteDiv.style.cssText = 'display:flex; align-items:center; gap:10px; margin-bottom:15px;';
+        voteDiv.innerHTML = `
             <button id="detail-btn-up-post-${post.id}" class="vote-btn up ${myVote === 1 ? 'active' : ''}" onclick="vote('${post.id}', 1, 'post')">⬆</button>
             <span id="detail-score-post-${post.id}" class="score-text" style="font-size: 1.1rem;">${score}</span>
             <button id="detail-btn-down-post-${post.id}" class="vote-btn down ${myVote === -1 ? 'active' : ''}" onclick="vote('${post.id}', -1, 'post')">⬇</button>
-        </div>
+        `;
+        titleEl.parentNode.insertBefore(voteDiv, titleEl.nextSibling); // Insert AFTER title
+    }
 
-        ${post.image_url ? `<img src="${escapeHtml(post.image_url)}" style="width:100%; max-height:600px; object-fit:contain; border-radius:8px; margin-bottom:15px; display:block;">` : ''}
-        ${post.content ? `<div style="font-size: 1rem; line-height: 1.6; margin-bottom: 15px; white-space: pre-wrap;">${escapeHtml(post.content)}</div>` : ''}
-        ${post.url ? `<a href="${escapeHtml(post.url)}" target="_blank" style="display:block; color:#0079D3; margin-bottom:15px;">🔗 ${escapeHtml(post.url)}</a>` : ''}
+    // Show Comment Input
+    const commentInput = document.getElementById('detailCommentInput');
+    if (commentInput) commentInput.style.display = currentUser ? 'block' : 'none';
 
-        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-
-        <div style="margin-bottom: 20px; display: ${currentUser ? 'block' : 'none'};">
-            <textarea id="newCommentText" class="comment-box" placeholder="What are your thoughts?" rows="3" style="width:100%; margin-bottom:10px; padding:10px;"></textarea>
-            <button class="submit-btn small-btn" onclick="submitComment('${post.id}')">Comment</button>
-        </div>
-
-        <div id="detailCommentsList"></div>
-    `;
-
-    modal.classList.add('active');
     loadDetailComments(post.id);
 }
+
+// Helper to safely set text
+function setText(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; }
+function setHTML(id, htm) { const el = document.getElementById(id); if (el) el.innerHTML = htm; }
 
 // ================= COMMENTS =================
 
 async function loadDetailComments(postId) {
     const list = document.getElementById('detailCommentsList');
+    if (!list) return;
+    
     list.innerHTML = 'Loading comments...';
     
     const { data: comments } = await sb
@@ -370,7 +413,7 @@ async function loadSubreddits() {
     const list = document.getElementById('subredditList');
     const { data: subs } = await sb.from('subreddits').select('*');
     
-    if (subs) {
+    if (subs && list) {
         list.innerHTML = `
             <li onclick="filterSub('all')" class="${currentSubFilter === 'all' ? 'active' : ''}">All Posts</li>
             ${subs.map(s => `
@@ -378,7 +421,6 @@ async function loadSubreddits() {
             `).join('')}
         `;
         
-        // Populate dropdown
         const postSelect = document.getElementById('postSubreddit');
         if (postSelect) {
             postSelect.innerHTML = subs.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
@@ -428,7 +470,11 @@ function escapeHtml(text) {
 
 window.openCreateModal = () => {
     if(!currentUser) return alert("Please sign in to post.");
-    document.getElementById('createPostModal').classList.add('active');
+    const modal = document.getElementById('createPostModal');
+    if(modal) modal.classList.add('active');
 };
 window.openSubModal = () => document.getElementById('createSubModal').classList.add('active');
-window.closeModal = (id) => document.getElementById(id).classList.remove('active');
+window.closeModal = (id) => {
+    const el = document.getElementById(id);
+    if(el) el.classList.remove('active');
+};
