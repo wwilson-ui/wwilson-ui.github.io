@@ -134,50 +134,94 @@ function openPostPage(post, authorName, realIdentity) {
 
 // ================= AUTH =================
 async function checkUser() {
-    const { data: { session } } = await sb.auth.getSession();
+    console.log('🔍 === checkUser() START ===');
+    const { data: { session }, error: sessionError } = await sb.auth.getSession();
+    console.log('Session check:', { 
+        hasSession: !!session, 
+        email: session?.user?.email,
+        userId: session?.user?.id,
+        error: sessionError 
+    });
+    
     const authSection = document.getElementById('authSection');
     const actionBar = document.getElementById('actionBar');
 
     if (session) {
-        console.log('✅ Session found:', session.user.email);
+        console.log('✅ Valid session found');
         
         // Try to get profile, with retries for new users
         let profile = null;
         let attempts = 0;
-        const maxAttempts = 5;
+        const maxAttempts = 8; // Increased to 8 attempts (4 seconds total)
         
         while (!profile && attempts < maxAttempts) {
+            attempts++;
+            console.log(`📋 Attempt ${attempts}/${maxAttempts}: Fetching profile...`);
+            
             const { data, error } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
             
             if (data) {
                 profile = data;
-                console.log('✅ Profile loaded:', profile);
+                console.log('✅ Profile found:', profile);
+                break;
             } else if (error) {
-                console.log(`⏳ Profile not ready yet (attempt ${attempts + 1}/${maxAttempts}), waiting...`, error.message);
-                await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+                console.log(`⏳ Profile not found (${error.code}):`, error.message);
+                
+                if (error.code === 'PGRST116') {
+                    // Profile doesn't exist yet - wait and retry
+                    console.log('Waiting 500ms before retry...');
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                } else {
+                    // Some other error
+                    console.error('❌ Unexpected error:', error);
+                    alert(`Database error: ${error.message}\n\nCode: ${error.code}\n\nPlease contact your administrator.`);
+                    await sb.auth.signOut();
+                    location.reload();
+                    return;
+                }
             }
-            attempts++;
         }
         
         if (!profile) {
-            console.error('❌ Profile not found after retries');
-            alert('There was an issue creating your profile. Please try signing in again.');
+            console.error('❌ PROFILE CREATION FAILED');
+            console.log('Checking if user exists in auth.users...');
+            
+            // Try to see what's in the database
+            const { data: allProfiles } = await sb.from('profiles').select('id, email');
+            console.log('All profiles in database:', allProfiles);
+            
+            alert(`Profile was not created for ${session.user.email}
+
+This means the database trigger failed. Possible causes:
+1. Email domain restriction (@mtps.us)
+2. Database trigger not working
+3. Permission/RLS issue
+
+Your admin needs to:
+- Run the complete-auth-setup.sql script
+- Check Supabase logs for errors
+
+You will be signed out now.`);
+            
             await sb.auth.signOut();
             location.reload();
             return;
         }
         
         currentUser = profile;
+        console.log('Current user set:', currentUser.email, currentUser.role);
         
         // Override role for teacher
         if (currentUser.email === 'wwilson@mtps.us') {
             currentUser.role = 'teacher';
+            console.log('🎓 Teacher role override applied');
         }
         
         isTeacher = currentUser.role === 'teacher';
         
         // Load user's votes
         await loadMyVotes();
+        console.log('📊 Votes loaded');
         
         // Update UI
         authSection.innerHTML = `
@@ -192,8 +236,10 @@ async function checkUser() {
         if (actionBar) actionBar.style.display = 'flex';
         const sidebarAddBtn = document.getElementById('sidebarAddBtn');
         if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
+        
+        console.log('✅ === checkUser() COMPLETE ===');
     } else {
-        console.log('ℹ️ No session');
+        console.log('ℹ️ No active session - showing sign in button');
         authSection.innerHTML = `
             <button class="google-btn" onclick="signIn()">
                 <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="G" style="width:18px; height:18px;">
@@ -201,6 +247,7 @@ async function checkUser() {
             </button>
         `;
         if (actionBar) actionBar.style.display = 'none';
+        console.log('=== checkUser() END (no session) ===');
     }
 }
 
@@ -366,12 +413,30 @@ function updateVoteUI(id, newValue, type) {
 }
 
 window.signIn = async function() {
-    await sb.auth.signInWithOAuth({
+    console.log('🔐 Starting Google OAuth sign-in...');
+    const { data, error } = await sb.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: 'https://wwilson-ui.github.io/r/Spark/', queryParams: { hd: 'mtps.us' } }
+        options: { 
+            redirectTo: 'https://wwilson-ui.github.io/r/Spark/', 
+            queryParams: { 
+                hd: 'mtps.us',
+                prompt: 'select_account'
+            }
+        }
     });
+    
+    if (error) {
+        console.error('❌ OAuth initiation error:', error);
+        alert('Sign-in failed: ' + error.message);
+    } else {
+        console.log('✅ OAuth redirect initiated');
+    }
 };
-window.signOut = async function() { await sb.auth.signOut(); window.location.reload(); };
+window.signOut = async function() { 
+    console.log('👋 Signing out...');
+    await sb.auth.signOut(); 
+    window.location.reload(); 
+};
 
 // ================= POSTS & FEED =================
 async function loadPosts() {
