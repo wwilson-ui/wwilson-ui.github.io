@@ -361,7 +361,7 @@ window.signIn = async function() {
     await sb.auth.signInWithOAuth({
         provider: 'google',
         options: { 
-            redirectTo: 'https://wwilson-ui.github.io/r/Spark/' 
+            redirectTo: 'https://wwilson-ui.github.io/r/Spark/', queryParams: { hd: 'mtps.us' } 
         }
     });
 };
