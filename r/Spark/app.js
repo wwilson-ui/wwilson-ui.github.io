@@ -8,6 +8,8 @@ let currentOpenPostId = null;
 let myVotes = { posts: {}, comments: {} };
 let showRealNames = false; // Teacher setting for showing real names
 let currentSort = 'hot'; // hot, new, or top
+let currentView = 'all'; // 'all' or 'mine'
+let unreadNotifications = 0; // Count of posts with new comments
 
 const ADJECTIVES = ['Happy', 'Brave', 'Calm', 'Swift', 'Wise', 'Bright', 'Clever', 'Kind', 'Bold'];
 const ANIMALS = ['Badger', 'Fox', 'Owl', 'Eagle', 'Bear', 'Dolphin', 'Wolf', 'Hawk', 'Tiger'];
@@ -61,6 +63,156 @@ window.toggleRealNames = async function() {
         loadPosts(); // Reload to show/hide names
     }
 };
+
+// ================= VIEW SWITCHING =================
+window.switchToMyPosts = function() {
+    currentView = 'mine';
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.style.background = 'white';
+        btn.style.color = 'black';
+    });
+    const myPostsBtn = document.querySelector('[data-view="mine"]');
+    if (myPostsBtn) {
+        myPostsBtn.style.background = '#FF4500';
+        myPostsBtn.style.color = 'white';
+    }
+    loadPosts();
+};
+
+window.switchToAllPosts = function() {
+    currentView = 'all';
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.style.background = 'white';
+        btn.style.color = 'black';
+    });
+    const allPostsBtn = document.querySelector('[data-view="all"]');
+    if (allPostsBtn) {
+        allPostsBtn.style.background = '#FF4500';
+        allPostsBtn.style.color = 'white';
+    }
+    loadPosts();
+};
+
+window.showNotifications = async function() {
+    if (!currentUser) return;
+    
+    // Fetch my posts with new comments
+    const { data: myPosts } = await sb
+        .from('posts')
+        .select(`
+            *,
+            subreddits(name),
+            profiles(email),
+            comments(created_at)
+        `)
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+    
+    if (!myPosts || myPosts.length === 0) {
+        alert('You haven\'t created any posts yet!');
+        return;
+    }
+    
+    // Check which have new comments
+    const { data: viewData } = await sb
+        .from('post_views')
+        .select('post_id, last_viewed_at')
+        .eq('user_id', currentUser.id);
+    
+    const viewMap = {};
+    if (viewData) {
+        viewData.forEach(v => {
+            viewMap[v.post_id] = new Date(v.last_viewed_at);
+        });
+    }
+    
+    const postsWithNewComments = myPosts.filter(post => {
+        const lastViewed = viewMap[post.id];
+        if (!lastViewed) return post.comments.length > 0; // Never viewed, has comments
+        
+        // Check if there are comments after last viewed
+        return post.comments.some(c => new Date(c.created_at) > lastViewed);
+    });
+    
+    if (postsWithNewComments.length === 0) {
+        alert('No new activity on your posts!');
+        return;
+    }
+    
+    // Switch to my posts view and highlight those with activity
+    currentView = 'mine';
+    loadPosts();
+};
+
+// Calculate unread notifications
+async function updateNotificationCount() {
+    if (!currentUser) {
+        unreadNotifications = 0;
+        updateNotificationBadge();
+        return;
+    }
+    
+    const { data: myPosts } = await sb
+        .from('posts')
+        .select(`id, comments(created_at)`)
+        .eq('user_id', currentUser.id);
+    
+    if (!myPosts) {
+        unreadNotifications = 0;
+        updateNotificationBadge();
+        return;
+    }
+    
+    const { data: viewData } = await sb
+        .from('post_views')
+        .select('post_id, last_viewed_at')
+        .eq('user_id', currentUser.id);
+    
+    const viewMap = {};
+    if (viewData) {
+        viewData.forEach(v => {
+            viewMap[v.post_id] = new Date(v.last_viewed_at);
+        });
+    }
+    
+    let count = 0;
+    myPosts.forEach(post => {
+        const lastViewed = viewMap[post.id];
+        if (!lastViewed) {
+            if (post.comments.length > 0) count++;
+        } else {
+            const hasNewComments = post.comments.some(c => new Date(c.created_at) > lastViewed);
+            if (hasNewComments) count++;
+        }
+    });
+    
+    unreadNotifications = count;
+    updateNotificationBadge();
+}
+
+function updateNotificationBadge() {
+    const badge = document.getElementById('notificationBadge');
+    if (badge) {
+        badge.textContent = unreadNotifications;
+        badge.style.display = unreadNotifications > 0 ? 'inline-block' : 'none';
+    }
+}
+
+async function markPostAsViewed(postId) {
+    if (!currentUser) return;
+    
+    // Upsert post view
+    await sb.from('post_views').upsert({
+        user_id: currentUser.id,
+        post_id: postId,
+        last_viewed_at: new Date().toISOString()
+    }, {
+        onConflict: 'user_id,post_id'
+    });
+    
+    // Update notification count
+    await updateNotificationCount();
+}
 
 // ================= SORTING =================
 window.changeSortReload = function(sortType) {
@@ -116,6 +268,11 @@ window.flagContent = async function(contentId, contentType) {
 function openPostPage(post, authorName, realIdentity) {
     currentOpenPostId = post.id;
     console.log('📖 Opening post:', post.id);
+
+    // Mark post as viewed if it's the user's own post
+    if (currentUser && currentUser.id === post.user_id) {
+        markPostAsViewed(post.id);
+    }
 
     // Toggle Views
     document.getElementById('feedView').style.display = 'none';
@@ -280,6 +437,7 @@ if (!profile || !profile.username) {
         isTeacher = currentUser.role === 'teacher';
         
         await loadMyVotes();
+        await updateNotificationCount(); // Check for new comments on user's posts
         
         // Update UI
         authSection.innerHTML = `
@@ -302,6 +460,10 @@ if (!profile || !profile.username) {
         // Show teacher controls
         const teacherControls = document.getElementById('teacherControls');
         if (teacherControls) teacherControls.style.display = isTeacher ? 'block' : 'none';
+        
+        // Show notification bell for all users
+        const notificationContainer = document.getElementById('notificationContainer');
+        if (notificationContainer) notificationContainer.style.display = 'block';
         
         // Set checkbox state
         const toggleCheckbox = document.getElementById('toggleNamesCheckbox');
@@ -500,7 +662,12 @@ async function loadPosts() {
     const feed = document.getElementById('postsFeed');
     feed.innerHTML = '<div style="padding:20px; text-align:center;">Loading...</div>';
     
-    let query = sb.from('posts').select(`*, subreddits(name), profiles(email), comments(count)`);
+    let query = sb.from('posts').select(`*, subreddits(name), profiles(email)`);
+    
+    // Filter by user if in "My Posts" view
+    if (currentView === 'mine' && currentUser) {
+        query = query.eq('user_id', currentUser.id);
+    }
     
     // Apply sorting
     if (currentSort === 'new') {
@@ -508,11 +675,8 @@ async function loadPosts() {
     } else if (currentSort === 'top') {
         query = query.order('vote_count', { ascending: false });
     } else if (currentSort === 'controversial') {
-        // Controversial = posts with lots of votes but close to 0 score (many up AND down votes)
-        // We'll fetch all and sort client-side
         query = query.order('created_at', { ascending: false });
     } else { // hot (default)
-        // Hot algorithm: score / (hours since creation + 2)^1.5
         query = query.order('vote_count', { ascending: false }).order('created_at', { ascending: false });
     }
     
@@ -524,17 +688,18 @@ async function loadPosts() {
     // Client-side sort for controversial
     if (currentSort === 'controversial' && posts) {
         posts.sort((a, b) => {
-            // Controversial score: lower absolute score with higher total engagement
             const aEngagement = Math.abs(a.vote_count || 0);
             const bEngagement = Math.abs(b.vote_count || 0);
-            // Prioritize posts with low score but high engagement
             return (bEngagement - Math.abs(b.vote_count || 0)) - (aEngagement - Math.abs(a.vote_count || 0));
         });
     }
 
     feed.innerHTML = '';
     if (posts.length === 0) {
-        feed.innerHTML = '<div style="padding:40px; text-align:center; color:#777;">No posts yet. Be the first!</div>';
+        const message = currentView === 'mine' ? 
+            'You haven\'t created any posts yet!' : 
+            'No posts yet. Be the first!';
+        feed.innerHTML = `<div style="padding:40px; text-align:center; color:#777;">${message}</div>`;
         return;
     }
     posts.forEach(post => feed.appendChild(createPostElement(post)));
@@ -602,7 +767,9 @@ div.onclick = (e) => {
             <button id="btn-up-post-${post.id}" class="vote-btn up ${upActive}" onclick="vote('${post.id}', 1, 'post')">⬆</button>
             <span id="score-post-${post.id}" class="score-text">${post.vote_count || 0}</span>
             <button id="btn-down-post-${post.id}" class="vote-btn down ${downActive}" onclick="vote('${post.id}', -1, 'post')">⬇</button>
-            <span style="font-weight:normal; font-size:0.8rem; margin-left:10px;">Click to view comments</span>
+            <span style="margin-left:15px; font-weight:normal; font-size:0.9rem; color:#888;">
+                💬 ${post.comment_count || 0} ${(post.comment_count || 0) === 1 ? 'comment' : 'comments'}
+            </span>
         </div>
     `;
     return div;
@@ -642,6 +809,17 @@ function buildCommentTree(comments) {
         if (c.parent_id && map[c.parent_id]) map[c.parent_id].children.push(c);
         else roots.push(c);
     });
+    
+    // Sort top-level comments by vote_count (descending)
+    roots.sort((a, b) => (b.vote_count || 0) - (a.vote_count || 0));
+    
+    // Sort replies by creation time (oldest first) within each thread
+    roots.forEach(root => {
+        if (root.children.length > 0) {
+            root.children.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        }
+    });
+    
     return roots;
 }
 
