@@ -125,10 +125,29 @@ function openPostPage(post, authorName, realIdentity) {
     // Fill Data
     document.getElementById('detailSub').textContent = `r/${post.subreddits ? post.subreddits.name : 'Unknown'}`;
     
-    // If showRealNames is on, display the real identity; otherwise just the anon name
-    document.getElementById('detailAuthor').innerHTML = showRealNames 
-        ? `${authorName} <span style="color:#ff4500;">(${realIdentity})</span>` 
-        : authorName;
+    // --- FIX START: Dynamic Name Logic ---
+    let displayName = authorName;
+    const isAuthor = currentUser && currentUser.id === post.user_id;
+    const email = post.profiles?.email || realIdentity || '';
+
+    if (showRealNames) {
+        // 1. Toggle ON: Everyone sees real identity
+        displayName = email.split('@')[0] || 'Unknown';
+        if (isAuthor) displayName += ' (you)';
+    } else {
+        // 2. Toggle OFF: Everyone sees Anon Name
+        if (isAuthor) {
+            displayName = `${authorName} (you)`;
+        } else if (isTeacher) {
+            // Teacher sees Anon + (Real Email)
+            displayName = `${authorName} <span style="color:#ff4500;">(${email})</span>`;
+        }
+        // Students just see 'displayName' (which is authorName)
+    }
+    
+    document.getElementById('detailAuthor').innerHTML = displayName;
+    // --- FIX END ---
+
     document.getElementById('detailTitle').textContent = post.title;
     
     const contentDiv = document.getElementById('detailContent');
@@ -142,7 +161,11 @@ function openPostPage(post, authorName, realIdentity) {
     if (post.url) { linkEl.href = post.url; linkEl.textContent = `🔗 ${post.url}`; linkEl.style.display = 'block'; }
     else { linkEl.style.display = 'none'; }
 
+    // VOTING (Using detail- prefix)
+    // ... (Your existing voting code below works fine, leave it as is) ...
+    
     // Add voting buttons to the expanded post view
+    // (Copy the rest of your existing function logic here or leave it alone if you just paste the top part)
     const userVote = myVotes.posts[post.id] || 0;
     const upActive = userVote === 1 ? 'active' : '';
     const downActive = userVote === -1 ? 'active' : '';
@@ -166,7 +189,7 @@ function openPostPage(post, authorName, realIdentity) {
         window.vote(post.id, 1, 'post');
     };
     
-    // Create score display with 'detail-' prefix - initially use cached value
+    // Create score display with 'detail-' prefix
     const scoreSpan = document.createElement('span');
     scoreSpan.id = `detail-score-post-${post.id}`;
     scoreSpan.className = 'score-text';
@@ -196,21 +219,23 @@ function openPostPage(post, authorName, realIdentity) {
     
     // Insert the vote section before the divider
     const divider = document.querySelector('#postView hr.divider');
-    divider.parentNode.insertBefore(voteSection, divider);
+    if (divider) {
+        divider.parentNode.insertBefore(voteSection, divider);
+    } else {
+        // Fallback if divider missing
+        document.getElementById('detailTitle').after(voteSection);
+    }
 
-    // Fetch fresh vote count from database asynchronously
+    // Fetch fresh vote count
     (async () => {
         const { data: freshPost } = await sb.from('posts').select('vote_count').eq('id', post.id).single();
         if (freshPost && scoreSpan) {
             scoreSpan.textContent = freshPost.vote_count || 0;
-            console.log('✅ Refreshed vote count:', freshPost.vote_count);
         }
     })();
 
-    // Show Input if logged in
+    // Show Comments Input
     document.getElementById('detailCommentInput').style.display = currentUser ? 'block' : 'none';
-
-    // Load Comments
     loadDetailComments(post.id);
 }
 
