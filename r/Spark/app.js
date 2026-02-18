@@ -532,11 +532,18 @@ function createPostElement(post) {
         displayName = `${authorName} <span style="color:#999; font-size:0.75em;">(${post.profiles?.email || ''})</span>`;
     }
 
-    div.onclick = (e) => {
+div.onclick = (e) => {
         if (e.target.closest('button')) return;
-        openPostPage(post, authorName || '');
-    };
+        
+        // Use the same logic as your Feed display to determine what name to show
+        let displayIdentity = authorName;
+        if (showRealNames) {
+            displayIdentity = post.profiles?.email?.split('@')[0] || 'Unknown';
+        }
 
+        // Pass the correct identity to the detail page
+        openPostPage(post, authorName, displayIdentity);
+    };
     // Action buttons
     const deleteBtn = (isTeacher || isAuthor) ? `<button class="delete-icon" onclick="deletePost('${post.id}')" title="Delete post">🗑️</button>` : '';
     const editBtn = isAuthor ? `<button class="delete-icon" onclick="editPost('${post.id}')" title="Edit post" style="color:#0079D3;">✏️</button>` : '';
