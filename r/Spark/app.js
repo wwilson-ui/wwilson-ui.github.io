@@ -534,7 +534,7 @@ function createPostElement(post) {
 
     div.onclick = (e) => {
         if (e.target.closest('button')) return;
-        openPostPage(post, authorName, post.profiles?.email || '');
+        openPostPage(post, authorName || '');
     };
 
     // Action buttons
