@@ -124,7 +124,11 @@ function openPostPage(post, authorName, realIdentity) {
 
     // Fill Data
     document.getElementById('detailSub').textContent = `r/${post.subreddits ? post.subreddits.name : 'Unknown'}`;
-    document.getElementById('detailAuthor').innerHTML = `${authorName} <span style="color:#ff4500;">${realIdentity}</span>`;
+    
+    // If showRealNames is on, display the real identity; otherwise just the anon name
+    document.getElementById('detailAuthor').innerHTML = showRealNames 
+        ? `${authorName} <span style="color:#ff4500;">(${realIdentity})</span>` 
+        : authorName;
     document.getElementById('detailTitle').textContent = post.title;
     
     const contentDiv = document.getElementById('detailContent');
