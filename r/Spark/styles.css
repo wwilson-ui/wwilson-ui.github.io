@@ -363,7 +363,7 @@ body {
 .google-btn { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border: 1px solid #ccc; background: white; border-radius: 20px; cursor: pointer; }
 
 /* Sort Buttons */
-.sort-btn {
+.sort-btn, .view-btn {
     padding: 6px 12px;
     border: 1px solid #ccc;
     background: white;
@@ -372,8 +372,8 @@ body {
     font-weight: 600;
     transition: all 0.2s;
 }
-.sort-btn:hover { background: #f0f0f0; }
-.sort-btn.active {
+.sort-btn:hover, .view-btn:hover { background: #f0f0f0; }
+.sort-btn.active, .view-btn.active {
     background: var(--primary);
     color: white;
     border-color: var(--primary);
