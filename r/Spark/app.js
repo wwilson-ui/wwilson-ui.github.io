@@ -65,8 +65,21 @@ window.toggleRealNames = async function() {
 // ================= SORTING =================
 window.changeSortReload = function(sortType) {
     currentSort = sortType;
-    document.querySelectorAll('.sort-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`[data-sort="${sortType}"]`).classList.add('active');
+    
+    // Update button styles
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.background = 'white';
+        btn.style.color = 'black';
+    });
+    
+    const activeBtn = document.querySelector(`[data-sort="${sortType}"]`);
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.style.background = '#FF4500';
+        activeBtn.style.color = 'white';
+    }
+    
     loadPosts();
 };
 
@@ -252,6 +265,10 @@ if (!profile || !profile.username) {
         if (actionBar) actionBar.style.display = 'flex';
         const sidebarAddBtn = document.getElementById('sidebarAddBtn');
         if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
+        
+        // Show admin link for teachers
+        const adminLink = document.getElementById('adminLink');
+        if (adminLink) adminLink.style.display = isTeacher ? 'block' : 'none';
         
         // Show teacher controls
         const teacherControls = document.getElementById('teacherControls');
@@ -461,6 +478,10 @@ async function loadPosts() {
         query = query.order('created_at', { ascending: false });
     } else if (currentSort === 'top') {
         query = query.order('vote_count', { ascending: false });
+    } else if (currentSort === 'controversial') {
+        // Controversial = posts with lots of votes but close to 0 score (many up AND down votes)
+        // We'll fetch all and sort client-side
+        query = query.order('created_at', { ascending: false });
     } else { // hot (default)
         // Hot algorithm: score / (hours since creation + 2)^1.5
         query = query.order('vote_count', { ascending: false }).order('created_at', { ascending: false });
@@ -470,6 +491,17 @@ async function loadPosts() {
 
     const { data: posts, error } = await query;
     if (error) { feed.innerHTML = 'Error loading posts'; return; }
+
+    // Client-side sort for controversial
+    if (currentSort === 'controversial' && posts) {
+        posts.sort((a, b) => {
+            // Controversial score: lower absolute score with higher total engagement
+            const aEngagement = Math.abs(a.vote_count || 0);
+            const bEngagement = Math.abs(b.vote_count || 0);
+            // Prioritize posts with low score but high engagement
+            return (bEngagement - Math.abs(b.vote_count || 0)) - (aEngagement - Math.abs(a.vote_count || 0));
+        });
+    }
 
     feed.innerHTML = '';
     if (posts.length === 0) {
@@ -486,13 +518,17 @@ function createPostElement(post) {
     const isAuthor = currentUser && currentUser.id === post.user_id;
     const authorName = getAnonName(post.user_id);
     
-    // Show real identity if: teacher AND (showRealNames is ON OR isAuthor)
+    // Show real names if teacher has toggled it ON (affects all users)
     let displayName = authorName;
-    if (isTeacher && showRealNames) {
+    if (showRealNames) {
+        // When toggle is ON, everyone sees real names
         displayName = `${post.profiles?.email?.split('@')[0] || 'Unknown'}`;
+        if (isAuthor) displayName += ' (you)';
     } else if (isAuthor) {
+        // When OFF, you still see "(you)" on your own posts
         displayName = `${authorName} (you)`;
     } else if (isTeacher) {
+        // When OFF, teacher sees both anonymous + real name hint
         displayName = `${authorName} <span style="color:#999; font-size:0.75em;">(${post.profiles?.email || ''})</span>`;
     }
 
@@ -502,20 +538,25 @@ function createPostElement(post) {
     };
 
     // Action buttons
-    const deleteBtn = isTeacher ? `<button class="delete-icon" onclick="deletePost('${post.id}')" title="Delete post">🗑️</button>` : '';
+    const deleteBtn = (isTeacher || isAuthor) ? `<button class="delete-icon" onclick="deletePost('${post.id}')" title="Delete post">🗑️</button>` : '';
     const editBtn = isAuthor ? `<button class="delete-icon" onclick="editPost('${post.id}')" title="Edit post" style="color:#0079D3;">✏️</button>` : '';
-    const flagBtn = currentUser && !isAuthor && !isTeacher ? `<button class="delete-icon" onclick="flagContent('${post.id}', 'post')" title="Flag for teacher" style="color:#ff8800;">🚩</button>` : '';
+    const flagBtn = currentUser && !isAuthor ? `<button class="delete-icon" onclick="flagContent('${post.id}', 'post')" title="Flag for teacher" style="color:#ff8800;">🚩</button>` : '';
     
     // Get current user's vote for this post
     const userVote = myVotes.posts[post.id] || 0;
     const upActive = userVote === 1 ? 'active' : '';
     const downActive = userVote === -1 ? 'active' : '';
+    
+    // Format timestamp
+    const timestamp = formatTimestamp(post.created_at);
 
     div.innerHTML = `
         <div class="post-header">
             <strong>r/${post.subreddits ? post.subreddits.name : 'Unknown'}</strong>
             <span>•</span>
             <span>Posted by ${displayName}</span>
+            <span>•</span>
+            <span style="color: #999; font-size: 0.85em;">${timestamp}</span>
             <span style="flex-grow:1"></span>
             ${editBtn}${flagBtn}${deleteBtn}
         </div>
@@ -575,19 +616,36 @@ function renderComments(comments, container) {
     comments.forEach(c => {
         const div = document.createElement('div');
         div.className = 'comment';
+        const isAuthor = currentUser && currentUser.id === c.user_id;
         const authorName = getAnonName(c.user_id);
-        const realIdentity = (isTeacher || (currentUser && currentUser.id === c.user_id)) ? `(${c.profiles?.email || 'me'})` : '';
-        const deleteBtn = isTeacher ? `<button class="delete-sub-x" onclick="deleteComment('${c.id}')">✕</button>` : '';
+        
+        // Show real names if toggle is ON (for everyone)
+        let displayName = authorName;
+        if (showRealNames) {
+            displayName = `${c.profiles?.email?.split('@')[0] || 'Unknown'}`;
+            if (isAuthor) displayName += ' (you)';
+        } else if (isAuthor) {
+            displayName = `${authorName} (you)`;
+        } else if (isTeacher) {
+            displayName = `${authorName} <span style="color:#999; font-size:0.85em;">(${c.profiles?.email || ''})</span>`;
+        }
+        
+        const deleteBtn = (isTeacher || isAuthor) ? `<button class="delete-sub-x" onclick="deleteComment('${c.id}')">✕</button>` : '';
+        const flagBtn = currentUser && !isAuthor ? `<button class="delete-icon" onclick="flagContent('${c.id}', 'comment')" title="Flag" style="color:#ff8800; font-size:0.9rem;">🚩</button>` : '';
         
         // Get current user's vote for this comment
         const userVote = myVotes.comments[c.id] || 0;
         const upActive = userVote === 1 ? 'active' : '';
         const downActive = userVote === -1 ? 'active' : '';
+        
+        // Format timestamp
+        const timestamp = formatTimestamp(c.created_at);
 
         div.innerHTML = `
             <div class="comment-header">
-                <strong>${authorName}</strong> <span style="font-size:0.8em; color:#ff4500;">${realIdentity}</span>
-                ${deleteBtn}
+                <strong>${displayName}</strong> 
+                <span style="color: #999; font-size: 0.75em; margin-left: 5px;">${timestamp}</span>
+                ${flagBtn}${deleteBtn}
             </div>
             <div style="margin-top:2px;">${escapeHtml(c.content)}</div>
             <div style="margin-top:8px; display:flex; align-items:center; gap:8px;">
@@ -747,3 +805,23 @@ window.closeModal = (id) => {
     }
 };
 function escapeHtml(t) { return t ? t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") : ''; }
+
+function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 60) {
+        return diffMins <= 1 ? 'just now' : `${diffMins}m ago`;
+    }
+    if (diffHours < 24) {
+        return `${diffHours}h ago`;
+    }
+    if (diffDays < 7) {
+        return `${diffDays}d ago`;
+    }
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
