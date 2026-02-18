@@ -500,7 +500,7 @@ async function loadPosts() {
     const feed = document.getElementById('postsFeed');
     feed.innerHTML = '<div style="padding:20px; text-align:center;">Loading...</div>';
     
-    let query = sb.from('posts').select(`*, subreddits(name), profiles(email)`);
+    let query = sb.from('posts').select(`*, subreddits(name), profiles(email), comments(count)`);
     
     // Apply sorting
     if (currentSort === 'new') {
