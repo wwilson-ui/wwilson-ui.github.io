@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Admin - r/Spark</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="https://wwilson-ui.github.io/favicon/favicon.png">
+    <style>
+        .flag-card {
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #ff8800;
+        }
+        .flag-card.reviewed {
+            border-left-color: #ccc;
+            opacity: 0.7;
+        }
+        .flag-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .flag-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-remove {
+            background: #ff4444;
+            color: white;
+        }
+        .btn-remove:hover {
+            background: #cc0000;
+        }
+        .btn-ignore {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .btn-ignore:hover {
+            background: #d0d0d0;
+        }
+        .content-preview {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 3px solid #0079D3;
+        }
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .tab-btn.active {
+            background: #FF4500;
+            color: white;
+            border-color: #FF4500;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="logo">
+            <div class="logo-circle">⚡</div>
+            r/Spark Admin
+        </a>
+        <div>
+            <a href="index.html" style="color: #0079D3; font-weight: 600; text-decoration: none; margin-right: 20px;">← Back to Feed</a>
+            <span id="teacherName" style="font-weight: 600;"></span>
+        </div>
+    </nav>
+
+    <div class="layout-grid" style="max-width: 1000px; margin: 20px auto; padding: 0 20px;">
+        <main style="grid-column: 1 / -1;">
+            <h1 style="margin-bottom: 20px;">🛡️ Flagged Content Review</h1>
+            
+            <div class="tab-buttons">
+                <button class="tab-btn active" onclick="switchTab('pending')">⚠️ Pending (<span id="pendingCount">0</span>)</button>
+                <button class="tab-btn" onclick="switchTab('reviewed')">✅ Reviewed</button>
+            </div>
+
+            <div id="pendingFlags"></div>
+            <div id="reviewedFlags" style="display: none;"></div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>
