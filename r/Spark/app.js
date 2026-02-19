@@ -304,6 +304,58 @@ function openPostPage(post, authorName, realIdentity) {
     
     document.getElementById('detailAuthor').innerHTML = displayName;
     // --- FIX END ---
+    
+    // Add action buttons (edit/delete/flag) to the post header
+    const detailHeader = document.querySelector('#postView .post-header');
+    if (detailHeader) {
+        // Remove existing action buttons if any
+        const existingActions = detailHeader.querySelector('.detail-actions');
+        if (existingActions) existingActions.remove();
+        
+        // Create action buttons container
+        const actionsDiv = document.createElement('span');
+        actionsDiv.className = 'detail-actions';
+        actionsDiv.style.cssText = 'margin-left: auto; display: flex; gap: 5px;';
+        
+        // Edit button (for post author)
+        if (isAuthor) {
+            const editBtn = document.createElement('button');
+            editBtn.className = 'delete-icon';
+            editBtn.style.color = '#0079D3';
+            editBtn.title = 'Edit post';
+            editBtn.innerHTML = '✏️';
+            editBtn.onclick = () => editPost(post.id);
+            actionsDiv.appendChild(editBtn);
+        }
+        
+        // Flag button (for non-authors)
+        if (currentUser && !isAuthor) {
+            const flagBtn = document.createElement('button');
+            flagBtn.className = 'delete-icon';
+            flagBtn.style.color = '#ff8800';
+            flagBtn.title = 'Flag for teacher';
+            flagBtn.innerHTML = '🚩';
+            flagBtn.onclick = () => flagContent(post.id, 'post');
+            actionsDiv.appendChild(flagBtn);
+        }
+        
+        // Delete button (for author or teacher)
+        if (isAuthor || isTeacher) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-icon';
+            deleteBtn.title = 'Delete post';
+            deleteBtn.innerHTML = '🗑️';
+            deleteBtn.onclick = () => {
+                if (confirm('Delete this post?')) {
+                    deletePost(post.id);
+                    showFeed(); // Return to feed after deletion
+                }
+            };
+            actionsDiv.appendChild(deleteBtn);
+        }
+        
+        detailHeader.appendChild(actionsDiv);
+    }
 
     document.getElementById('detailTitle').textContent = post.title;
     
@@ -708,6 +760,7 @@ async function loadPosts() {
 function createPostElement(post) {
     const div = document.createElement('div');
     div.className = 'post-card clickable-card';
+    div.setAttribute('data-post-id', post.id); // Add this for easier lookups
     
     const isAuthor = currentUser && currentUser.id === post.user_id;
     const authorName = getAnonName(post.user_id);
@@ -767,7 +820,7 @@ div.onclick = (e) => {
             <button id="btn-up-post-${post.id}" class="vote-btn up ${upActive}" onclick="vote('${post.id}', 1, 'post')">⬆</button>
             <span id="score-post-${post.id}" class="score-text">${post.vote_count || 0}</span>
             <button id="btn-down-post-${post.id}" class="vote-btn down ${downActive}" onclick="vote('${post.id}', -1, 'post')">⬇</button>
-            <span style="margin-left:15px; font-weight:normal; font-size:0.9rem; color:#888;">
+            <span class="comment-count" style="margin-left:15px; font-weight:normal; font-size:0.9rem; color:#888;">
                 💬 ${post.comment_count || 0} ${(post.comment_count || 0) === 1 ? 'comment' : 'comments'}
             </span>
         </div>
@@ -798,8 +851,28 @@ async function submitNewComment() {
         post_id: currentOpenPostId, user_id: currentUser.id, content: content
     }]);
 
-    if (error) alert(error.message);
-    else { txt.value = ''; loadDetailComments(currentOpenPostId); }
+    if (error) {
+        alert(error.message);
+    } else {
+        txt.value = '';
+        
+        // Reload comments
+        await loadDetailComments(currentOpenPostId);
+        
+        // Fetch updated post data to get new comment count
+        const { data: updatedPost } = await sb.from('posts')
+            .select('comment_count')
+            .eq('id', currentOpenPostId)
+            .single();
+        
+        // Update comment count display in feed if visible
+        if (updatedPost) {
+            const feedCommentCount = document.querySelector(`#postsFeed [data-post-id="${currentOpenPostId}"] .comment-count`);
+            if (feedCommentCount) {
+                feedCommentCount.textContent = `💬 ${updatedPost.comment_count || 0} ${(updatedPost.comment_count || 0) === 1 ? 'comment' : 'comments'}`;
+            }
+        }
+    }
 }
 
 function buildCommentTree(comments) {
