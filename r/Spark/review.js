@@ -33,16 +33,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function checkUser() {
     const { data: { session } } = await sb.auth.getSession();
+    const authSection = document.getElementById('authSection'); // 1. Get the container
     
     if (session) {
         // If logged in, get their profile
         const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
         currentUser = profile;
         await loadMyVotes();
+
+        // 2. Show Username in header if logged in
+        if (authSection) {
+            authSection.innerHTML = `
+                <div style="font-weight: 600; color: #444;">${profile.email.split('@')[0]}</div>
+            `;
+        }
     } else {
-        // If NOT logged in, we stay on the page but currentUser remains null.
-        // The UI will see currentUser is null and show the "Sign In" button below.
+        // 3. Show Google Button in header if logged out
         console.log('User not logged in, showing public view');
+        if (authSection) {
+            authSection.innerHTML = `
+                <button onclick="signIn()" style="background: white; color: #444; border: 1px solid #ddd; padding: 6px 12px; border-radius: 4px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.9rem;">
+                    <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" width="18" height="18" alt="G">
+                    Sign in
+                </button>
+            `;
+        }
     }
 }
 
