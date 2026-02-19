@@ -202,3 +202,260 @@ function escapeHtml(text) {
                .replace(/>/g, "&gt;")
                .replace(/"/g, "&quot;");
 }
+
+// ========================================
+// ASSIGNMENT BUILDER
+// ========================================
+
+let allSubreddits = [];
+let currentAdminTab = 'flags';
+
+// Switch between admin tabs
+window.switchAdminTab = function(tab) {
+    currentAdminTab = tab;
+    
+    // Update tab buttons
+    document.querySelectorAll('.admin-tab').forEach(btn => {
+        btn.style.borderBottomColor = 'transparent';
+        btn.classList.remove('active');
+    });
+    event.target.style.borderBottomColor = '#FF4500';
+    event.target.classList.add('active');
+    
+    // Show/hide sections
+    document.getElementById('flagsSection').style.display = tab === 'flags' ? 'block' : 'none';
+    document.getElementById('assignmentsSection').style.display = tab === 'assignments' ? 'block' : 'none';
+    
+    if (tab === 'assignments') {
+        loadAssignmentBuilder();
+    }
+};
+
+async function loadAssignmentBuilder() {
+    // Load subreddits for checkboxes
+    const { data: subs } = await sb.from('subreddits').select('*').order('name');
+    allSubreddits = subs || [];
+    
+    const container = document.getElementById('subredditCheckboxes');
+    container.innerHTML = '';
+    
+    allSubreddits.forEach(sub => {
+        const label = document.createElement('label');
+        label.style.cssText = 'display: flex; align-items: center; gap: 6px; padding: 6px; cursor: pointer;';
+        label.innerHTML = `
+            <input type="checkbox" class="sub-checkbox" value="${sub.id}" style="cursor: pointer;">
+            <span>r/${sub.name}</span>
+        `;
+        container.appendChild(label);
+    });
+    
+    // Load previous assignments
+    loadPreviousAssignments();
+}
+
+window.toggleLimit = function(type) {
+    const checkbox = document.getElementById(`noLimit${type}`);
+    const input = type === 'Votes' ? document.getElementById('maxVotes') :
+                  type === 'Comments' ? document.getElementById('maxComments') :
+                  type === 'Age' ? document.getElementById('daysAgo') :
+                  document.getElementById('postCount');
+    
+    if (checkbox.checked) {
+        input.disabled = true;
+        input.style.opacity = '0.5';
+        input.value = '';
+    } else {
+        input.disabled = false;
+        input.style.opacity = '1';
+    }
+};
+
+window.previewAssignment = async function() {
+    const config = getAssignmentConfig();
+    
+    if (!config.valid) {
+        alert(config.error);
+        return;
+    }
+    
+    // Count matching posts
+    const count = await countMatchingPosts(config);
+    
+    const previewBox = document.getElementById('previewBox');
+    const previewContent = document.getElementById('previewContent');
+    
+    const subNames = config.subreddit_ids.map(id => {
+        const sub = allSubreddits.find(s => s.id === id);
+        return sub ? sub.name : id;
+    }).join(', ');
+    
+    let warnings = [];
+    if (count === 0) {
+        warnings.push('⚠️ No posts match these criteria!');
+    } else if (count > 100 && !config.post_count) {
+        warnings.push(`⚠️ ${count} posts match - students will see ALL of them!`);
+    } else if (config.random_per_student && count > (config.post_count || count) * 3) {
+        warnings.push(`ℹ️ With random order enabled, distribution may be uneven across ${count} eligible posts.`);
+    }
+    
+    previewContent.innerHTML = `
+        <div style="font-size: 0.95rem; line-height: 1.6;">
+            <strong>Sub-Sparks:</strong> ${subNames}<br>
+            <strong>Matching Posts:</strong> ${count}<br>
+            <strong>Students will see:</strong> ${config.post_count || count} posts<br>
+            <strong>Random per student:</strong> ${config.random_per_student ? 'Yes' : 'No'}<br>
+            ${warnings.length > 0 ? '<div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 4px;">' + warnings.join('<br>') + '</div>' : ''}
+        </div>
+    `;
+    
+    previewBox.style.display = 'block';
+};
+
+window.generateAssignment = async function() {
+    const config = getAssignmentConfig();
+    
+    if (!config.valid) {
+        alert(config.error);
+        return;
+    }
+    
+    // Generate short ID
+    const assignmentId = generateShortId();
+    
+    // Save to database
+    const { error } = await sb.from('assignments').insert([{
+        id: assignmentId,
+        created_by: currentUser.id,
+        subreddit_ids: config.subreddit_ids,
+        min_votes: config.min_votes,
+        max_votes: config.max_votes,
+        min_comments: config.min_comments,
+        max_comments: config.max_comments,
+        days_ago: config.days_ago,
+        post_count: config.post_count,
+        random_per_student: config.random_per_student,
+        exclude_own_posts: config.exclude_own_posts,
+        name: config.name
+    }]);
+    
+    if (error) {
+        alert('Error creating assignment: ' + error.message);
+        return;
+    }
+    
+    // Generate URL
+    const url = `${window.location.origin}/review.html?a=${assignmentId}`;
+    
+    // Show link
+    document.getElementById('generatedLink').textContent = url;
+    document.getElementById('generatedLinkBox').style.display = 'block';
+    
+    // Reload list
+    loadPreviousAssignments();
+};
+
+window.copyAssignmentLink = function() {
+    const link = document.getElementById('generatedLink').textContent;
+    navigator.clipboard.writeText(link).then(() => {
+        alert('Link copied to clipboard!');
+    });
+};
+
+function getAssignmentConfig() {
+    const checkedSubs = Array.from(document.querySelectorAll('.sub-checkbox:checked')).map(cb => cb.value);
+    
+    if (checkedSubs.length === 0) {
+        return { valid: false, error: 'Please select at least one Sub-Spark' };
+    }
+    
+    const minVotes = parseInt(document.getElementById('minVotes').value) || 0;
+    const maxVotes = document.getElementById('noLimitVotes').checked ? null : parseInt(document.getElementById('maxVotes').value) || null;
+    const minComments = parseInt(document.getElementById('minComments').value) || 0;
+    const maxComments = document.getElementById('noLimitComments').checked ? null : parseInt(document.getElementById('maxComments').value) || null;
+    const daysAgo = document.getElementById('noLimitAge').checked ? null : parseInt(document.getElementById('daysAgo').value) || null;
+    const postCount = document.getElementById('noLimitCount').checked ? null : parseInt(document.getElementById('postCount').value) || null;
+    
+    return {
+        valid: true,
+        subreddit_ids: checkedSubs,
+        min_votes: minVotes,
+        max_votes: maxVotes,
+        min_comments: minComments,
+        max_comments: maxComments,
+        days_ago: daysAgo,
+        post_count: postCount,
+        random_per_student: document.getElementById('randomPerStudent').checked,
+        exclude_own_posts: document.getElementById('excludeOwn').checked,
+        name: document.getElementById('assignmentName').value || null
+    };
+}
+
+async function countMatchingPosts(config) {
+    let query = sb.from('posts').select('id', { count: 'exact', head: true });
+    
+    query = query.in('subreddit_id', config.subreddit_ids);
+    
+    if (config.min_votes) query = query.gte('vote_count', config.min_votes);
+    if (config.max_votes) query = query.lte('vote_count', config.max_votes);
+    if (config.min_comments) query = query.gte('comment_count', config.min_comments);
+    if (config.max_comments) query = query.lte('comment_count', config.max_comments);
+    
+    if (config.days_ago) {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - config.days_ago);
+        query = query.gte('created_at', cutoff.toISOString());
+    }
+    
+    const { count } = await query;
+    return count || 0;
+}
+
+async function loadPreviousAssignments() {
+    const { data: assignments } = await sb
+        .from('assignments')
+        .select('*')
+        .eq('created_by', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+    
+    const container = document.getElementById('assignmentsList');
+    
+    if (!assignments || assignments.length === 0) {
+        container.innerHTML = '<div style="color: #999; font-style: italic;">No assignments yet</div>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    assignments.forEach(a => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding: 12px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;';
+        
+        const url = `${window.location.origin}/review.html?a=${a.id}`;
+        
+        div.innerHTML = `
+            <div style="font-weight: 600; margin-bottom: 5px;">${a.name || 'Unnamed Assignment'}</div>
+            <div style="font-size: 0.85rem; color: #666;">Created: ${new Date(a.created_at).toLocaleDateString()}</div>
+            <div style="margin-top: 8px;">
+                <a href="${url}" target="_blank" style="font-size: 0.85rem; color: #0079D3;">🔗 Open</a>
+                <button onclick="copyToClipboard('${url}')" style="margin-left: 10px; padding: 4px 8px; font-size: 0.8rem; background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;">Copy Link</button>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+window.copyToClipboard = function(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Link copied!');
+    });
+};
+
+function generateShortId() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+

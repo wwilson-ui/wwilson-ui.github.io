@@ -94,17 +94,151 @@
         </div>
     </nav>
 
-    <div class="layout-grid" style="max-width: 1000px; margin: 20px auto; padding: 0 20px;">
+    <div class="layout-grid" style="max-width: 1200px; margin: 20px auto; padding: 0 20px;">
         <main style="grid-column: 1 / -1;">
-            <h1 style="margin-bottom: 20px;">🛡️ Flagged Content Review</h1>
-            
-            <div class="tab-buttons">
-                <button class="tab-btn active" onclick="switchTab('pending')">⚠️ Pending (<span id="pendingCount">0</span>)</button>
-                <button class="tab-btn" onclick="switchTab('reviewed')">✅ Reviewed</button>
+            <!-- Tab Navigation -->
+            <div style="display: flex; gap: 15px; margin-bottom: 20px; border-bottom: 2px solid #eee;">
+                <button class="admin-tab active" onclick="switchAdminTab('flags')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid #FF4500; font-weight: 600; cursor: pointer;">🛡️ Flagged Content</button>
+                <button class="admin-tab" onclick="switchAdminTab('assignments')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; cursor: pointer;">📋 Review Assignments</button>
             </div>
 
-            <div id="pendingFlags"></div>
-            <div id="reviewedFlags" style="display: none;"></div>
+            <!-- Flagged Content Section -->
+            <div id="flagsSection">
+                <h1 style="margin-bottom: 20px;">🛡️ Flagged Content Review</h1>
+                
+                <div class="tab-buttons">
+                    <button class="tab-btn active" onclick="switchTab('pending')">⚠️ Pending (<span id="pendingCount">0</span>)</button>
+                    <button class="tab-btn" onclick="switchTab('reviewed')">✅ Reviewed</button>
+                </div>
+
+                <div id="pendingFlags"></div>
+                <div id="reviewedFlags" style="display: none;"></div>
+            </div>
+
+            <!-- Assignment Builder Section -->
+            <div id="assignmentsSection" style="display: none;">
+                <h1 style="margin-bottom: 20px;">📋 Create Review Assignment</h1>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                    <!-- Left Column: Builder -->
+                    <div style="background: white; padding: 25px; border-radius: 8px; border: 1px solid #ccc;">
+                        <h3 style="margin-bottom: 20px;">Assignment Configuration</h3>
+                        
+                        <!-- Subreddits -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-weight: 600; display: block; margin-bottom: 10px;">Select Sub-Sparks:</label>
+                            <div id="subredditCheckboxes" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <!-- Dynamically filled -->
+                            </div>
+                        </div>
+
+                        <!-- Filters -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-weight: 600; display: block; margin-bottom: 10px;">Filters:</label>
+                            
+                            <div style="display: grid; gap: 15px;">
+                                <!-- Vote Count -->
+                                <div>
+                                    <label style="font-size: 0.9rem; color: #666;">Vote Count:</label>
+                                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+                                        <input type="number" id="minVotes" placeholder="Min" style="width: 80px; padding: 6px;" value="0">
+                                        <span>to</span>
+                                        <input type="number" id="maxVotes" placeholder="Max" style="width: 80px; padding: 6px;">
+                                        <label style="margin-left: 10px;"><input type="checkbox" id="noLimitVotes" onchange="toggleLimit('Votes')"> No Limit</label>
+                                    </div>
+                                </div>
+
+                                <!-- Comment Count -->
+                                <div>
+                                    <label style="font-size: 0.9rem; color: #666;">Comment Count:</label>
+                                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+                                        <input type="number" id="minComments" placeholder="Min" style="width: 80px; padding: 6px;" value="0">
+                                        <span>to</span>
+                                        <input type="number" id="maxComments" placeholder="Max" style="width: 80px; padding: 6px;">
+                                        <label style="margin-left: 10px;"><input type="checkbox" id="noLimitComments" onchange="toggleLimit('Comments')"> No Limit</label>
+                                    </div>
+                                </div>
+
+                                <!-- Post Age -->
+                                <div>
+                                    <label style="font-size: 0.9rem; color: #666;">Post Age:</label>
+                                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+                                        <span>Last</span>
+                                        <input type="number" id="daysAgo" placeholder="Days" style="width: 80px; padding: 6px;" value="30">
+                                        <span>days</span>
+                                        <label style="margin-left: 10px;"><input type="checkbox" id="noLimitAge" onchange="toggleLimit('Age')"> All Time</label>
+                                    </div>
+                                </div>
+
+                                <!-- Post Count -->
+                                <div>
+                                    <label style="font-size: 0.9rem; color: #666;">Number of Posts:</label>
+                                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+                                        <input type="number" id="postCount" placeholder="Count" style="width: 80px; padding: 6px;" value="10">
+                                        <span>posts</span>
+                                        <label style="margin-left: 10px;"><input type="checkbox" id="noLimitCount" onchange="toggleLimit('Count')"> All Posts</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Options -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-weight: 600; display: block; margin-bottom: 10px;">Options:</label>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <label style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" id="randomPerStudent">
+                                    <span>Different random order for each student</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" id="excludeOwn" checked>
+                                    <span>Exclude students' own posts</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Optional: Assignment Name -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-weight: 600; display: block; margin-bottom: 5px;">Assignment Name (optional):</label>
+                            <input type="text" id="assignmentName" placeholder="e.g., Week 5 History Review" style="width: 100%; padding: 8px;">
+                        </div>
+
+                        <!-- Buttons -->
+                        <div style="display: flex; gap: 10px;">
+                            <button onclick="previewAssignment()" class="btn" style="flex: 1; padding: 12px; background: #0079D3; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                                📊 Preview Count
+                            </button>
+                            <button onclick="generateAssignment()" class="btn" style="flex: 1; padding: 12px; background: #FF4500; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                                🔗 Generate Link
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Preview & Generated Links -->
+                    <div>
+                        <!-- Preview -->
+                        <div id="previewBox" style="background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; display: none;">
+                            <h4 style="margin-bottom: 10px;">📊 Preview</h4>
+                            <div id="previewContent"></div>
+                        </div>
+
+                        <!-- Generated Link -->
+                        <div id="generatedLinkBox" style="background: #e8f5e9; padding: 20px; border-radius: 8px; border: 1px solid #4caf50; display: none;">
+                            <h4 style="margin-bottom: 10px;">✅ Assignment Created!</h4>
+                            <div style="background: white; padding: 12px; border-radius: 4px; margin: 10px 0; word-break: break-all; font-family: monospace; font-size: 0.9rem;" id="generatedLink"></div>
+                            <button onclick="copyAssignmentLink()" style="width: 100%; padding: 10px; background: #4caf50; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                                📋 Copy Link
+                            </button>
+                        </div>
+
+                        <!-- Previous Assignments -->
+                        <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ccc;">
+                            <h4 style="margin-bottom: 15px;">📚 Your Assignments</h4>
+                            <div id="assignmentsList"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
