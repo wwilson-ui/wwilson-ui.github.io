@@ -30,15 +30,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadAssignment(assignmentId);
 });
 
+
 async function checkUser() {
     const { data: { session } } = await sb.auth.getSession();
     
     if (session) {
+        // If logged in, get their profile
         const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
         currentUser = profile;
         await loadMyVotes();
+    } else {
+        // If NOT logged in, we stay on the page but currentUser remains null.
+        // The UI will see currentUser is null and show the "Sign In" button below.
+        console.log('User not logged in, showing public view');
     }
 }
+
 
 async function loadMyVotes() {
     if (!currentUser) return;
@@ -470,57 +477,18 @@ function escapeHtml(text) {
 }
 
 
+// ================= AUTHENTICATION =================
 
-
-        window.signIn = async function() {
-            // REMOVED 'hd' restriction to allow testing with any Google account
-            await sb.auth.signInWithOAuth({
-                provider: 'google',
-                options: { 
-                    redirectTo: 'https://wwilson-ui.github.io/r/Spark/', queryParams: { hd: 'mtps.us' } 
-                }
-            });
-        };
-
-window.signOut = async function() { 
-    await sb.auth.signOut(); 
-    localStorage.clear(); // Clear local storage to ensure a fresh state
-    window.location.reload(); 
-};
-
-        
-        async function checkUser() {
-            const { data: { session } } = await sb.auth.getSession();
-            const authSection = document.getElementById('authSection');
-            const actionBar = document.getElementById('actionBar');
-
-            if (session) {
-                console.log('✅ Session active:', session.user.email);
-        
-                // 1. Try to get the profile
-                let { data: profile, error: fetchError } = await sb.from('profiles')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
-
-                // 2. If profile is missing, CREATE it (Self-Healing)
-                // 2. If profile is missing OR username is missing, FIX IT
-        if (!profile || !profile.username) {
-            console.log('✨ Profile or username missing, fixing now...');
+window.signIn = async function() {
+    // IMPORTANT: specific logic for Review Page
+    // We want to return to THIS exact assignment, not the home page.
+    const returnUrl = window.location.href;
     
-            // Generate a username from the email (e.g., "wwilson" from "wwilson@mtps.us")
-            const generatedUsername = session.user.email.split('@')[0];
-
-            const { data: updatedProfile, error: upsertError } = await sb.from('profiles').upsert({
-                id: session.user.id,
-                email: session.user.email,
-                username: generatedUsername,
-                role: session.user.email === 'wwilson@mtps.us' ? 'teacher' : 'student'
-            }).select().single();
-    
-            if (upsertError) {
-                console.error('❌ Could not fix profile:', upsertError);
-            } else {
-                profile = updatedProfile;
-            }
+    await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { 
+            redirectTo: returnUrl,
+            // queryParams: { hd: 'mtps.us' } // Uncomment this line if you want to restrict to school emails only
         }
+    });
+};
