@@ -213,6 +213,7 @@ function displayCurrentPost() {
     }
 }
 
+
 function createPostHTML(post) {
     const authorName = getAnonName(post.user_id);
     const userVote = myVotes.posts[post.id] || 0;
@@ -252,12 +253,22 @@ function createPostHTML(post) {
                     <textarea id="newCommentText" placeholder="Add a comment..." style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; resize: vertical;" rows="3"></textarea>
                     <button onclick="submitComment('${post.id}')" style="margin-top: 8px; padding: 8px 16px; background: #FF4500; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Comment</button>
                 </div>
-            ` : '<div style="color: #999; font-style: italic; margin-bottom: 20px;">Sign in to comment</div>'}
+            ` : `
+                <div style="margin-bottom: 20px; text-align: center; padding: 20px; background: #f5f5f5; border-radius: 8px;">
+                    <p style="margin-bottom: 10px; color: #666;">You must be signed in to vote or comment.</p>
+                    <button onclick="signIn()" style="background: white; color: #444; border: 1px solid #ddd; padding: 10px 15px; border-radius: 4px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; font-size: 1rem;">
+                        <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" width="18" height="18" alt="G">
+                        Sign in with Google
+                    </button>
+                </div>
+            `}
 
             <div id="commentsList"></div>
         </div>
     `;
 }
+
+
 
 async function loadComments(postId) {
     const { data: comments } = await sb.from('comments')
