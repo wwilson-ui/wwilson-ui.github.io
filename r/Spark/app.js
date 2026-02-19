@@ -740,9 +740,14 @@ async function loadPosts() {
     // Client-side sort for controversial
     if (currentSort === 'controversial' && posts) {
         posts.sort((a, b) => {
-            const aEngagement = Math.abs(a.vote_count || 0);
-            const bEngagement = Math.abs(b.vote_count || 0);
-            return (bEngagement - Math.abs(b.vote_count || 0)) - (aEngagement - Math.abs(a.vote_count || 0));
+            // Controversial = lots of comments but low/divided vote score
+            // Formula: comment_count / (abs(vote_count) + 1)
+            // Higher = more controversial (many comments, low score)
+            
+            const aControversy = (a.comment_count || 0) / (Math.abs(a.vote_count || 0) + 1);
+            const bControversy = (b.comment_count || 0) / (Math.abs(b.vote_count || 0) + 1);
+            
+            return bControversy - aControversy;
         });
     }
 
