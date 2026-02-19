@@ -343,8 +343,9 @@ window.generateAssignment = async function() {
         return;
     }
     
-    // Generate URL
-    const url = `${window.location.origin}/review.html?a=${assignmentId}`;
+    // Generate URL with correct path
+    const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
+    const url = `${baseUrl}review.html?a=${assignmentId}`;
     
     // Show link
     document.getElementById('generatedLink').textContent = url;
@@ -425,12 +426,15 @@ async function loadPreviousAssignments() {
         return;
     }
     
+    // Get correct base URL
+    const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
+    
     container.innerHTML = '';
     assignments.forEach(a => {
         const div = document.createElement('div');
         div.style.cssText = 'padding: 12px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;';
         
-        const url = `${window.location.origin}/review.html?a=${a.id}`;
+        const url = `${baseUrl}review.html?a=${a.id}`;
         
         div.innerHTML = `
             <div style="font-weight: 600; margin-bottom: 5px;">${a.name || 'Unnamed Assignment'}</div>
@@ -458,4 +462,3 @@ function generateShortId() {
     }
     return result;
 }
-
