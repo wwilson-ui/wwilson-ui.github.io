@@ -79,6 +79,19 @@
     </style>
 </head>
 <body>
+
+    <nav class="navbar">
+        <a href="#" class="logo" onclick="location.reload()">
+            <div class="logo-circle">⚡</div>
+            r/Spark
+        </a>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <a id="adminLink" href="admin.html" style="display: none; color: #0079D3; font-weight: 600; text-decoration: none;">🛡️ Admin</a>
+            <div id="authSection"></div>
+        </div>
+    </nav>
+
+    
     <!-- Navigation Arrows -->
     <div id="leftArrow" class="nav-arrow" onclick="previousPost()" title="Previous post">←</div>
     <div id="rightArrow" class="nav-arrow" onclick="nextPost()" title="Next post">→</div>
