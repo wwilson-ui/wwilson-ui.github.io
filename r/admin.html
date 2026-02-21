@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Admin - r/Spark</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="https://wwilson-ui.github.io/favicon/favicon.png">
+    <style>
+        .flag-card {
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #ff8800;
+        }
+        .flag-card.reviewed {
+            border-left-color: #ccc;
+            opacity: 0.7;
+        }
+        .flag-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .flag-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-remove {
+            background: #ff4444;
+            color: white;
+        }
+        .btn-remove:hover {
+            background: #cc0000;
+        }
+        .btn-ignore {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .btn-ignore:hover {
+            background: #d0d0d0;
+        }
+        .content-preview {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 3px solid #0079D3;
+        }
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .tab-btn.active {
+            background: #FF4500;
+            color: white;
+            border-color: #FF4500;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="logo">
+            <div class="logo-circle">⚡</div>
+            r/Spark Admin
+        </a>
+        <div>
+            <a href="index.html" style="color: #0079D3; font-weight: 600; text-decoration: none; margin-right: 20px;">← Back to Feed</a>
+            <span id="teacherName" style="font-weight: 600;"></span>
+        </div>
+    </nav>
+
+    <div class="layout-grid" style="max-width: 1200px; margin: 20px auto; padding: 0 20px;">
+        <main style="grid-column: 1 / -1;">
+            <!-- Tab Navigation -->
+            <div style="display: flex; gap: 15px; margin-bottom: 20px; border-bottom: 2px solid #eee; overflow-x: auto;">
+                <button class="admin-tab active" onclick="switchAdminTab('flags')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid #FF4500; font-weight: 600; cursor: pointer; white-space: nowrap;">🛡️ Flagged Content</button>
+                <button class="admin-tab" onclick="switchAdminTab('assignments')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; cursor: pointer; white-space: nowrap;">📋 Assignments</button>
+                <button class="admin-tab" onclick="switchAdminTab('subsparks')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; cursor: pointer; white-space: nowrap;">⚙️ Sub-Sparks</button>
+                <button class="admin-tab" onclick="switchAdminTab('analytics')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; cursor: pointer; white-space: nowrap;">📊 Analytics</button>
+                <button class="admin-tab" onclick="switchAdminTab('profanity')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; cursor: pointer; white-space: nowrap;">🚫 Profanity Filter</button>
+                <button class="admin-tab" id="superAdminTab" onclick="switchAdminTab('superadmin')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; cursor: pointer; display: none; white-space: nowrap;">👑 Super Admin</button>
+            </div>
+
+            <!-- Flagged Content Section -->
+            <div id="flagsSection">
+                <h1 style="margin-bottom: 20px;">🛡️ Flagged Content Review</h1>
+                
+                <div class="tab-buttons">
+                    <button class="tab-btn active" onclick="switchTab('pending')">⚠️ Pending (<span id="pendingCount">0</span>)</button>
+                    <button class="tab-btn" onclick="switchTab('reviewed')">✅ Reviewed</button>
+                </div>
+
+                <div id="pendingFlags"></div>
+                <div id="reviewedFlags" style="display: none;"></div>
+            </div>
+
+            <!-- Assignment Builder Section -->
+            <div id="assignmentsSection" style="display: none;">
+                <h1 style="margin-bottom: 20px;">📋 Create Review Assignment</h1>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                    <!-- Left Column: Builder -->
+                    <div style="background: white; padding: 25px; border-radius: 8px; border: 1px solid #ccc;">
+                        <h3 style="margin-bottom: 20px;">Assignment Configuration</h3>
+                        
+                        <!-- Subreddits -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-weight: 600; display: block; margin-bottom: 10px;">Select Sub-Sparks:</label>
+                            <div id="subredditCheckboxes" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <!-- Dynamically filled -->
+                            </div>
+                        </div>
+
+                        <!-- Filters -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-weight: 600; display: block; margin-bottom: 10px;">Filters:</label>
+                            
+                            <div style="display: grid; gap: 15px;">
+                                <!-- Vote Count -->
+                                <div>
+                                    <label style="font-size: 0.9rem; color: #666;">Vote Count:</label>
+                                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+                                        <input type="number" id="minVotes" placeholder="Min" style="width: 80px; padding: 6px;" value="0">
+                                        <span>to</span>
+                                        <input type="number" id="maxVotes" placeholder="Max" style="width: 80px; padding: 6px;">
+                                        <label style="margin-left: 10px;"><input type="checkbox" id="noLimitVotes" onchange="toggleLimit('Votes')"> No Limit</label>
+                                    </div>
+                                </div>
+
+                                <!-- Comment Count -->
+                                <div>
+                                    <label style="font-size: 0.9rem; color: #666;">Comment Count:</label>
+                                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+                                        <input type="number" id="minComments" placeholder="Min" style="width: 80px; padding: 6px;" value="0">
+                                        <span>to</span>
+                                        <input type="number" id="maxComments" placeholder="Max" style="width: 80px; padding: 6px;">
+                                        <label style="margin-left: 10px;"><input type="checkbox" id="noLimitComments" onchange="toggleLimit('Comments')"> No Limit</label>
+                                    </div>
+                                </div>
+
+                                <!-- Post Age -->
+                                <div>
+                                    <label style="font-size: 0.9rem; color: #666;">Post Age:</label>
+                                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+                                        <span>Last</span>
+                                        <input type="number" id="daysAgo" placeholder="Days" style="width: 80px; padding: 6px;" value="30">
+                                        <span>days</span>
+                                        <label style="margin-left: 10px;"><input type="checkbox" id="noLimitAge" onchange="toggleLimit('Age')"> All Time</label>
+                                    </div>
+                                </div>
+
+                                <!-- Post Count -->
+                                <div>
+                                    <label style="font-size: 0.9rem; color: #666;">Number of Posts:</label>
+                                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+                                        <input type="number" id="postCount" placeholder="Count" style="width: 80px; padding: 6px;" value="10">
+                                        <span>posts</span>
+                                        <label style="margin-left: 10px;"><input type="checkbox" id="noLimitCount" onchange="toggleLimit('Count')"> All Posts</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Options -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-weight: 600; display: block; margin-bottom: 10px;">Options:</label>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <label style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" id="randomPerStudent">
+                                    <span>Different random order for each student</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" id="excludeOwn" checked>
+                                    <span>Exclude students' own posts</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Optional: Assignment Name -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-weight: 600; display: block; margin-bottom: 5px;">Assignment Name (optional):</label>
+                            <input type="text" id="assignmentName" placeholder="e.g., Week 5 History Review" style="width: 100%; padding: 8px;">
+                        </div>
+
+                        <!-- Buttons -->
+                        <div style="display: flex; gap: 10px;">
+                            <button onclick="previewAssignment()" class="btn" style="flex: 1; padding: 12px; background: #0079D3; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                                📊 Preview Count
+                            </button>
+                            <button onclick="generateAssignment()" class="btn" style="flex: 1; padding: 12px; background: #FF4500; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                                🔗 Generate Link
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Preview & Generated Links -->
+                    <div>
+                        <!-- Preview -->
+                        <div id="previewBox" style="background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; display: none;">
+                            <h4 style="margin-bottom: 10px;">📊 Preview</h4>
+                            <div id="previewContent"></div>
+                        </div>
+
+                        <!-- Generated Link -->
+                        <div id="generatedLinkBox" style="background: #e8f5e9; padding: 20px; border-radius: 8px; border: 1px solid #4caf50; display: none;">
+                            <h4 style="margin-bottom: 10px;">✅ Assignment Created!</h4>
+                            <div style="background: white; padding: 12px; border-radius: 4px; margin: 10px 0; word-break: break-all; font-family: monospace; font-size: 0.9rem;" id="generatedLink"></div>
+                            <button onclick="copyAssignmentLink()" style="width: 100%; padding: 10px; background: #4caf50; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                                📋 Copy Link
+                            </button>
+                        </div>
+
+                        <!-- Previous Assignments -->
+                        <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ccc;">
+                            <h4 style="margin-bottom: 15px;">📚 Your Assignments</h4>
+                            <div id="assignmentsList"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sub-Sparks Management Section -->
+            <div id="subsparksSection" style="display: none;">
+                <h1 style="margin-bottom: 20px;">⚙️ Sub-Spark Management</h1>
+                
+                <div id="subsparksList"></div>
+            </div>
+
+            <!-- Analytics Section -->
+            <div id="analyticsSection" style="display: none;">
+                <h1 style="margin-bottom: 20px;">📊 Student Analytics</h1>
+                
+                <!-- Filters -->
+                <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ccc;">
+                    <h3 style="margin-bottom: 15px;">Filters</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div>
+                            <label style="font-weight: 600; display: block; margin-bottom: 5px;">Sub-Spark:</label>
+                            <select id="analyticsSubreddit" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="all">All Sub-Sparks</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-weight: 600; display: block; margin-bottom: 5px;">Time Period:</label>
+                            <select id="analyticsTimePeriod" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="7">Last 7 days</option>
+                                <option value="30" selected>Last 30 days</option>
+                                <option value="90">Last 90 days</option>
+                                <option value="all">All time</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: flex-end;">
+                            <button onclick="loadAnalytics()" class="btn" style="padding: 10px 20px; background: #0079D3; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                                Apply Filters
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scoring Weights Configuration -->
+                <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ccc;">
+                    <h3 style="margin-bottom: 15px;">⚖️ Scoring Algorithm Weights</h3>
+                    <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Adjust how different activities contribute to student scores.</p>
+                    
+                    <div style="display: grid; gap: 15px;">
+                        <div>
+                            <label style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span>Posts Created:</span>
+                                <span id="weightPostsValue" style="font-weight: 600;">1.0x</span>
+                            </label>
+                            <input type="range" id="weightPosts" min="0" max="2" step="0.1" value="1.0" oninput="updateWeightDisplay('Posts')" style="width: 100%;">
+                        </div>
+                        <div>
+                            <label style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span>Comments Made:</span>
+                                <span id="weightCommentsValue" style="font-weight: 600;">0.8x</span>
+                            </label>
+                            <input type="range" id="weightComments" min="0" max="2" step="0.1" value="0.8" oninput="updateWeightDisplay('Comments')" style="width: 100%;">
+                        </div>
+                        <div>
+                            <label style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span>Votes Given:</span>
+                                <span id="weightVotesGivenValue" style="font-weight: 600;">0.3x</span>
+                            </label>
+                            <input type="range" id="weightVotesGiven" min="0" max="2" step="0.1" value="0.3" oninput="updateWeightDisplay('VotesGiven')" style="width: 100%;">
+                        </div>
+                        <div>
+                            <label style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span>Post Quality (upvotes received):</span>
+                                <span id="weightPostQualityValue" style="font-weight: 600;">1.5x</span>
+                            </label>
+                            <input type="range" id="weightPostQuality" min="0" max="3" step="0.1" value="1.5" oninput="updateWeightDisplay('PostQuality')" style="width: 100%;">
+                        </div>
+                        <div>
+                            <label style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span>Comment Quality (upvotes received):</span>
+                                <span id="weightCommentQualityValue" style="font-weight: 600;">1.2x</span>
+                            </label>
+                            <input type="range" id="weightCommentQuality" min="0" max="3" step="0.1" value="1.2" oninput="updateWeightDisplay('CommentQuality')" style="width: 100%;">
+                        </div>
+                        <div>
+                            <label style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span>Engagement (time & consistency):</span>
+                                <span id="weightEngagementValue" style="font-weight: 600;">0.5x</span>
+                            </label>
+                            <input type="range" id="weightEngagement" min="0" max="2" step="0.1" value="0.5" oninput="updateWeightDisplay('Engagement')" style="width: 100%;">
+                        </div>
+                    </div>
+                    
+                    <button onclick="saveWeights()" class="btn" style="margin-top: 15px; padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                        💾 Save Weights
+                    </button>
+                </div>
+
+                <!-- Analytics Results -->
+                <div id="analyticsResults"></div>
+            </div>
+
+            <!-- Profanity Filter Section -->
+            <div id="profanitySection" style="display: none;">
+                <h1 style="margin-bottom: 20px;">🚫 Profanity Filter Management</h1>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <!-- Add Word Form -->
+                    <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ccc;">
+                        <h3 style="margin-bottom: 15px;">Add Banned Word/Phrase</h3>
+                        <div style="margin-bottom: 15px;">
+                            <label style="font-weight: 600; display: block; margin-bottom: 5px;">Word or Phrase:</label>
+                            <input type="text" id="bannedWordInput" placeholder="e.g., inappropriate" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label style="font-weight: 600; display: block; margin-bottom: 5px;">Severity:</label>
+                            <select id="bannedWordSeverity" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="low">Low (warning only)</option>
+                                <option value="medium" selected>Medium (blur + flag)</option>
+                                <option value="high">High (blur + auto-flag)</option>
+                            </select>
+                        </div>
+                        <button onclick="addBannedWord()" class="btn" style="width: 100%; padding: 10px; background: #ff4444; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                            🚫 Add to Ban List
+                        </button>
+                    </div>
+
+                    <!-- Current Banned Words -->
+                    <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ccc;">
+                        <h3 style="margin-bottom: 15px;">Current Banned Words</h3>
+                        <div id="bannedWordsList" style="max-height: 400px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+
+                <!-- Auto-Flagged Content -->
+                <div style="margin-top: 20px; background: white; padding: 20px; border-radius: 8px; border: 1px solid #ccc;">
+                    <h3 style="margin-bottom: 15px;">⚠️ Auto-Flagged Content (Profanity Detected)</h3>
+                    <div id="autoFlaggedContent"></div>
+                </div>
+            </div>
+
+            <!-- Super Admin Section -->
+            <div id="superadminSection" style="display: none;">
+                <h1 style="margin-bottom: 20px;">👑 Super Admin Controls</h1>
+                
+                <!-- Teacher Management -->
+                <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ccc;">
+                    <h3 style="margin-bottom: 15px;">👥 Teacher Management</h3>
+                    <div id="teachersList"></div>
+                </div>
+
+                <!-- All Sub-Sparks Overview -->
+                <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ccc;">
+                    <h3 style="margin-bottom: 15px;">🌐 All Sub-Sparks (System-Wide)</h3>
+                    <div id="allSubsparksList"></div>
+                </div>
+
+                <!-- System Statistics -->
+                <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ccc;">
+                    <h3 style="margin-bottom: 15px;">📈 System Statistics</h3>
+                    <div id="systemStats"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>
