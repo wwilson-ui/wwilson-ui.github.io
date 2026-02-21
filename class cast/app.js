@@ -1,9 +1,14 @@
-// 1. INITIALIZE FIREBASE (You get these keys from your free Firebase account)
+// 1. INITIALIZE FIREBASE 
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID"
+  apiKey: "AIzaSyBBzr6_TAcxqSED28NopqR8a3kf7wj-VU4",
+  authDomain: "student-podcast-tracker.firebaseapp.com",
+  projectId: "student-podcast-tracker",
+  storageBucket: "student-podcast-tracker.firebasestorage.app",
+  messagingSenderId: "723984655102",
+  appId: "1:723984655102:web:d14bf2d1dda9ad6525bbaf",
+  measurementId: "G-Q7W14WR5X8"
 };
+
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
