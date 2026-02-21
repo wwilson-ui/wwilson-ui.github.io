@@ -13,27 +13,37 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// 2. GOOGLE LOGIN WITH @MTPS.us RESTRICTION (For index.html)
+// 2. GOOGLE LOGIN WITH ACCOUNT CHOOSER & DOMAIN RESTRICTION
 const loginBtn = document.getElementById('loginBtn');
 if (loginBtn) {
     loginBtn.addEventListener('click', () => {
         const provider = new firebase.auth.GoogleAuthProvider();
-        // Force the Google login screen to only accept MTPS.us domains
-        provider.setCustomParameters({ hd: "MTPS.us" }); 
+        
+        // Force the account selection screen AND restrict to MTPS.us
+        provider.setCustomParameters({ 
+            prompt: 'select_account',
+            hd: "MTPS.us" 
+        }); 
 
         auth.signInWithPopup(provider).then((result) => {
             const email = result.user.email;
+            
+            // Double-check the domain just in case
             if (!email.endsWith("@MTPS.us")) {
                 auth.signOut();
                 alert("Unauthorized: Please use your @MTPS.us email.");
             } else {
-                // Route teacher vs student (hardcoded for example, better done in DB)
+                // Route teacher vs student (Change "teacher@MTPS.us" to your actual email)
                 if (email === "teacher@MTPS.us") {
                     window.location.href = "teacher.html";
                 } else {
                     window.location.href = "student.html";
                 }
             }
+        }).catch((error) => {
+            // This will show you exactly what is going wrong if it fails again
+            console.error("Login Error: ", error);
+            alert("Login failed: " + error.message);
         });
     });
 }
