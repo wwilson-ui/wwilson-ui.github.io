@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Teacher Dashboard</title>
+</head>
+<body>
+    <h2>Teacher Dashboard</h2>
+    <button id="exportCsvBtn">Export to CSV (Spreadsheet)</button>
+    
+    <table border="1" style="margin-top: 20px; width: 100%;">
+        <thead>
+            <tr>
+                <th>Student Email</th>
+                <th>Listen Time (Seconds)</th>
+                <th>Checkpoints Passed</th>
+            </tr>
+        </thead>
+        <tbody id="studentDataTable">
+            </tbody>
+    </table>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
