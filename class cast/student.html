@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Audio Assignment</title>
+</head>
+<body>
+    <h2>Assignment: Chapter 1 Audio</h2>
+    
+    <audio id="audioPlayer" controls>
+        <source src="YOUR_AUDIO_FILE.mp3" type="audio/mpeg"> 
+    </audio>
+
+    <div id="transcriptBox" style="border: 1px solid #ccc; padding: 15px; margin-top: 20px;">
+        <p id="transcriptText">The transcript will appear here. In the future, we can wrap individual words in HTML span tags to highlight them via JavaScript as the time updates.</p>
+    </div>
+
+    <div id="questionModal" style="display:none; background: #f9f9f9; border: 2px solid red; padding: 20px;">
+        <h3 id="questionText"></h3>
+        <input type="text" id="studentAnswer" placeholder="Type your answer...">
+        <button id="submitAnswerBtn">Submit</button>
+        <p id="feedback" style="color:red;"></p>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
