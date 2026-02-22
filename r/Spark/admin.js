@@ -225,9 +225,13 @@ window.switchAdminTab = function(tab) {
     // Show/hide sections
     document.getElementById('flagsSection').style.display = tab === 'flags' ? 'block' : 'none';
     document.getElementById('assignmentsSection').style.display = tab === 'assignments' ? 'block' : 'none';
+    const subsparksSection = document.getElementById('subsparksSection');
+    if (subsparksSection) subsparksSection.style.display = tab === 'subsparks' ? 'block' : 'none';
     
     if (tab === 'assignments') {
         loadAssignmentBuilder();
+    } else if (tab === 'subsparks') {
+        loadSubsparks();
     }
 };
 
@@ -461,4 +465,85 @@ function generateShortId() {
         result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;
+}
+
+// ========================================
+// NAME MASKING CONTROLS
+// ========================================
+
+window.toggleGlobalNames = async function(showReal) {
+    const { error } = await sb.from('teacher_scoring_config').upsert({
+        teacher_id: currentUser.id,
+        global_show_real_names: showReal
+    }, { onConflict: 'teacher_id' });
+    
+    if (error) {
+        alert('Error: ' + error.message);
+        return;
+    }
+    
+    document.getElementById('globalNameStatusText').textContent = showReal ? 'Real names visible' : 'Anonymous names';
+    alert('✅ Setting updated! Students will see changes within 5 seconds.');
+};
+
+window.toggleSubredditNames = async function(subredditId, showReal) {
+    const { error } = await sb.from('subreddits').update({ show_real_names: showReal }).eq('id', subredditId);
+    if (error) {
+        alert('Error: ' + error.message);
+        return;
+    }
+    alert('✅ Updated!');
+    loadSubsparks();
+};
+
+async function loadSubsparks() {
+    const container = document.getElementById('subsparksList');
+    if (!container) return;
+    
+    container.innerHTML = '<div style="text-align:center; padding:40px;">Loading...</div>';
+    
+    const { data: config } = await sb.from('teacher_scoring_config').select('global_show_real_names').eq('teacher_id', currentUser.id).single();
+    const globalSetting = config?.global_show_real_names || false;
+    
+    const globalToggle = document.getElementById('globalNameToggle');
+    if (globalToggle) globalToggle.checked = globalSetting;
+    const statusText = document.getElementById('globalNameStatusText');
+    if (statusText) statusText.textContent = globalSetting ? 'Real names visible' : 'Anonymous names';
+    
+    const { data: subs, error } = await sb.from('subreddits').select('*').eq('teacher_id', currentUser.id).order('name');
+    
+    if (error) {
+        container.innerHTML = '<div style="color:red;">Error loading</div>';
+        return;
+    }
+    
+    if (!subs || subs.length === 0) {
+        container.innerHTML = '<div style="color:#999; padding:40px; text-align:center;">No sub-sparks yet</div>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    subs.forEach(sub => {
+        const card = document.createElement('div');
+        card.style.cssText = 'background: white; padding: 20px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ccc;';
+        
+        const subSetting = sub.show_real_names;
+        const effectiveSetting = subSetting !== null ? subSetting : globalSetting;
+        const isOverridden = subSetting !== null;
+        
+        card.innerHTML = `
+            <h3 style="margin-bottom: 10px;">r/${sub.name}</h3>
+            <div style="border-top: 1px solid #eee; padding-top: 15px; margin-top: 15px;">
+                <h4 style="font-size: 0.95rem; margin-bottom: 10px;">🎭 Name Display</h4>
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" ${effectiveSetting ? 'checked' : ''} onchange="toggleSubredditNames('${sub.id}', this.checked)" style="width: 18px; height: 18px; cursor: pointer;">
+                    <span>Show real names</span>
+                </label>
+                <div style="margin-top: 8px; font-size: 0.85em; color: #666;">
+                    ${isOverridden ? '<span style="color: #ff8800; font-weight: 600;">⚠️ Overriding global</span>' : `<span>Using global (${globalSetting ? 'real' : 'anon'})</span>`}
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
 }
