@@ -3,9 +3,6 @@
 // Uses same Supabase + Google OAuth as Spark forum
 // =====================================================
 
-// UNIFIED CONFIG - Same as Spark
-const SUPABASE_URL = 'https://mvxuubwbtkhdbhuadxtu.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHV1YndidGtoZGJodWFkeHR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQyMDgsImV4cCI6MjA4Njc2MDIwOH0.FzsVt0bmWnrc3pYUWfJyS-9PE9oJY1ZzoGbax3q_LGk';
 const TEACHER_EMAIL = 'wwilson@mtps.us';
 
 let supabaseClient = null;
@@ -19,6 +16,8 @@ let data = {
     cases: [''],
     statutes: ['']
 };
+
+
 
 // ─── SUPABASE INIT ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
