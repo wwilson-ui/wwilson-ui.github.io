@@ -6,10 +6,15 @@ let isTeacher = false;
 let currentSubFilter = 'all';
 let currentOpenPostId = null; 
 let myVotes = { posts: {}, comments: {} };
-let showRealNames = false; // Teacher setting for showing real names
+let showRealNames = false; // DEPRECATED - now using per-subreddit system
 let currentSort = 'hot'; // hot, new, or top
 let currentView = 'all'; // 'all' or 'mine'
 let unreadNotifications = 0; // Count of posts with new comments
+
+// Name masking state
+let nameMaskingCache = {};
+let lastPollTime = null;
+let pollingInterval = null;
 
 const ADJECTIVES = ['Happy', 'Brave', 'Calm', 'Swift', 'Wise', 'Bright', 'Clever', 'Kind', 'Bold'];
 const ANIMALS = ['Badger', 'Fox', 'Owl', 'Eagle', 'Bear', 'Dolphin', 'Wolf', 'Hawk', 'Tiger'];
@@ -28,6 +33,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await checkUser();
     await loadTeacherSettings(); // Load teacher settings
+    await fetchNameMaskingSettings(); // Load name masking settings
+    pollingInterval = setInterval(checkForNameChanges, 5000); // Poll for changes
     loadSubreddits();
     loadPosts(); 
     setupFormListeners();
@@ -282,28 +289,22 @@ function openPostPage(post, authorName, realIdentity) {
     // Fill Data
     document.getElementById('detailSub').textContent = `r/${post.subreddits ? post.subreddits.name : 'Unknown'}`;
     
-    // --- FIX START: Dynamic Name Logic ---
-    let displayName = authorName;
+    // Use per-subreddit name setting
+    const showReal = getEffectiveNameSetting(post.subreddit_id);
     const isAuthor = currentUser && currentUser.id === post.user_id;
     const email = post.profiles?.email || realIdentity || '';
-
-    if (showRealNames) {
-        // 1. Toggle ON: Everyone sees real identity
+    
+    let displayName;
+    if (showReal) {
         displayName = email.split('@')[0] || 'Unknown';
         if (isAuthor) displayName += ' (you)';
     } else {
-        // 2. Toggle OFF: Everyone sees Anon Name
-        if (isAuthor) {
-            displayName = `${authorName} (you)`;
-        } else if (isTeacher) {
-            // Teacher sees Anon + (Real Email)
-            displayName = `${authorName} <span style="color:#ff4500;">(${email})</span>`;
-        }
-        // Students just see 'displayName' (which is authorName)
+        displayName = authorName;
+        if (isAuthor) displayName += ' (you)';
+        else if (isTeacher) displayName += ` <span style="color:#ff4500;">(${email})</span>`;
     }
     
     document.getElementById('detailAuthor').innerHTML = displayName;
-    // --- FIX END ---
     
     // Add action buttons (edit/delete/flag) to the post header
     const detailHeader = document.querySelector('#postView .post-header');
@@ -765,36 +766,28 @@ async function loadPosts() {
 function createPostElement(post) {
     const div = document.createElement('div');
     div.className = 'post-card clickable-card';
-    div.setAttribute('data-post-id', post.id); // Add this for easier lookups
+    div.setAttribute('data-post-id', post.id);
     
     const isAuthor = currentUser && currentUser.id === post.user_id;
     const authorName = getAnonName(post.user_id);
+    const authorEmail = post.profiles?.email || '';
     
-    // Show real names if teacher has toggled it ON (affects all users)
-    let displayName = authorName;
-    if (showRealNames) {
-        // When toggle is ON, everyone sees real names
-        displayName = `${post.profiles?.email?.split('@')[0] || 'Unknown'}`;
+    // Use per-subreddit name setting
+    const showReal = getEffectiveNameSetting(post.subreddit_id);
+    
+    let displayName;
+    if (showReal) {
+        displayName = authorEmail.split('@')[0] || 'Unknown';
         if (isAuthor) displayName += ' (you)';
-    } else if (isAuthor) {
-        // When OFF, you still see "(you)" on your own posts
-        displayName = `${authorName} (you)`;
-    } else if (isTeacher) {
-        // When OFF, teacher sees both anonymous + real name hint
-        displayName = `${authorName} <span style="color:#999; font-size:0.75em;">(${post.profiles?.email || ''})</span>`;
+    } else {
+        displayName = authorName;
+        if (isAuthor) displayName += ' (you)';
+        else if (isTeacher) displayName += ` <span style="color:#999; font-size:0.75em;">(${authorEmail})</span>`;
     }
 
 div.onclick = (e) => {
         if (e.target.closest('button')) return;
-        
-        // Use the same logic as your Feed display to determine what name to show
-        let displayIdentity = authorName;
-        if (showRealNames) {
-            displayIdentity = post.profiles?.email?.split('@')[0] || 'Unknown';
-        }
-
-        // Pass the correct identity to the detail page
-        openPostPage(post, authorName, displayIdentity);
+        openPostPage(post, authorName, authorEmail);
     };
     // Action buttons
     const deleteBtn = (isTeacher || isAuthor) ? `<button class="delete-icon" onclick="deletePost('${post.id}')" title="Delete post">🗑️</button>` : '';
@@ -1117,3 +1110,68 @@ function formatTimestamp(timestamp) {
     }
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
+
+// ========================================
+// NAME MASKING SYSTEM
+// ========================================
+
+async function fetchNameMaskingSettings() {
+    try {
+        const { data, error } = await sb.from('name_masking_status').select('*');
+        if (error) throw error;
+        
+        if (data) {
+            data.forEach(item => {
+                nameMaskingCache[item.subreddit_id] = {
+                    subreddit_setting: item.subreddit_setting,
+                    teacher_global_setting: item.teacher_global_setting,
+                    last_change: item.last_change
+                };
+            });
+        }
+        lastPollTime = new Date();
+    } catch (error) {
+        console.error('Name masking fetch error:', error);
+    }
+}
+
+async function checkForNameChanges() {
+    if (!lastPollTime) return;
+    try {
+        const { data, error } = await sb.from('name_masking_status').select('*').gt('last_change', lastPollTime.toISOString());
+        if (error || !data || data.length === 0) return;
+        
+        console.log('🎭 Name settings changed');
+        data.forEach(item => {
+            nameMaskingCache[item.subreddit_id] = {
+                subreddit_setting: item.subreddit_setting,
+                teacher_global_setting: item.teacher_global_setting,
+                last_change: item.last_change
+            };
+        });
+        lastPollTime = new Date();
+        loadPosts();
+    } catch (error) {
+        console.error('Name masking check error:', error);
+    }
+}
+
+function getEffectiveNameSetting(subredditId) {
+    const cached = nameMaskingCache[subredditId];
+    if (!cached) return false;
+    if (cached.subreddit_setting !== null && cached.subreddit_setting !== undefined) {
+        return cached.subreddit_setting;
+    }
+    return cached.teacher_global_setting || false;
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
+    } else {
+        if (!pollingInterval) {
+            fetchNameMaskingSettings();
+            pollingInterval = setInterval(checkForNameChanges, 5000);
+        }
+    }
+});
