@@ -189,9 +189,17 @@ window.refresh = function() {
     const target = document.getElementById('render-target');
     if (!target) return;
     
-    const counselName = document.getElementById('counsel-name') ? document.getElementById('counsel-name').value : '';
-    const docketNum = document.getElementById('case-select') && document.getElementById('case-select').options[document.getElementById('case-select').selectedIndex] ? 
-                      document.getElementById('case-select').options[document.getElementById('case-select').selectedIndex].text : '[Case Name]';
+    // Safely get input values
+    const safeVal = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    };
+
+    const counselName = safeVal('counsel-name') || '[Your Name]';
+    const caseSelect = document.getElementById('case-select');
+    const docketNum = (caseSelect && caseSelect.options.length > 0 && caseSelect.selectedIndex > 0) 
+        ? caseSelect.options[caseSelect.selectedIndex].text 
+        : '[Case Name]';
     
     let html = '';
 
@@ -202,19 +210,19 @@ window.refresh = function() {
         <div class="court-name">IN THE SUPREME COURT OF THE UNITED STATES</div>
         
         <div class="parties">
-            ${window.data.petitioners.filter(p => p.trim()).join(', ') || '[Petitioners]'},<br>
+            ${(window.data.petitioners || []).filter(p => p.trim()).join(', ') || '[Petitioners]'},<br>
             <span style="font-style: italic;">Petitioners,</span><br>
             v.<br>
-            ${window.data.respondents.filter(r => r.trim()).join(', ') || '[Respondents]'},<br>
+            ${(window.data.respondents || []).filter(r => r.trim()).join(', ') || '[Respondents]'},<br>
             <span style="font-style: italic;">Respondents.</span>
         </div>
         
         <div class="cert-line">ON WRIT OF CERTIORARI TO THE UNITED STATES COURT OF APPEALS</div>
         
-        <div class="brief-title">BRIEF FOR THE ${window.data.petitioners[0] ? 'PETITIONER' : 'RESPONDENT'}</div>
+        <div class="brief-title">BRIEF FOR THE ${(window.data.petitioners && window.data.petitioners[0]) ? 'PETITIONER' : 'RESPONDENT'}</div>
         
         <div class="counsel-info">
-            <strong>${counselName || '[Your Name]'}</strong><br>
+            <strong>${counselName}</strong><br>
             Counsel of Record<br>
             Classroom Moot Court Project
         </div>
@@ -225,15 +233,66 @@ window.refresh = function() {
     <div class="paper">
         <div class="section-header">Questions Presented</div>
         <div class="question-list">
-            ${window.data.questions.filter(q => q.trim()).map(q => `<p>${q}</p>`).join('') || '<p>[Enter your questions presented]</p>'}
+            ${(window.data.questions || []).filter(q => q.trim()).map(q => `<p>${q}</p>`).join('') || '<p>[Enter your questions presented]</p>'}
         </div>
         <div class="manual-footer">${docketNum}</div>
     </div>`;
 
-    // Render the rest to the preview
+    // Page 3: Authorities
+    html += `
+    <div class="paper">
+        <div class="section-header">Table of Authorities</div>
+        <div style="font-weight: bold; margin-top: 15px; text-decoration: underline;">Cases</div>`;
+    
+    if (window.data.cases && window.data.cases.some(c => c.trim())) {
+        window.data.cases.filter(c => c.trim()).forEach(c => {
+            html += `<p style="margin-left:20px;"><em>${c}</em></p>`;
+        });
+    } else {
+        html += `<p style="margin-left:20px; font-style:italic;">[No cases cited]</p>`;
+    }
+
+    html += `<div style="font-weight: bold; margin-top: 15px; text-decoration: underline;">Statutes & Other Authorities</div>`;
+    if (window.data.statutes && window.data.statutes.some(s => s.trim())) {
+        window.data.statutes.filter(s => s.trim()).forEach(s => {
+            html += `<p style="margin-left:20px;">${s}</p>`;
+        });
+    } else {
+        html += `<p style="margin-left:20px; font-style:italic;">[No statutes cited]</p>`;
+    }
+    html += `<div class="manual-footer">${docketNum}</div></div>`;
+
+    // Page 4: Argument
+    const argBody = safeVal('argBody');
+    if (argBody.trim()) {
+        html += `
+        <div class="paper">
+            <div class="section-header">Argument</div>
+            <p>${argBody.replace(/\n/g, '</p><p>')}</p>
+            <div class="manual-footer">${docketNum}</div>
+        </div>`;
+    }
+
+    // Page 5: Conclusion
+    const conclusion = safeVal('conclusionText');
+    if (conclusion.trim()) {
+        html += `
+        <div class="paper">
+            <div class="section-header">Conclusion</div>
+            <p>${conclusion.replace(/\n/g, '</p><p>')}</p>
+            <div style="margin-top:40px;">
+                <p>Respectfully submitted,</p>
+                <div style="margin-top:40px;">
+                    <strong>${counselName}</strong><br>
+                    Counsel of Record
+                </div>
+            </div>
+            <div class="manual-footer">${docketNum}</div>
+        </div>`;
+    }
+
     target.innerHTML = html;
 };
-
 // ─── DATABASE LOGIC (Keep your existing Supabase logic here) ────────────────
 async function loadCases() {
     if (!supabaseClient) return;
