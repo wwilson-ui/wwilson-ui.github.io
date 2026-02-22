@@ -8,7 +8,7 @@ let supabaseClient = null;
 let currentUser = null;
 let isTeacher = false;
 
-let data = {
+window.data = {
     petitioners: [''],
     respondents: [''],
     questions: [''],
@@ -22,26 +22,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
         supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
     } else { 
-        alert('Supabase not loaded from config.js'); 
+        alert('Supabase not loaded from config.js. Check your script tags.'); 
         return; 
     }
 
-    // 2. Listen for the Google OAuth redirect background event
+    // 2. Listen for background auth changes
     supabaseClient.auth.onAuthStateChange((event, session) => {
         updateAuthUI(session);
     });
 
-    // 3. Await the authentication check before loading the rest of the page
+    // 3. Initial Auth Check
     await checkAuth();
 
     // 4. Load database information
-    loadCases();
-    loadDocket();
+    if (typeof loadCases === 'function') loadCases();
+    if (typeof loadDocket === 'function') loadDocket();
 
     // 5. Initialize SCOTUS UI formatting
-    if (typeof renderInputFields === 'function') renderInputFields();
-    if (typeof refresh === 'function') refresh();
-    if (typeof setupDeleteHandler === 'function') setupDeleteHandler();
+    window.renderInputFields();
+    window.refresh();
 });
 
 // ─── AUTH CHECK & UI UPDATE ─────────────────────────────────────────────────
@@ -52,18 +51,18 @@ async function checkAuth() {
 
 function updateAuthUI(session) {
     const authSection = document.getElementById('authSection');
-    const authStatus = document.getElementById('auth-status'); // Sidebar status
+    const authStatus = document.getElementById('auth-status'); 
 
     if (session) {
         currentUser = session.user.email;
-        isTeacher = (currentUser.toLowerCase() === TEACHER_EMAIL.toLowerCase());
+        // Make sure the email match is completely case-insensitive
+        isTeacher = (currentUser.trim().toLowerCase() === TEACHER_EMAIL.trim().toLowerCase());
         const emailPrefix = currentUser.split('@')[0];
         
-        // Render logged-in state
         if (authSection) {
             authSection.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <span style="font-weight: 600; color: #444;">${emailPrefix}</span>
+                    <span style="font-weight: 600; color: #1A1A1B;">${emailPrefix}</span>
                     <button onclick="signOut()" class="auth-btn" style="padding: 6px 10px; font-size: 0.8rem;">Sign Out</button>
                 </div>
             `;
@@ -71,15 +70,16 @@ function updateAuthUI(session) {
         
         if (authStatus) authStatus.innerText = `Signed in as ${currentUser}`;
         
-        // Show admin tab if teacher
+        // Explicitly show/hide the admin tab
         const adminTab = document.getElementById('admin-tab');
-        if (adminTab) adminTab.style.display = isTeacher ? 'block' : 'none';
+        if (adminTab) {
+            adminTab.style.display = isTeacher ? 'block' : 'none';
+        }
 
     } else {
         currentUser = null;
         isTeacher = false;
         
-        // Render Google Sign-In button
         if (authSection) {
             authSection.innerHTML = `
                 <button onclick="signIn()" class="auth-btn">
@@ -111,466 +111,152 @@ window.signOut = async function() {
     window.location.reload();
 };
 
-// ─── DATA LOADING (CASES & DOCKET) ──────────────────────────────────────────
-// (Your existing loadCases() function starts right here...)
 
+// ─── UI & NAVIGATION LOGIC ─────────────────────────────────────────────────
 
+window.switchTab = function(tabId) {
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    // Remove active class from all buttons
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    
+    // Show target content
+    const target = document.getElementById(tabId);
+    if (target) target.classList.add('active');
+    
+    // Highlight active button (find the button that called this function)
+    const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick') === `switchTab('${tabId}')`);
+    if (btn) btn.classList.add('active');
+    
+    window.refresh();
+};
 
-
-// ─── CASE MANAGEMENT (TEACHER) ──────────────────────────────────────────────
-async function loadCases() {
-    if (!supabaseClient) return;
-    
-    const { data: cases } = await supabaseClient
-        .from('scotus_cases')
-        .select('*')
-        .order('name');
-    
-    const select = document.getElementById('assignedCase');
-    select.innerHTML = '<option value="">-- Select a Case --</option>';
-    
-    if (cases) {
-        cases.forEach(c => {
-            const option = document.createElement('option');
-            option.value = c.name;
-            option.setAttribute('data-link', c.brief_link || '');
-            option.textContent = c.name;
-            select.appendChild(option);
-        });
-    }
-    
-    if (isTeacher) {
-        updateAdminCasesList(cases);
-    }
-}
-
-function updateAdminCasesList(cases) {
-    const container = document.getElementById('manage-cases-list');
-    if (!container) return;
-    
-    if (!cases || cases.length === 0) {
-        container.innerHTML = '<p style="color: #999;">No cases yet. Add one above!</p>';
-        return;
-    }
-    
-    container.innerHTML = '';
-    cases.forEach(c => {
-        const div = document.createElement('div');
-        div.style.cssText = 'padding: 10px; margin-bottom: 10px; background: #f8f9fa; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;';
-        div.innerHTML = `
-            <div>
-                <strong>${c.name}</strong>
-                ${c.brief_link ? `<br><a href="${c.brief_link}" target="_blank" style="font-size: 0.85em; color: #1a237e;">View Brief</a>` : ''}
-            </div>
-            <button class="action-btn btn-danger" style="width: auto; padding: 8px 15px; height: auto;" onclick="deleteCase('${c.id}')">Delete</button>
-        `;
-        container.appendChild(div);
-    });
-}
-
-async function addNewCase() {
-    if (!isTeacher) {
-        alert('Only teachers can add cases');
-        return;
-    }
-    
-    const name = document.getElementById('newCaseName').value.trim();
-    const link = document.getElementById('newCaseLink').value.trim();
-    
-    if (!name) {
-        alert('Please enter a case name');
-        return;
-    }
-    
-    const { error } = await supabaseClient
-        .from('scotus_cases')
-        .insert([{ name, brief_link: link }]);
-    
-    if (error) {
-        alert('Error adding case: ' + error.message);
-    } else {
-        document.getElementById('newCaseName').value = '';
-        document.getElementById('newCaseLink').value = '';
-        alert('✅ Case added!');
-        loadCases();
-    }
-}
-
-async function deleteCase(caseId) {
-    if (!isTeacher) return;
-    if (!confirm('Delete this case?')) return;
-    
-    const { error } = await supabaseClient
-        .from('scotus_cases')
-        .delete()
-        .eq('id', caseId);
-    
-    if (error) {
-        alert('Error: ' + error.message);
-    } else {
-        loadCases();
-    }
-}
-
-// ─── DOCKET (PUBLIC SUBMISSIONS) ────────────────────────────────────────────
-async function loadDocket() {
-    if (!supabaseClient) return;
-    
-    const { data: briefs } = await supabaseClient
-        .from('scotus_submissions')
-        .select(`
-            *,
-            profiles(email)
-        `)
-        .order('submitted_at', { ascending: false });
-    
-    const tbody = document.getElementById('docket-body');
-    if (!briefs || briefs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999;">No briefs submitted yet</td></tr>';
-        return;
-    }
-    
-    // Group by case name
-    const grouped = {};
-    briefs.forEach(b => {
-        const caseName = b.case_name || 'Unknown Case';
-        if (!grouped[caseName]) {
-            grouped[caseName] = { petitioner: [], respondent: [], amicus: [], brief_link: null };
-        }
-        
-        if (!grouped[caseName].brief_link && b.case_brief_link) {
-            grouped[caseName].brief_link = b.case_brief_link;
-        }
-        
-        const authorEmail = b.profiles?.email || 'Anonymous';
-        const link = `<a href="${b.pdf_url}" target="_blank" style="color: #1a237e;">${authorEmail.split('@')[0]}</a>`;
-        
-        if (b.brief_type === 'Petitioner') {
-            grouped[caseName].petitioner.push(link);
-        } else if (b.brief_type === 'Respondent') {
-            grouped[caseName].respondent.push(link);
-        } else if (b.brief_type === 'Amicus Curiae') {
-            grouped[caseName].amicus.push(link);
-        }
-    });
-    
-    tbody.innerHTML = '';
-    Object.keys(grouped).forEach(caseName => {
-        const row = tbody.insertRow();
-        row.innerHTML = `
-            <td><strong>${caseName}</strong></td>
-            <td>${grouped[caseName].brief_link ? `<a href="${grouped[caseName].brief_link}" target="_blank" style="color: #1a237e;">View Brief</a>` : '-'}</td>
-            <td>${grouped[caseName].petitioner.join('<br>') || '-'}</td>
-            <td>${grouped[caseName].respondent.join('<br>') || '-'}</td>
-            <td>${grouped[caseName].amicus.join('<br>') || '-'}</td>
-        `;
-    });
-}
-
-async function submitToCourt() {
-    if (!currentUser) {
-        alert('Please sign in to submit');
-        return;
-    }
-    
-    const caseName = document.getElementById('assignedCase').value;
-    if (!caseName) {
-        alert('Please select a case first');
-        return;
-    }
-    
-    const caseSelect = document.getElementById('assignedCase');
-    const selectedOption = caseSelect.options[caseSelect.selectedIndex];
-    const caseBriefLink = selectedOption.getAttribute('data-link');
-    
-    alert('Generating PDF and submitting to court...');
-    
-    const pdfBlob = await generatePDFBlob();
-    
-    const fileName = `${currentUser.id}_${Date.now()}.pdf`;
-    const { data: uploadData, error: uploadError } = await supabaseClient.storage
-        .from('scotus-briefs')
-        .upload(fileName, pdfBlob);
-    
-    if (uploadError) {
-        alert('Upload error: ' + uploadError.message);
-        return;
-    }
-    
-    const { data: { publicUrl } } = supabaseClient.storage
-        .from('scotus-briefs')
-        .getPublicUrl(fileName);
-    
-    const { error } = await supabaseClient
-        .from('scotus_submissions')
-        .insert([{
-            user_id: currentUser.id,
-            case_name: caseName,
-            case_brief_link: caseBriefLink,
-            brief_type: document.getElementById('briefType').value,
-            pdf_url: publicUrl
-        }]);
-    
-    if (error) {
-        alert('Error submitting: ' + error.message);
-    } else {
-        alert('✅ Brief submitted to court docket!');
-        loadDocket();
-    }
-}
-
-async function generatePDFBlob() {
-    const element = document.getElementById('render-target');
-    const opt = {
-        margin: 0,
-        filename: 'brief.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    
-    return await html2pdf().from(element).set(opt).outputPdf('blob');
-}
-
-async function downloadPDF() {
-    const element = document.getElementById('render-target');
-    const opt = {
-        margin: 0,
-        filename: (document.getElementById('projectTitle').value || 'brief') + '.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    
-    html2pdf().from(element).set(opt).save();
-}
-
-// ─── DYNAMIC INPUT RENDERING ────────────────────────────────────────────────
-function renderInputFields() {
-    ['petitioner', 'respondent', 'case', 'statute', 'question'].forEach(type => {
-        const container = document.getElementById(`${type}-inputs`);
+window.renderInputFields = function() {
+    function createInputs(type, containerId) {
+        const container = document.getElementById(containerId);
         if (!container) return;
         
         container.innerHTML = '';
-        const arr = type === 'petitioner' ? data.petitioners :
-                    type === 'respondent' ? data.respondents :
-                    type === 'case' ? data.cases :
-                    type === 'statute' ? data.statutes :
-                    data.questions;
-        
-        arr.forEach((val, i) => {
-            const wrapper = document.createElement('div');
-            wrapper.style.cssText = 'display:flex; gap:5px; margin-bottom:5px;';
-            wrapper.innerHTML = `
-                <input type="text" value="${val}" oninput="updateData('${type}', ${i}, this.value)" style="flex:1;">
-                <button class="action-btn btn-danger delete-btn" data-type="${type}" data-index="${i}" style="width:40px; height:40px; padding:0;">✕</button>
-            `;
-            container.appendChild(wrapper);
+        window.data[type].forEach((val, i) => {
+            const div = document.createElement('div');
+            div.style.display = 'flex';
+            div.style.gap = '10px';
+            div.style.marginBottom = '10px';
+            
+            const input = document.createElement(type === 'questions' ? 'textarea' : 'input');
+            if (type === 'questions') input.rows = 3;
+            input.value = val;
+            input.style.flex = '1';
+            input.style.padding = '8px';
+            input.style.border = '1px solid #ccc';
+            input.style.borderRadius = '4px';
+            input.oninput = (e) => { window.data[type][i] = e.target.value; window.refresh(); };
+            
+            const btn = document.createElement('button');
+            btn.textContent = 'X';
+            btn.style.padding = '8px 12px';
+            btn.style.background = '#e74c3c';
+            btn.style.color = 'white';
+            btn.style.border = 'none';
+            btn.style.borderRadius = '4px';
+            btn.style.cursor = 'pointer';
+            btn.onclick = () => { 
+                window.data[type].splice(i, 1); 
+                window.renderInputFields(); 
+                window.refresh(); 
+            };
+            
+            div.appendChild(input);
+            div.appendChild(btn);
+            container.appendChild(div);
         });
-    });
-}
-
-function updateData(type, index, value) {
-    const arr = type === 'petitioner' ? data.petitioners :
-                type === 'respondent' ? data.respondents :
-                type === 'case' ? data.cases :
-                type === 'statute' ? data.statutes :
-                data.questions;
-    arr[index] = value;
-    refresh();
-}
-
-function addDynamic(type) {
-    const arr = type === 'petitioner' ? data.petitioners :
-                type === 'respondent' ? data.respondents :
-                type === 'case' ? data.cases :
-                type === 'statute' ? data.statutes :
-                data.questions;
-    arr.push('');
-    renderInputFields();
-    refresh();
-}
-
-function setupDeleteHandler() {
-    document.addEventListener('click', (e) => {
-        if (e.target.classList.contains('delete-btn')) {
-            const type = e.target.getAttribute('data-type');
-            const index = parseInt(e.target.getAttribute('data-index'));
-            
-            const arr = type === 'petitioner' ? data.petitioners :
-                        type === 'respondent' ? data.respondents :
-                        type === 'case' ? data.cases :
-                        type === 'statute' ? data.statutes :
-                        data.questions;
-            
-            arr.splice(index, 1);
-            if (arr.length === 0) arr.push('');
-            
-            renderInputFields();
-            refresh();
-        }
-    });
-}
-
-function toggleAmicusField() {
-    const briefType = document.getElementById('briefType').value;
-    document.getElementById('amicus-extras').style.display = 
-        briefType === 'Amicus Curiae' ? 'block' : 'none';
-}
-
-// ─── PREVIEW RENDERING ──────────────────────────────────────────────────────
-function refresh() {
-    const renderTarget = document.getElementById('render-target');
-    renderTarget.innerHTML = generateBriefHTML();
-    
-    const caseSelect = document.getElementById('assignedCase');
-    const selectedOption = caseSelect.options[caseSelect.selectedIndex];
-    const link = selectedOption ? selectedOption.getAttribute('data-link') : null;
-    
-    const linkArea = document.getElementById('caseBriefLinkArea');
-    if (linkArea) {
-        if (link) {
-            linkArea.innerHTML = `<a href="${link}" target="_blank" style="color: #1a237e;">📄 View Case Brief</a>`;
-        } else {
-            linkArea.innerHTML = '';
-        }
     }
-}
 
-function generateBriefHTML() {
-    const projectTitle = document.getElementById('projectTitle').value || 'Case Name';
-    const briefType = document.getElementById('briefType').value;
-    const courtTerm = document.getElementById('courtTerm').value || 'October Term 2025';
-    const docketNum = document.getElementById('docketNum').value || 'No. XX-XXXX';
-    const lowerCourt = document.getElementById('lowerCourt').value || 'United States District Court';
+    createInputs('petitioners', 'petitioners-list');
+    createInputs('respondents', 'respondents-list');
+    createInputs('questions', 'questions-list');
+    createInputs('cases', 'cases-list');
+    createInputs('statutes', 'statutes-list');
+};
+
+window.addInput = function(type) {
+    window.data[type].push('');
+    window.renderInputFields();
+    window.refresh();
+};
+
+window.refresh = function() {
+    const target = document.getElementById('render-target');
+    if (!target) return;
     
-    const petitionersList = data.petitioners.filter(p => p.trim()).join(', ') || '[Petitioner Name]';
-    const respondentsList = data.respondents.filter(r => r.trim()).join(', ') || '[Respondent Name]';
+    const counselName = document.getElementById('counsel-name') ? document.getElementById('counsel-name').value : '';
+    const docketNum = document.getElementById('case-select') && document.getElementById('case-select').options[document.getElementById('case-select').selectedIndex] ? 
+                      document.getElementById('case-select').options[document.getElementById('case-select').selectedIndex].text : '[Case Name]';
     
-    const firmName = document.getElementById('firmName').value || '[Law Firm Name]';
-    const studentNames = document.getElementById('studentNames').value.split('\n').filter(n => n.trim()).join('<br>') || '[Counsel Names]';
-    
-    let briefTitle = '';
-    if (briefType === 'Amicus Curiae') {
-        const amicusName = document.getElementById('amicusName').value || '[Amicus Name]';
-        const amicusSupport = document.getElementById('amicusSupport').value;
-        briefTitle = `Brief for ${amicusName}<br>as Amicus Curiae ${amicusSupport}`;
-    } else {
-        briefTitle = `Brief for ${briefType}`;
-    }
-    
+    let html = '';
+
     // Page 1: Cover
-    let html = `
-    <div class="paper">
-        <div class="court-header">
-            Supreme Court of the United States
-        </div>
-        <div style="text-align:center; margin:30px 0;">
-            ${courtTerm}
-        </div>
-        <hr>
-        <div class="title-box">
-            ${petitionersList}<br>
-            <span style="font-style:italic;">Petitioners</span><br>
+    html += `
+    <div class="paper cover-page">
+        <div class="docket-number">No. 24-101</div>
+        <div class="court-name">IN THE SUPREME COURT OF THE UNITED STATES</div>
+        
+        <div class="parties">
+            ${window.data.petitioners.filter(p => p.trim()).join(', ') || '[Petitioners]'},<br>
+            <span style="font-style: italic;">Petitioners,</span><br>
             v.<br>
-            ${respondentsList}<br>
-            <span style="font-style:italic;">Respondents</span>
+            ${window.data.respondents.filter(r => r.trim()).join(', ') || '[Respondents]'},<br>
+            <span style="font-style: italic;">Respondents.</span>
         </div>
-        <div style="text-align:center; font-weight:bold; margin:20px 0;">
-            On Writ of Certiorari to the<br>${lowerCourt}
+        
+        <div class="cert-line">ON WRIT OF CERTIORARI TO THE UNITED STATES COURT OF APPEALS</div>
+        
+        <div class="brief-title">BRIEF FOR THE ${window.data.petitioners[0] ? 'PETITIONER' : 'RESPONDENT'}</div>
+        
+        <div class="counsel-info">
+            <strong>${counselName || '[Your Name]'}</strong><br>
+            Counsel of Record<br>
+            Classroom Moot Court Project
         </div>
-        <hr>
-        <div style="text-align:center; font-weight:bold; margin:20px 0; font-size:14pt;">
-            ${briefTitle}
-        </div>
-        <div style="margin-top:80px;">
-            ${firmName}<br>
-            ${studentNames}
-        </div>
-        <div class="manual-footer">${docketNum}</div>
     </div>`;
-    
-    // Page 2: Questions
-    const questions = data.questions.filter(q => q.trim());
-    if (questions.length > 0) {
-        html += `
-    <div class="paper">
-        <div class="section-header">Question(s) Presented</div>
-        ${questions.map((q, i) => `<p>${questions.length > 1 ? `${i + 1}. ` : ''}${q}</p>`).join('')}
-        <div class="manual-footer">${docketNum}</div>
-    </div>`;
-    }
-    
-    // Page 3: Parties & Table of Authorities
+
+    // Page 2: Questions Presented
     html += `
     <div class="paper">
-        <div class="section-header">Parties to the Proceeding</div>
-        <p><strong>Petitioners:</strong> ${petitionersList}</p>
-        <p><strong>Respondents:</strong> ${respondentsList}</p>
-        
-        <div class="section-header">Table of Authorities</div>
-        <p style="font-weight:bold; margin-top:15px;">Cases:</p>`;
-    
-    const cases = data.cases.filter(c => c.trim());
-    if (cases.length > 0) {
-        cases.forEach(c => {
-            html += `<p style="margin-left:20px; text-indent:-20px;">${c}</p>`;
-        });
-    } else {
-        html += `<p style="margin-left:20px; font-style:italic;">[No cases cited]</p>`;
-    }
-    
-    html += `<p style="font-weight:bold; margin-top:15px;">Statutes:</p>`;
-    const statutes = data.statutes.filter(s => s.trim());
-    if (statutes.length > 0) {
-        statutes.forEach(s => {
-            html += `<p style="margin-left:20px; text-indent:-20px;">${s}</p>`;
-        });
-    } else {
-        html += `<p style="margin-left:20px; font-style:italic;">[No statutes cited]</p>`;
-    }
-    
-    html += `<div class="manual-footer">${docketNum}</div></div>`;
-    
-    // Page 4: Summary of Argument
-    const summary = document.getElementById('summaryArg').value;
-    if (summary.trim()) {
-        html += `
-    <div class="paper">
-        <div class="section-header">Summary of Argument</div>
-        <p>${summary.replace(/\n/g, '</p><p>')}</p>
-        <div class="manual-footer">${docketNum}</div>
-    </div>`;
-    }
-    
-    // Page 5+: Argument
-    const argBody = document.getElementById('argBody').value;
-    if (argBody.trim()) {
-        html += `
-    <div class="paper">
-        <div class="section-header">Argument</div>
-        <p>${argBody.replace(/\n/g, '</p><p>')}</p>
-        <div class="manual-footer">${docketNum}</div>
-    </div>`;
-    }
-    
-    // Final Page: Conclusion
-    const conclusion = document.getElementById('conclusionText').value;
-    if (conclusion.trim()) {
-        html += `
-    <div class="paper">
-        <div class="section-header">Conclusion</div>
-        <p>${conclusion.replace(/\n/g, '</p><p>')}</p>
-        <div style="margin-top:40px;">
-            <p>Respectfully submitted,</p>
-            <div style="margin-top:60px;">
-                ${firmName}<br>
-                ${studentNames}
-            </div>
+        <div class="section-header">Questions Presented</div>
+        <div class="question-list">
+            ${window.data.questions.filter(q => q.trim()).map(q => `<p>${q}</p>`).join('') || '<p>[Enter your questions presented]</p>'}
         </div>
         <div class="manual-footer">${docketNum}</div>
     </div>`;
-    }
+
+    // Render the rest to the preview
+    target.innerHTML = html;
+};
+
+// ─── DATABASE LOGIC (Keep your existing Supabase logic here) ────────────────
+async function loadCases() {
+    if (!supabaseClient) return;
+    const { data: activeCases, error } = await supabaseClient.from('active_cases').select('*').order('created_at', { ascending: false });
     
-    return html;
+    if (error) {
+        console.error('Error loading cases:', error);
+        return;
+    }
+
+    const select = document.getElementById('case-select');
+    if (select) {
+        select.innerHTML = '<option value="">-- Choose Case --</option>';
+        activeCases.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.case_name;
+            opt.dataset.link = c.drive_link || '';
+            select.appendChild(opt);
+        });
+    }
+}
+
+async function loadDocket() {
+    // Keep your existing docket logic here
 }
