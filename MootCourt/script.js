@@ -52,7 +52,7 @@ async function checkAuth() {
 function updateAuthUI(session) {
     const authSection = document.getElementById('authSection');
     const authStatus = document.getElementById('auth-status'); 
-    const adminTab = document.getElementById('admin-tab'); // Grab the tab safely
+    const adminTab = document.getElementById('admin-tab');
 
     if (session) {
         currentUser = session.user.email;
@@ -62,19 +62,19 @@ function updateAuthUI(session) {
         if (authSection) {
             authSection.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <span style="font-weight: 600; color: #1A1A1B;">${emailPrefix}</span>
-                    <button onclick="signOut()" class="auth-btn" style="padding: 6px 10px; font-size: 0.8rem;">Sign Out</button>
+                    <span style="font-weight: 600; color: white;">${emailPrefix}</span>
+                    <button onclick="signOut()" class="auth-btn" style="padding: 6px 12px; font-size: 0.8rem; background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; cursor: pointer; transition: background 0.2s;">
+                        Sign Out
+                    </button>
                 </div>
             `;
         }
         
         if (authStatus) authStatus.innerText = `Signed in as ${currentUser}`;
         
-        // Force the display block if teacher
         if (adminTab) {
             if (isTeacher) {
-                adminTab.style.display = 'block';
-                console.log("Teacher Access Granted: Admin tab revealed.");
+                adminTab.style.display = 'inline-flex'; // Keeps icon and text aligned
             } else {
                 adminTab.style.display = 'none';
             }
@@ -86,7 +86,7 @@ function updateAuthUI(session) {
         
         if (authSection) {
             authSection.innerHTML = `
-                <button onclick="signIn()" class="auth-btn">
+                <button onclick="signIn()" class="auth-btn" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: white; color: #1a237e; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" width="18" height="18" alt="G">
                     Sign in
                 </button>
