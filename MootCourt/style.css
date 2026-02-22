@@ -23,7 +23,7 @@ body {
 
 /* Unified Navbar matching Spark */
 .navbar {
-    background: white;
+    background: var(--legal-blue);
     padding: 0.5rem 1.5rem;
     position: sticky;
     top: 0;
