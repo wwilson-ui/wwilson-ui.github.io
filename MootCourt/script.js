@@ -94,17 +94,7 @@ window.signOut = async function() {
 
 
 
-// ─── PERSISTENT LOGIN ────────────────────────────────────────────────────────
-function restoreSession(email) {
-    currentUser = email;
-    applyLoggedInUI(email);
-    if (!supabaseClient) initSupabase();
-    if (supabaseClient) {
-        loadCases();
-        fetchProjectList();
-        loadDocket();
-    }
-}
+
 
 function applyLoggedInUI(email) {
     const status = document.getElementById('auth-status');
@@ -146,22 +136,7 @@ function signOut() {
     if (drop) drop.innerHTML = '<option value="">Select a Project...</option>';
 }
 
-// ─── GOOGLE SIGN-IN CALLBACK ─────────────────────────────────────────────────
-async function onSignIn(response) {
-    const user = JSON.parse(atob(response.credential.split('.')[1]));
-    currentUser = user.email;
 
-    // Persist across refresh
-    localStorage.setItem(LOGIN_KEY, currentUser);
-    applyLoggedInUI(currentUser);
-
-    if (!supabaseClient) initSupabase();
-    if (supabaseClient) {
-        loadCases();
-        fetchProjectList();
-        loadDocket();
-    }
-}
 
 // ─── TAB SWITCHING ───────────────────────────────────────────────────────────
 // skipReload=true prevents a duplicate fetch when the caller already loaded data
