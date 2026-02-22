@@ -5,13 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SCOTUS Brief Pro</title>
     <link rel="stylesheet" href="style.css">
-    </head>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
 <body>
 
 <header>
     <div style="font-weight:bold;">⚖️ SCOTUS Brief Generator Pro</div>
     <div id="google-btn-wrapper">
+        <div id="g_id_onload" 
+             data-client_id="129113401099-ihpv7tunjjfeuovepgphcfibf4nqj25g.apps.googleusercontent.com" 
+             data-callback="onSignIn">
         </div>
+        <div class="g_id_signin" data-type="standard"></div>
+    </div>
 </header>
 
 <main class="app-container">
@@ -23,33 +29,175 @@
             <button class="tab-btn" onclick="switchTab('cover')">2. Cover Page</button>
             <button class="tab-btn" onclick="switchTab('authorities')">3. Authorities</button>
             <button class="tab-btn" onclick="switchTab('questions')">4. Questions</button>
-            <button class="tab-btn" onclick="switchTab('parties')">5. Parties</button>
-            <button class="tab-btn" onclick="switchTab('body')">6. Argument</button>
-            <button class="tab-btn" onclick="switchTab('conclusion')">7. Conclusion</button>
-            <button class="tab-btn" id="admin-tab" style="display: none; background: #c62828; color: white;" onclick="switchTab('admin')">🛡️ Teacher Admin</button>
-            <button class="tab-btn" onclick="switchTab('docket')">📋 Class Docket</button>
+            <button class="tab-btn" onclick="switchTab('argument')">5. Argument</button>
+            <button class="tab-btn" onclick="switchTab('finalize')">6. Finalize & Print</button>
+        </div>
+
+<!--- Begin Added Content re: Teacher Admin --> 
+
+        <button class="tab-btn" onclick="switchTab('docket')">🏛️ Court Docket</button>
+        <button class="tab-btn admin-only" id="admin-tab-btn" style="display:none;" onclick="switchTab('admin')">⚙️ Teacher Admin</button>
+
+<!--- End Added Content re: Teacher Admin -->         
+        
+        <div class="persistence-zone">
+            <button class="action-btn cloud-save-btn" onclick="saveToCloud()">☁️ Save to Cloud</button>
+            <select id="cloud-projects" class="action-btn">
+                <option value="">📂 Select a Project...</option>
+            </select>
+            <div style="display: flex; gap: 5px;">
+                <button class="action-btn" style="flex: 1;" onclick="loadSelectedProject()">📥 Load</button>
+                <button class="action-btn btn-danger" style="flex: 1;" onclick="deleteSelectedProject()">🗑️ Delete</button>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            <a href="terms.html" target="_blank" style="color:#999; text-decoration:none; font-size:0.75rem;">Terms of Service</a>
         </div>
     </nav>
 
-    <section class="content-panel">
-        
+    <section class="input-panel">
         <div id="setup" class="tab-content active">
-            <h2>Initial Setup</h2>
-            <p>Select your assigned case from the dropdown below to begin formatting your brief.</p>
-            <div class="form-group">
-                <label>Select Case</label>
-                <select id="case-select" onchange="refresh()">
-                    <option value="">-- Choose Case --</option>
+            <h2>Project Setup</h2>
+            <label>Project Title:</label>
+            <input type="text" id="projectTitle" oninput="refresh()">
+    
+            <label>Writing for:</label>
+            <select id="briefType" onchange="toggleAmicusField(); refresh()">
+                <option value="Petitioner">Brief for Petitioner</option>
+                <option value="Respondent">Brief for Respondent</option>
+                <option value="Amicus Curiae">Brief for Amicus Curiae</option>
+            </select>
+
+            <div id="amicus-extras" style="display:none; margin-top: 10px; border-left: 3px solid var(--legal-blue); padding-left: 10px;">
+                <label>Name of Amicus:</label>
+                <input type="text" id="amicusName" placeholder="e.g. American Civil Liberties Union" oninput="refresh()">
+                <label>In Support of:</label>
+                <select id="amicusSupport" onchange="refresh()">
+                    <option value="Petitioner">In Support of Petitioner</option>
+                    <option value="Respondent">In Support of Respondent</option>
+                    <option value="Neither Party">In Support of Neither Party</option>
                 </select>
             </div>
-            <div class="form-group">
-                <label>Your Name (Counsel of Record)</label>
-                <input type="text" id="counsel-name" oninput="refresh()" placeholder="e.g. Jane Doe">
+
+
+            <label>Court Term:</label>
+            <input type="text" id="courtTerm" placeholder="October Term 2025" oninput="refresh()">
+
+            
+            <label>Law Firm Name:</label>
+            <input type="text" id="firmName" placeholder="Law Firm..." oninput="refresh()">
+            <label>Counsel Names:</label>
+            <textarea id="studentNames" rows="3" oninput="refresh()"></textarea>
+        </div>
+
+        <div id="cover" class="tab-content">
+            <h2>Cover Details</h2>
+
+<!--- BEGIN Added Content re: case selection dropdown --> 
+
+            <label>Select Your Assigned Case:</label>
+            <select id="assignedCase" onchange="refresh()">
+                <option value="">-- Fetching Cases... --</option>
+            </select>
+            <p id="caseBriefLinkArea" style="font-size: 0.8rem;"></p>
+
+
+
+            <!-- Temporarily remove duplicate id="admin" tag per gemini review) 
+            <div id="admin" class="tab-content">
+                <h2>Teacher Case Manager</h2>
+                <div style="background:#f4f4f4; padding:15px; border-radius:8px;">
+                    <label>Add New Case Name:</label>
+                    <input type="text" id="newCaseName" placeholder="e.g. Cooksey v. MTPS">
+                    <label>Google Drive Brief Link:</label>
+                       <input type="text" id="newCaseLink" placeholder="Paste link here...">
+                    <button class="action-btn" onclick="addNewCase()">Add Case to List</button>
+                </div>
+                <div id="manage-cases-list" style="margin-top:20px;"></div>
+            </div>
+
+
+            -->
+
+
+            
+<!--- End Added Content re: case selection dropdown --> 
+            
+            <label>Docket Number:</label>
+            <input type="text" id="docketNum" oninput="refresh()">
+            <label>Petitioners:</label>
+            <div id="petitioner-inputs"></div>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('petitioner')">+ Add Petitioner</button>
+            <label>Respondents:</label>
+            <div id="respondent-inputs"></div>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('respondent')">+ Add Respondent</button>
+            <label>Lower Court:</label>
+            <input type="text" id="lowerCourt" oninput="refresh()">
+        </div>
+
+        <div id="authorities" class="tab-content">
+            <h2>Authorities</h2>
+            <label>Cases:</label>
+            <div id="case-inputs"></div>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('case')">+ Add Case</button>
+            <label>Statutes:</label>
+            <div id="statute-inputs"></div>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('statute')">+ Add Statute</button>
+        </div>
+
+        <div id="questions" class="tab-content">
+            <h2>Questions</h2>
+            <div id="question-inputs"></div>
+            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('question')">+ Add Question</button>
+        </div>
+
+        <div id="argument" class="tab-content">
+            <h2>Argument</h2>
+            <label>Summary of Argument:</label>
+            <textarea id="summaryArg" rows="4" oninput="refresh()"></textarea>
+            <label>Argument Body:</label>
+            <textarea id="argBody" rows="12" oninput="refresh()"></textarea>
+        </div>
+
+        <div id="finalize" class="tab-content">
+            <h2>Finalize</h2>
+            <label>Conclusion:</label>
+            <textarea id="conclusionText" rows="4" oninput="refresh()"></textarea>
+            <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+                <button class="action-btn cloud-save-btn" onclick="downloadPDF()">📥 DOWNLOAD PDF</button>
+                <button class="action-btn" style="background:#333; color:white;" onclick="window.print()">🖨️ DIRECT PRINT</button>
+        
+                <button class="action-btn" style="background: #2e7d32; color: white; border: none;" onclick="submitToCourt()">⚖️ SUBMIT TO COURT</button>
             </div>
         </div>
 
+        <div id="docket" class="tab-content">
+            <h2>Public Court Docket</h2>
+            <div id="docket-table-container">
+                <table class="docket-table">
+                    <thead>
+                        <tr>
+                            <th>Case Name</th>
+                            <th>Case Brief</th>
+                            <th>Petitioner</th>
+                            <th>Respondent</th>
+                            <th>Amicus Curiae</th>
+                        </tr>
+                    </thead>
+                    <tbody id="docket-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+
+
         <div id="admin" class="tab-content">
-            <h2>Teacher Administration</h2>
+            <div class="admin-header">
+                <h2>⚖️ Teacher Case Manager</h2>
+                <p>Add cases here to populate the dropdown menu for students.</p>
+            </div>
+
             <div class="admin-card">
                 <h3>Add New Case</h3>
                 <div class="admin-form-group">
@@ -71,7 +219,9 @@
             </div>
         </div>
 
-    </section>
+        
+
+</section>
 
     <section class="preview-panel">
         <div id="render-target"></div>
