@@ -8,6 +8,7 @@ let supabaseClient = null;
 let currentUser = null;
 let isTeacher = false;
 
+// FIX 1: Attach data globally so all UI functions can access it properly
 window.data = {
     petitioners: [''],
     respondents: [''],
@@ -18,29 +19,43 @@ window.data = {
 
 // ─── UNIFIED INITIALIZATION ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Initialize Supabase using keys from config.js
+    // 1. Initialize Supabase
     if (typeof window.supabase !== 'undefined') {
-        supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+        // Uses config.js keys, falls back to hardcoded if config.js is missing
+        const url = window.SUPABASE_URL || 'https://mvxuubwbtkhdbhuadxtu.supabase.co';
+        const key = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHV1YndidGtoZGJodWFkeHR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQyMDgsImV4cCI6MjA4Njc2MDIwOH0.FzsVt0bmWnrc3pYUWfJyS-9PE9oJY1ZzoGbax3q_LGk';
+        supabaseClient = window.supabase.createClient(url, key);
     } else { 
-        alert('Supabase not loaded from config.js. Check your script tags.'); 
-        return; 
+        console.error('Supabase script not loaded');
     }
 
-    // 2. Listen for background auth changes
-    supabaseClient.auth.onAuthStateChange((event, session) => {
-        updateAuthUI(session);
-    });
+    if (supabaseClient) {
+        // 2. Listen for auth changes
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+            updateAuthUI(session);
+        });
 
-    // 3. Initial Auth Check
-    await checkAuth();
+        // 3. Initial Auth Check
+        await checkAuth();
 
-    // 4. Load database information
-    if (typeof loadCases === 'function') loadCases();
-    if (typeof loadDocket === 'function') loadDocket();
+        // 4. Load database information
+        if (typeof loadCases === 'function') loadCases();
+        if (typeof loadDocket === 'function') loadDocket();
+    }
 
     // 5. Initialize SCOTUS UI formatting
     window.renderInputFields();
     window.refresh();
+    
+    // FIX 2: Attach auto-refresh to all static text inputs (Case Name, Argument, etc.)
+    const staticInputs = ['counsel-name', 'case-select', 'summaryArg', 'argBody', 'conclusionText'];
+    staticInputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', window.refresh);
+            el.addEventListener('change', window.refresh);
+        }
+    });
 });
 
 // ─── AUTH CHECK & UI UPDATE ─────────────────────────────────────────────────
@@ -73,11 +88,7 @@ function updateAuthUI(session) {
         if (authStatus) authStatus.innerText = `Signed in as ${currentUser}`;
         
         if (adminTab) {
-            if (isTeacher) {
-                adminTab.style.display = 'inline-flex'; // Keeps icon and text aligned
-            } else {
-                adminTab.style.display = 'none';
-            }
+            adminTab.style.display = isTeacher ? 'inline-flex' : 'none';
         }
 
     } else {
@@ -113,20 +124,15 @@ window.signOut = async function() {
     window.location.reload();
 };
 
-
 // ─── UI & NAVIGATION LOGIC ─────────────────────────────────────────────────
 
 window.switchTab = function(tabId) {
-    // Hide all tab contents
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    // Remove active class from all buttons
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
     
-    // Show target content
     const target = document.getElementById(tabId);
     if (target) target.classList.add('active');
     
-    // Highlight active button (find the button that called this function)
     const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick') === `switchTab('${tabId}')`);
     if (btn) btn.classList.add('active');
     
@@ -152,7 +158,10 @@ window.renderInputFields = function() {
             input.style.padding = '8px';
             input.style.border = '1px solid #ccc';
             input.style.borderRadius = '4px';
-            input.oninput = (e) => { window.data[type][i] = e.target.value; window.refresh(); };
+            input.oninput = (e) => { 
+                window.data[type][i] = e.target.value; 
+                window.refresh(); 
+            };
             
             const btn = document.createElement('button');
             btn.textContent = 'X';
@@ -187,11 +196,11 @@ window.addInput = function(type) {
     window.refresh();
 };
 
+// FIX 3: Fully restored styling classes for preview panel (.paper, .cover-page, etc.)
 window.refresh = function() {
     const target = document.getElementById('render-target');
     if (!target) return;
     
-    // Safely get input values
     const safeVal = (id) => {
         const el = document.getElementById(id);
         return el ? el.value : '';
@@ -264,7 +273,18 @@ window.refresh = function() {
     }
     html += `<div class="manual-footer">${docketNum}</div></div>`;
 
-    // Page 4: Argument
+    // Page 4: Summary of Argument
+    const summaryArg = safeVal('summaryArg');
+    if (summaryArg.trim()) {
+        html += `
+        <div class="paper">
+            <div class="section-header">Summary of Argument</div>
+            <p>${summaryArg.replace(/\n/g, '</p><p>')}</p>
+            <div class="manual-footer">${docketNum}</div>
+        </div>`;
+    }
+
+    // Page 5: Argument
     const argBody = safeVal('argBody');
     if (argBody.trim()) {
         html += `
@@ -275,7 +295,7 @@ window.refresh = function() {
         </div>`;
     }
 
-    // Page 5: Conclusion
+    // Page 6: Conclusion
     const conclusion = safeVal('conclusionText');
     if (conclusion.trim()) {
         html += `
@@ -295,7 +315,8 @@ window.refresh = function() {
 
     target.innerHTML = html;
 };
-// ─── DATABASE LOGIC (Keep your existing Supabase logic here) ────────────────
+
+// ─── DATABASE LOGIC ─────────────────────────────────────────────────────────
 async function loadCases() {
     if (!supabaseClient) return;
     const { data: activeCases, error } = await supabaseClient.from('active_cases').select('*').order('created_at', { ascending: false });
@@ -319,5 +340,5 @@ async function loadCases() {
 }
 
 async function loadDocket() {
-    // Keep your existing docket logic here
+    // Keep your existing docket logic here or empty if handled elsewhere
 }
