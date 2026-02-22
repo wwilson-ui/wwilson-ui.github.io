@@ -52,51 +52,26 @@ async function checkAuth() {
     }
 }
 
-// ─── GOOGLE SIGN IN (UNIFIED WITH SPARK) ────────────────────────────────────
-window.onSignIn = async function(response) {
-    try {
-        const { data, error } = await supabaseClient.auth.signInWithIdToken({
-            provider: 'google',
-            token: response.credential
-        });
-        
-        if (error) throw error;
-        
-        await checkAuth();
-    } catch (error) {
-        console.error('Sign in error:', error);
-        alert('Sign in failed: ' + error.message);
-    }
+
+
+window.signIn = async function() {
+    // REMOVED 'hd' restriction to allow testing with any Google account
+    await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { 
+            redirectTo: 'https://wwilson-ui.github.io/MootCourt/', queryParams: { hd: 'mtps.us' } 
+        }
+    });
 };
 
-// ─── SIGN OUT (UNIFIED WITH SPARK) ──────────────────────────────────────────
-async function signOut() {
-    await supabaseClient.auth.signOut();
-    currentUser = null;
-    isTeacher = false;
-    
-    document.getElementById('auth-status').innerText = 'Not signed in';
-    document.getElementById('google-btn-wrapper').innerHTML = `
-        <div id="g_id_onload" 
-             data-client_id="129113401099-ihpv7tunjjfeuovepgphcfibf4nqj25g.apps.googleusercontent.com" 
-             data-callback="onSignIn">
-        </div>
-        <div class="g_id_signin" data-type="standard"></div>
-    `;
-    
-    document.getElementById('admin-tab-btn').style.display = 'none';
-    
-    if (window.google) {
-        window.google.accounts.id.initialize({
-            client_id: '129113401099-ihpv7tunjjfeuovepgphcfibf4nqj25g.apps.googleusercontent.com',
-            callback: onSignIn
-        });
-        window.google.accounts.id.renderButton(
-            document.querySelector('.g_id_signin'),
-            { theme: 'outline', size: 'large' }
-        );
-    }
-}
+window.signOut = async function() { 
+    await sb.auth.signOut(); 
+    localStorage.clear(); // Clear local storage to ensure a fresh state
+    window.location.reload(); 
+};
+
+
+
 
 // ─── UI UPDATE AFTER LOGIN ──────────────────────────────────────────────────
 function applyLoggedInUI(email) {
