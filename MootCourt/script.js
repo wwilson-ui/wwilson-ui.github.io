@@ -52,10 +52,10 @@ async function checkAuth() {
 function updateAuthUI(session) {
     const authSection = document.getElementById('authSection');
     const authStatus = document.getElementById('auth-status'); 
+    const adminTab = document.getElementById('admin-tab'); // Grab the tab safely
 
     if (session) {
         currentUser = session.user.email;
-        // Make sure the email match is completely case-insensitive
         isTeacher = (currentUser.trim().toLowerCase() === TEACHER_EMAIL.trim().toLowerCase());
         const emailPrefix = currentUser.split('@')[0];
         
@@ -70,10 +70,14 @@ function updateAuthUI(session) {
         
         if (authStatus) authStatus.innerText = `Signed in as ${currentUser}`;
         
-        // Explicitly show/hide the admin tab
-        const adminTab = document.getElementById('admin-tab');
+        // Force the display block if teacher
         if (adminTab) {
-            adminTab.style.display = isTeacher ? 'block' : 'none';
+            if (isTeacher) {
+                adminTab.style.display = 'block';
+                console.log("Teacher Access Granted: Admin tab revealed.");
+            } else {
+                adminTab.style.display = 'none';
+            }
         }
 
     } else {
@@ -90,8 +94,6 @@ function updateAuthUI(session) {
         }
         
         if (authStatus) authStatus.innerText = 'Not signed in';
-        
-        const adminTab = document.getElementById('admin-tab');
         if (adminTab) adminTab.style.display = 'none';
     }
 }
