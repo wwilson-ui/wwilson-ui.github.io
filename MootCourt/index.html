@@ -8,13 +8,18 @@
 </head>
 <body>
 
-<header class="navbar">
-    <a href="#" class="logo" style="text-decoration: none; color: inherit; font-size: 1.2rem; font-weight: bold; display: flex; align-items: center; gap: 8px;">
-        ⚖️ SCOTUS Brief Pro
-    </a>
-    <div id="authSection">
-        </div>
+<header style="background: var(--legal-blue); color: white; padding: 0 25px; display: flex; justify-content: space-between; align-items: center; height: 60px; z-index: 10;">
+    <div style="font-weight:bold; font-size: 1.2rem;">⚖️ SCOTUS Brief Generator Pro</div>
+    
+    <div style="display: flex; align-items: center; gap: 20px;">
+        <a id="admin-tab" href="#" onclick="switchTab('admin')" style="display: none; color: white; font-weight: 600; text-decoration: none; align-items: center; gap: 5px;">
+            🛡️ Admin
+        </a>
+        
+        <div id="authSection"></div>
+    </div>
 </header>
+
 
 <main class="app-container">
     <nav class="sidebar">
@@ -32,7 +37,7 @@
 <!--- Begin Added Content re: Teacher Admin --> 
 
         <button class="tab-btn" onclick="switchTab('docket')">🏛️ Court Docket</button>
-        <button class="tab-btn admin-only" id="admin-tab" style="display:none;" onclick="switchTab('admin')">⚙️ Teacher Admin</button>
+<!--- Removed button & added to navigation menu       <button class="tab-btn admin-only" id="admin-tab" style="display:none;" onclick="switchTab('admin')">⚙️ Teacher Admin</button>    -->
 
 <!--- End Added Content re: Teacher Admin -->         
         
