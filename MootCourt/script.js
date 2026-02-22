@@ -30,44 +30,61 @@ function initSupabase() {
     }
 }
 
-// ─── AUTH CHECK (UNIFIED WITH SPARK) ────────────────────────────────────────
+// ─── AUTHENTICATION (Unified with Spark) ──────────────────────────────────
 async function checkAuth() {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    
+    const authSection = document.getElementById('authSection');
+    const authStatus = document.getElementById('auth-status'); // Sidebar status
+
     if (session) {
-        const { data: profile } = await supabaseClient
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+        currentUser = session.user.email;
+        isTeacher = (currentUser.toLowerCase() === TEACHER_EMAIL.toLowerCase());
+        const emailPrefix = currentUser.split('@')[0];
         
-        if (profile) {
-            currentUser = profile;
-            isTeacher = profile.role === 'teacher';
-            applyLoggedInUI(profile.email);
-            loadUserProjects();
+        // Render logged-in state (Matches Spark)
+        authSection.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="font-weight: 600; color: #444;">${emailPrefix}</span>
+                <button onclick="signOut()" class="auth-btn" style="padding: 6px 10px; font-size: 0.8rem;">Sign Out</button>
+            </div>
+        `;
+        
+        if (authStatus) authStatus.innerText = `Signed in as ${currentUser}`;
+        
+        // Show Admin tab if Teacher
+        if (isTeacher) {
+            document.getElementById('admin-tab').style.display = 'block';
         }
     } else {
-        document.getElementById('auth-status').innerText = 'Not signed in';
+        currentUser = null;
+        isTeacher = false;
+        
+        // Render Google Sign-In button (Matches Spark)
+        authSection.innerHTML = `
+            <button onclick="signIn()" class="auth-btn">
+                <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" width="18" height="18" alt="G">
+                Sign in
+            </button>
+        `;
+        
+        if (authStatus) authStatus.innerText = 'Not signed in';
+        document.getElementById('admin-tab').style.display = 'none';
     }
 }
 
-
-
 window.signIn = async function() {
-    // REMOVED 'hd' restriction to allow testing with any Google account
-    await sb.auth.signInWithOAuth({
+    await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: { 
-            redirectTo: 'https://wwilson-ui.github.io/MootCourt/', queryParams: { hd: 'mtps.us' } 
+            redirectTo: window.location.href,
+            queryParams: { hd: 'mtps.us' } // Restricts to school emails
         }
     });
 };
 
-window.signOut = async function() { 
-    await sb.auth.signOut(); 
-    localStorage.clear(); // Clear local storage to ensure a fresh state
-    window.location.reload(); 
+window.signOut = async function() {
+    await supabaseClient.auth.signOut();
+    window.location.reload();
 };
 
 
