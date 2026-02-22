@@ -100,6 +100,7 @@
             <div style="display: flex; gap: 15px; margin-bottom: 20px; border-bottom: 2px solid #eee;">
                 <button class="admin-tab active" onclick="switchAdminTab('flags')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid #FF4500; font-weight: 600; cursor: pointer;">🛡️ Flagged Content</button>
                 <button class="admin-tab" onclick="switchAdminTab('assignments')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; cursor: pointer;">📋 Review Assignments</button>
+                <button class="admin-tab" onclick="switchAdminTab('subsparks')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; cursor: pointer;">⚙️ Sub-Sparks</button>
             </div>
 
             <!-- Flagged Content Section -->
@@ -238,6 +239,30 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Sub-Sparks Management Section -->
+            <div id="subsparksSection" style="display: none;">
+                <h1 style="margin-bottom: 20px;">⚙️ Sub-Spark Management</h1>
+                
+                <!-- Global Name Control -->
+                <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ccc;">
+                    <h3 style="margin-bottom: 15px;">🎭 Global Name Display</h3>
+                    <p style="color: #666; margin-bottom: 15px;">This setting applies to ALL your sub-sparks by default. Individual sub-sparks can override this.</p>
+                    
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="globalNameToggle" onchange="toggleGlobalNames(this.checked)" style="width: 20px; height: 20px; cursor: pointer;">
+                        <span style="font-weight: 600;">Show real names in ALL my communities</span>
+                    </label>
+                    
+                    <div style="margin-top: 15px; padding: 12px; background: #f0f7ff; border-radius: 4px; font-size: 0.9rem;">
+                        <strong>Current setting:</strong> 
+                        <span id="globalNameStatusText" style="color: #0079D3; font-weight: 600;">Loading...</span>
+                    </div>
+                </div>
+                
+                <!-- Sub-Sparks List -->
+                <div id="subsparksList"></div>
             </div>
         </main>
     </div>
