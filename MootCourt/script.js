@@ -21,14 +21,26 @@ let data = {
 };
 
 // ─── SUPABASE INIT ──────────────────────────────────────────────────────────
-function initSupabase() {
-    if (window.supabase && !supabaseClient) {
-        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        checkAuth();
-        loadCases();
-        loadDocket();
-    }
-}
+document.addEventListener('DOMContentLoaded', async () => {
+    if (typeof window.supabase !== 'undefined') {
+        sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+    } else { alert('Supabase not loaded'); return; }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeModal('createPostModal');
+            closeModal('createSubModal');
+        }
+    });
+
+    await checkUser();
+    await loadTeacherSettings(); // Load teacher settings
+    await fetchNameMaskingSettings(); // Load name masking settings
+    pollingInterval = setInterval(checkForNameChanges, 5000); // Poll for changes
+    loadSubreddits();
+    loadPosts(); 
+    setupFormListeners();
+});
 
 // ─── AUTHENTICATION (Unified with Spark) ──────────────────────────────────
 async function checkAuth() {
