@@ -78,18 +78,19 @@ async function checkSession() {
 
 
 window.signIn = async function() {
-    await supabaseClient.auth.signInWithOAuth({
+    // REMOVED 'hd' restriction to allow testing with any Google account
+    await sb.auth.signInWithOAuth({
         provider: 'google',
         options: { 
-            redirectTo: window.location.href,
-            queryParams: { hd: 'mtps.us' } // Restricts to school emails!
+            redirectTo: 'https://wwilson-ui.github.io/r/Spark/', queryParams: { hd: 'mtps.us' } 
         }
     });
 };
 
-window.signOut = async function() {
-    await supabaseClient.auth.signOut();
-    window.location.reload();
+window.signOut = async function() { 
+    await sb.auth.signOut(); 
+    localStorage.clear(); // Clear local storage to ensure a fresh state
+    window.location.reload(); 
 };
 
 
