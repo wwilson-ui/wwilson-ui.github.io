@@ -1,6 +1,5 @@
 // =====================================================
 // SCOTUS BRIEF GENERATOR - UNIFIED WITH SPARK
-// Uses same Supabase + Google OAuth as Spark forum
 // =====================================================
 
 const TEACHER_EMAIL = 'wwilson@mtps.us';
@@ -17,33 +16,41 @@ let data = {
     statutes: ['']
 };
 
-
-
-// ─── SUPABASE INIT ──────────────────────────────────────────────────────────
+// ─── UNIFIED INITIALIZATION ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Initialize Supabase using keys from config.js
     if (typeof window.supabase !== 'undefined') {
-        sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-    } else { alert('Supabase not loaded'); return; }
+        supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+    } else { 
+        alert('Supabase not loaded from config.js'); 
+        return; 
+    }
 
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            closeModal('createPostModal');
-            closeModal('createSubModal');
-        }
+    // 2. Listen for the Google OAuth redirect background event
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+        updateAuthUI(session);
     });
 
-    await checkUser();
-    await loadTeacherSettings(); // Load teacher settings
-    await fetchNameMaskingSettings(); // Load name masking settings
-    pollingInterval = setInterval(checkForNameChanges, 5000); // Poll for changes
-    loadSubreddits();
-    loadPosts(); 
-    setupFormListeners();
+    // 3. Await the authentication check before loading the rest of the page
+    await checkAuth();
+
+    // 4. Load database information
+    loadCases();
+    loadDocket();
+
+    // 5. Initialize SCOTUS UI formatting
+    if (typeof renderInputFields === 'function') renderInputFields();
+    if (typeof refresh === 'function') refresh();
+    if (typeof setupDeleteHandler === 'function') setupDeleteHandler();
 });
 
-// ─── AUTHENTICATION (Unified with Spark) ──────────────────────────────────
+// ─── AUTH CHECK & UI UPDATE ─────────────────────────────────────────────────
 async function checkAuth() {
     const { data: { session } } = await supabaseClient.auth.getSession();
+    updateAuthUI(session);
+}
+
+function updateAuthUI(session) {
     const authSection = document.getElementById('authSection');
     const authStatus = document.getElementById('auth-status'); // Sidebar status
 
@@ -52,34 +59,40 @@ async function checkAuth() {
         isTeacher = (currentUser.toLowerCase() === TEACHER_EMAIL.toLowerCase());
         const emailPrefix = currentUser.split('@')[0];
         
-        // Render logged-in state (Matches Spark)
-        authSection.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <span style="font-weight: 600; color: #444;">${emailPrefix}</span>
-                <button onclick="signOut()" class="auth-btn" style="padding: 6px 10px; font-size: 0.8rem;">Sign Out</button>
-            </div>
-        `;
+        // Render logged-in state
+        if (authSection) {
+            authSection.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <span style="font-weight: 600; color: #444;">${emailPrefix}</span>
+                    <button onclick="signOut()" class="auth-btn" style="padding: 6px 10px; font-size: 0.8rem;">Sign Out</button>
+                </div>
+            `;
+        }
         
         if (authStatus) authStatus.innerText = `Signed in as ${currentUser}`;
         
-        // Show Admin tab if Teacher
-        if (isTeacher) {
-            document.getElementById('admin-tab').style.display = 'block';
-        }
+        // Show admin tab if teacher
+        const adminTab = document.getElementById('admin-tab');
+        if (adminTab) adminTab.style.display = isTeacher ? 'block' : 'none';
+
     } else {
         currentUser = null;
         isTeacher = false;
         
-        // Render Google Sign-In button (Matches Spark)
-        authSection.innerHTML = `
-            <button onclick="signIn()" class="auth-btn">
-                <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" width="18" height="18" alt="G">
-                Sign in
-            </button>
-        `;
+        // Render Google Sign-In button
+        if (authSection) {
+            authSection.innerHTML = `
+                <button onclick="signIn()" class="auth-btn">
+                    <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" width="18" height="18" alt="G">
+                    Sign in
+                </button>
+            `;
+        }
         
         if (authStatus) authStatus.innerText = 'Not signed in';
-        document.getElementById('admin-tab').style.display = 'none';
+        
+        const adminTab = document.getElementById('admin-tab');
+        if (adminTab) adminTab.style.display = 'none';
     }
 }
 
@@ -87,8 +100,8 @@ window.signIn = async function() {
     await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: { 
-            redirectTo: window.location.href,
-            queryParams: { hd: 'mtps.us' } // Restricts to school emails
+            redirectTo: window.location.origin + window.location.pathname,
+            queryParams: { hd: 'mtps.us' }
         }
     });
 };
@@ -98,178 +111,11 @@ window.signOut = async function() {
     window.location.reload();
 };
 
+// ─── DATA LOADING (CASES & DOCKET) ──────────────────────────────────────────
+// (Your existing loadCases() function starts right here...)
 
 
 
-// ─── UI UPDATE AFTER LOGIN ──────────────────────────────────────────────────
-function applyLoggedInUI(email) {
-    const displayName = email.split('@')[0];
-    document.getElementById('auth-status').innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 5px;">
-            <span style="font-weight: 600; color: #333;">👤 ${displayName}</span>
-            <button class="action-btn" style="height: 30px; font-size: 0.75rem;" onclick="signOut()">Sign Out</button>
-        </div>
-    `;
-    
-    if (isTeacher) {
-        document.getElementById('admin-tab-btn').style.display = 'block';
-    }
-}
-
-// ─── BOOT ───────────────────────────────────────────────────────────────────
-window.onload = () => {
-    initSupabase();
-    renderInputFields();
-    refresh();
-    setupDeleteHandler();
-};
-
-// ─── TAB SWITCHING ──────────────────────────────────────────────────────────
-function switchTab(tab) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    
-    document.getElementById(tab).classList.add('active');
-    event.target.classList.add('active');
-}
-
-// ─── SAVE TO CLOUD ──────────────────────────────────────────────────────────
-async function saveToCloud() {
-    if (!currentUser) {
-        alert('Please sign in to save projects');
-        return;
-    }
-    
-    const title = document.getElementById('projectTitle').value.trim() || 'Untitled Project';
-    
-    const projectData = {
-        user_id: currentUser.id,
-        title: title,
-        data: {
-            projectTitle: document.getElementById('projectTitle').value,
-            briefType: document.getElementById('briefType').value,
-            amicusName: document.getElementById('amicusName').value,
-            amicusSupport: document.getElementById('amicusSupport').value,
-            courtTerm: document.getElementById('courtTerm').value,
-            firmName: document.getElementById('firmName').value,
-            studentNames: document.getElementById('studentNames').value,
-            assignedCase: document.getElementById('assignedCase').value,
-            docketNum: document.getElementById('docketNum').value,
-            lowerCourt: document.getElementById('lowerCourt').value,
-            petitioners: data.petitioners,
-            respondents: data.respondents,
-            cases: data.cases,
-            statutes: data.statutes,
-            questions: data.questions,
-            summaryArg: document.getElementById('summaryArg').value,
-            argBody: document.getElementById('argBody').value,
-            conclusionText: document.getElementById('conclusionText').value
-        }
-    };
-    
-    const { error } = await supabaseClient
-        .from('scotus_projects')
-        .upsert(projectData, { onConflict: 'user_id,title' });
-    
-    if (error) {
-        alert('Error saving: ' + error.message);
-    } else {
-        alert('✅ Project saved!');
-        loadUserProjects();
-    }
-}
-
-// ─── LOAD USER PROJECTS ─────────────────────────────────────────────────────
-async function loadUserProjects() {
-    if (!currentUser) return;
-    
-    const { data: projects } = await supabaseClient
-        .from('scotus_projects')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .order('updated_at', { ascending: false });
-    
-    const select = document.getElementById('cloud-projects');
-    select.innerHTML = '<option value="">📂 Select a Project...</option>';
-    
-    if (projects) {
-        projects.forEach(p => {
-            const option = document.createElement('option');
-            option.value = p.id;
-            option.textContent = p.title;
-            select.appendChild(option);
-        });
-    }
-}
-
-// ─── LOAD SELECTED PROJECT ──────────────────────────────────────────────────
-async function loadSelectedProject() {
-    const projectId = document.getElementById('cloud-projects').value;
-    if (!projectId) {
-        alert('Please select a project first');
-        return;
-    }
-    
-    const { data: project } = await supabaseClient
-        .from('scotus_projects')
-        .select('*')
-        .eq('id', projectId)
-        .single();
-    
-    if (project && project.data) {
-        const d = project.data;
-        
-        document.getElementById('projectTitle').value = d.projectTitle || '';
-        document.getElementById('briefType').value = d.briefType || 'Petitioner';
-        document.getElementById('amicusName').value = d.amicusName || '';
-        document.getElementById('amicusSupport').value = d.amicusSupport || 'Petitioner';
-        document.getElementById('courtTerm').value = d.courtTerm || '';
-        document.getElementById('firmName').value = d.firmName || '';
-        document.getElementById('studentNames').value = d.studentNames || '';
-        document.getElementById('assignedCase').value = d.assignedCase || '';
-        document.getElementById('docketNum').value = d.docketNum || '';
-        document.getElementById('lowerCourt').value = d.lowerCourt || '';
-        document.getElementById('summaryArg').value = d.summaryArg || '';
-        document.getElementById('argBody').value = d.argBody || '';
-        document.getElementById('conclusionText').value = d.conclusionText || '';
-        
-        data.petitioners = d.petitioners || [''];
-        data.respondents = d.respondents || [''];
-        data.cases = d.cases || [''];
-        data.statutes = d.statutes || [''];
-        data.questions = d.questions || [''];
-        
-        toggleAmicusField();
-        renderInputFields();
-        refresh();
-        
-        alert('✅ Project loaded!');
-    }
-}
-
-// ─── DELETE SELECTED PROJECT ────────────────────────────────────────────────
-async function deleteSelectedProject() {
-    const projectId = document.getElementById('cloud-projects').value;
-    if (!projectId) {
-        alert('Please select a project first');
-        return;
-    }
-    
-    if (!confirm('Delete this project permanently?')) return;
-    
-    const { error } = await supabaseClient
-        .from('scotus_projects')
-        .delete()
-        .eq('id', projectId);
-    
-    if (error) {
-        alert('Error deleting: ' + error.message);
-    } else {
-        alert('✅ Project deleted');
-        document.getElementById('cloud-projects').value = '';
-        loadUserProjects();
-    }
-}
 
 // ─── CASE MANAGEMENT (TEACHER) ──────────────────────────────────────────────
 async function loadCases() {
