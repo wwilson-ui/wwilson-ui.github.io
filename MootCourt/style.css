@@ -21,9 +21,10 @@ body {
 }
 
 
-/* Unified Navbar matching Spark */
+/* Unified Navbar matching Spark (Grey Variant) */
 .navbar {
-    background: var(--legal-blue);
+    background: #f0f2f5; /* Subtle grey background */
+    color: #1A1A1B;      /* Dark text for readability */
     padding: 0.5rem 1.5rem;
     position: sticky;
     top: 0;
@@ -34,8 +35,8 @@ body {
     align-items: center;
     height: 60px;
     flex-shrink: 0;
-    color: #1A1A1B;
 }
+
 
 /* Unified Auth Button matching Spark */
 .auth-btn {
