@@ -26,76 +26,32 @@ function initSupabase() {
 }
 
 // ─── BOOT ───────────────────────────────────────────────────────────────────
-window.onload = async () => {
+window.onload = () => {
     initSupabase();
     renderInputFields();
     refresh();
-    setupDeleteHandler(); 
+    setupDeleteHandler(); // Set up event delegation for delete buttons
 
-    // Replaces the old localStorage logic with Supabase Session checking
-    await checkSession();
+    // FIX 1: Restore login from localStorage on every page load/refresh
+    const savedEmail = localStorage.getItem(LOGIN_KEY);
+    if (savedEmail) {
+        restoreSession(savedEmail);
+    } else {
+        document.getElementById('auth-status').innerText = 'Not signed in';
+    }
 };
 
-
-
-// ─── SUPABASE AUTHENTICATION ────────────────────────────────────────────────
-async function checkSession() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    const wrapper = document.getElementById('google-btn-wrapper');
-    const authStatus = document.getElementById('auth-status');
-
-    if (session) {
-        currentUser = session.user.email;
-        const emailPrefix = currentUser.split('@')[0];
-        
-        // Render logged-in state
-        wrapper.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <span style="font-weight: 600; color: white;">${emailPrefix}</span>
-                <button onclick="signOut()" style="background: white; color: #444; border: 1px solid #ddd; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Sign Out</button>
-            </div>
-        `;
-        authStatus.innerText = `Signed in as ${currentUser}`;
-
-        // Show admin tab if the teacher logs in
-        if (currentUser.toLowerCase() === TEACHER_EMAIL.toLowerCase()) {
-            document.getElementById('admin-tab').style.display = 'block';
-        }
-    } else {
-        currentUser = null;
-        
-        // Render Sign-In Button
-        wrapper.innerHTML = `
-            <button onclick="signIn()" style="background: white; color: #444; border: 1px solid #ddd; padding: 8px 15px; border-radius: 4px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.9rem;">
-                <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" width="18" height="18" alt="G">
-                Sign in
-            </button>
-        `;
-        authStatus.innerText = 'Not signed in';
-        document.getElementById('admin-tab').style.display = 'none';
+// ─── PERSISTENT LOGIN ────────────────────────────────────────────────────────
+function restoreSession(email) {
+    currentUser = email;
+    applyLoggedInUI(email);
+    if (!supabaseClient) initSupabase();
+    if (supabaseClient) {
+        loadCases();
+        fetchProjectList();
+        loadDocket();
     }
 }
-
-
-window.signIn = async function() {
-    // REMOVED 'hd' restriction to allow testing with any Google account
-    await sb.auth.signInWithOAuth({
-        provider: 'google',
-        options: { 
-            redirectTo: 'https://wwilson-ui.github.io/r/Spark/', queryParams: { hd: 'mtps.us' } 
-        }
-    });
-};
-
-window.signOut = async function() { 
-    await sb.auth.signOut(); 
-    localStorage.clear(); // Clear local storage to ensure a fresh state
-    window.location.reload(); 
-};
-
-
-
-
 
 function applyLoggedInUI(email) {
     const status = document.getElementById('auth-status');
@@ -137,7 +93,22 @@ function signOut() {
     if (drop) drop.innerHTML = '<option value="">Select a Project...</option>';
 }
 
+// ─── GOOGLE SIGN-IN CALLBACK ─────────────────────────────────────────────────
+async function onSignIn(response) {
+    const user = JSON.parse(atob(response.credential.split('.')[1]));
+    currentUser = user.email;
 
+    // Persist across refresh
+    localStorage.setItem(LOGIN_KEY, currentUser);
+    applyLoggedInUI(currentUser);
+
+    if (!supabaseClient) initSupabase();
+    if (supabaseClient) {
+        loadCases();
+        fetchProjectList();
+        loadDocket();
+    }
+}
 
 // ─── TAB SWITCHING ───────────────────────────────────────────────────────────
 // skipReload=true prevents a duplicate fetch when the caller already loaded data
