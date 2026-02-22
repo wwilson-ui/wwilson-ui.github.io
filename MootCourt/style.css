@@ -20,6 +20,45 @@ body {
     overflow: hidden; /* keep this; individual panels control their own scroll */
 }
 
+
+/* Unified Navbar matching Spark */
+.navbar {
+    background: white;
+    padding: 0.5rem 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 60px;
+    flex-shrink: 0;
+    color: #1A1A1B;
+}
+
+/* Unified Auth Button matching Spark */
+.auth-btn {
+    background: white; 
+    color: #444; 
+    border: 1px solid #ddd; 
+    padding: 8px 15px; 
+    border-radius: 4px; 
+    font-weight: 600; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    font-size: 0.9rem; 
+    transition: background 0.2s;
+}
+.auth-btn:hover { background: #f8f8f8; }
+
+
+/*
+
+
+
 header {
     background: var(--legal-blue);
     color: white;
@@ -31,6 +70,7 @@ header {
     flex-shrink: 0;
     z-index: 10;
 }
+*/
 
 /* FIX 4: Give the container a min-height so it never collapses on short screens */
 .app-container {
