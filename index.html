@@ -3,234 +3,247 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SCOTUS Brief Pro</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <title>Mr. Wilson's Class Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #FF4500;
+            --bg-primary: #DAE0E6;
+            --text-primary: #1A1A1B;
+            --card-bg: #FFFFFF;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'IBM Plex Sans', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: white;
+            padding: 0.5rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 60px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .logo {
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .auth-btn {
+            background: white; color: #444; border: 1px solid #ddd; padding: 8px 15px; 
+            border-radius: 4px; font-weight: 600; cursor: pointer; display: flex; 
+            align-items: center; gap: 8px; font-size: 0.9rem; transition: background 0.2s;
+        }
+        .auth-btn:hover { background: #f8f8f8; }
+
+        /* Main Content */
+        .main-container {
+            flex: 1;
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 20px;
+            width: 100%;
+        }
+        .page-title {
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 2.2rem;
+            color: var(--text-primary);
+        }
+
+        /* Grid Layout */
+        .app-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+        }
+
+        /* App Cards */
+        .app-card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 30px 20px;
+            text-align: center;
+            text-decoration: none;
+            color: var(--text-primary);
+            border: 1px solid #ccc;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+            position: relative;
+            overflow: hidden;
+        }
+        .app-card:hover:not(.disabled) {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            border-color: var(--primary);
+        }
+
+        /* Specific Card Logos */
+        .spark-logo {
+            background: var(--primary); color: white; width: 50px; height: 50px; 
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+            font-size: 1.8rem; margin-bottom: 15px; font-weight: bold;
+        }
+        .icon-logo {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        /* Disabled / Pending State */
+        .app-card.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            pointer-events: none;
+            background: #f5f5f5;
+        }
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-25deg);
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: rgba(0, 0, 0, 0.15);
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            pointer-events: none;
+        }
+
+        /* Footer */
+        .site-footer {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #ccc;
+            font-size: 0.9rem;
+        }
+        .site-footer a {
+            color: #0079D3;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .site-footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
 
-<header>
-    <div style="font-weight:bold;">⚖️ SCOTUS Brief Generator Pro</div>
-    <div id="google-btn-wrapper">
-        <div id="g_id_onload" 
-             data-client_id="129113401099-ihpv7tunjjfeuovepgphcfibf4nqj25g.apps.googleusercontent.com" 
-             data-callback="onSignIn">
-        </div>
-        <div class="g_id_signin" data-type="standard"></div>
-    </div>
-</header>
-
-<main class="app-container">
-    <nav class="sidebar">
-        <div id="auth-status" style="font-size: 0.75rem; color: #888; margin-bottom: 15px;">Initializing...</div>
-        
-        <div class="tabs-zone">
-            <button class="tab-btn active" onclick="switchTab('setup')">1. Initial Setup</button>
-            <button class="tab-btn" onclick="switchTab('cover')">2. Cover Page</button>
-            <button class="tab-btn" onclick="switchTab('authorities')">3. Authorities</button>
-            <button class="tab-btn" onclick="switchTab('questions')">4. Questions</button>
-            <button class="tab-btn" onclick="switchTab('argument')">5. Argument</button>
-            <button class="tab-btn" onclick="switchTab('finalize')">6. Finalize & Print</button>
-        </div>
-
-<!--- Begin Added Content re: Teacher Admin --> 
-
-        <button class="tab-btn" onclick="switchTab('docket')">🏛️ Court Docket</button>
-        <button class="tab-btn admin-only" id="admin-tab-btn" style="display:none;" onclick="switchTab('admin')">⚙️ Teacher Admin</button>
-
-<!--- End Added Content re: Teacher Admin -->         
-        
-        <div class="persistence-zone">
-            <button class="action-btn cloud-save-btn" onclick="saveToCloud()">☁️ Save to Cloud</button>
-            <select id="cloud-projects" class="action-btn">
-                <option value="">📂 Select a Project...</option>
-            </select>
-            <div style="display: flex; gap: 5px;">
-                <button class="action-btn" style="flex: 1;" onclick="loadSelectedProject()">📥 Load</button>
-                <button class="action-btn btn-danger" style="flex: 1;" onclick="deleteSelectedProject()">🗑️ Delete</button>
+    <nav class="navbar">
+        <a href="#" class="logo">
+            🏫 Class Portal
+        </a>
+        <div id="authSection">
             </div>
-        </div>
-
-        <div class="sidebar-footer">
-            <a href="terms.html" target="_blank" style="color:#999; text-decoration:none; font-size:0.75rem;">Terms of Service</a>
-        </div>
     </nav>
 
-    <section class="input-panel">
-        <div id="setup" class="tab-content active">
-            <h2>Project Setup</h2>
-            <label>Project Title:</label>
-            <input type="text" id="projectTitle" oninput="refresh()">
-    
-            <label>Writing for:</label>
-            <select id="briefType" onchange="toggleAmicusField(); refresh()">
-                <option value="Petitioner">Brief for Petitioner</option>
-                <option value="Respondent">Brief for Respondent</option>
-                <option value="Amicus Curiae">Brief for Amicus Curiae</option>
-            </select>
-
-            <div id="amicus-extras" style="display:none; margin-top: 10px; border-left: 3px solid var(--legal-blue); padding-left: 10px;">
-                <label>Name of Amicus:</label>
-                <input type="text" id="amicusName" placeholder="e.g. American Civil Liberties Union" oninput="refresh()">
-                <label>In Support of:</label>
-                <select id="amicusSupport" onchange="refresh()">
-                    <option value="Petitioner">In Support of Petitioner</option>
-                    <option value="Respondent">In Support of Respondent</option>
-                    <option value="Neither Party">In Support of Neither Party</option>
-                </select>
-            </div>
-
-
-            <label>Court Term:</label>
-            <input type="text" id="courtTerm" placeholder="October Term 2025" oninput="refresh()">
-
-            
-            <label>Law Firm Name:</label>
-            <input type="text" id="firmName" placeholder="Law Firm..." oninput="refresh()">
-            <label>Counsel Names:</label>
-            <textarea id="studentNames" rows="3" oninput="refresh()"></textarea>
-        </div>
-
-        <div id="cover" class="tab-content">
-            <h2>Cover Details</h2>
-
-<!--- BEGIN Added Content re: case selection dropdown --> 
-
-            <label>Select Your Assigned Case:</label>
-            <select id="assignedCase" onchange="refresh()">
-                <option value="">-- Fetching Cases... --</option>
-            </select>
-            <p id="caseBriefLinkArea" style="font-size: 0.8rem;"></p>
-
-
-
-            <!-- Temporarily remove duplicate id="admin" tag per gemini review) 
-            <div id="admin" class="tab-content">
-                <h2>Teacher Case Manager</h2>
-                <div style="background:#f4f4f4; padding:15px; border-radius:8px;">
-                    <label>Add New Case Name:</label>
-                    <input type="text" id="newCaseName" placeholder="e.g. Cooksey v. MTPS">
-                    <label>Google Drive Brief Link:</label>
-                       <input type="text" id="newCaseLink" placeholder="Paste link here...">
-                    <button class="action-btn" onclick="addNewCase()">Add Case to List</button>
-                </div>
-                <div id="manage-cases-list" style="margin-top:20px;"></div>
-            </div>
-
-
-            -->
-
-
-            
-<!--- End Added Content re: case selection dropdown --> 
-            
-            <label>Docket Number:</label>
-            <input type="text" id="docketNum" oninput="refresh()">
-            <label>Petitioners:</label>
-            <div id="petitioner-inputs"></div>
-            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('petitioner')">+ Add Petitioner</button>
-            <label>Respondents:</label>
-            <div id="respondent-inputs"></div>
-            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('respondent')">+ Add Respondent</button>
-            <label>Lower Court:</label>
-            <input type="text" id="lowerCourt" oninput="refresh()">
-        </div>
-
-        <div id="authorities" class="tab-content">
-            <h2>Authorities</h2>
-            <label>Cases:</label>
-            <div id="case-inputs"></div>
-            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('case')">+ Add Case</button>
-            <label>Statutes:</label>
-            <div id="statute-inputs"></div>
-            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('statute')">+ Add Statute</button>
-        </div>
-
-        <div id="questions" class="tab-content">
-            <h2>Questions</h2>
-            <div id="question-inputs"></div>
-            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('question')">+ Add Question</button>
-        </div>
-
-        <div id="argument" class="tab-content">
-            <h2>Argument</h2>
-            <label>Summary of Argument:</label>
-            <textarea id="summaryArg" rows="4" oninput="refresh()"></textarea>
-            <label>Argument Body:</label>
-            <textarea id="argBody" rows="12" oninput="refresh()"></textarea>
-        </div>
-
-        <div id="finalize" class="tab-content">
-            <h2>Finalize</h2>
-            <label>Conclusion:</label>
-            <textarea id="conclusionText" rows="4" oninput="refresh()"></textarea>
-            <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
-                <button class="action-btn cloud-save-btn" onclick="downloadPDF()">📥 DOWNLOAD PDF</button>
-                <button class="action-btn" style="background:#333; color:white;" onclick="window.print()">🖨️ DIRECT PRINT</button>
+    <div class="main-container">
+        <h1 class="page-title">Welcome to Class</h1>
         
-                <button class="action-btn" style="background: #2e7d32; color: white; border: none;" onclick="submitToCourt()">⚖️ SUBMIT TO COURT</button>
-            </div>
+        <div class="app-grid">
+            <a href="https://wwilson-ui.github.io/r/Spark/" class="app-card">
+                <div class="spark-logo">⚡</div>
+                <div class="card-title">r/Spark</div>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #666;">Classroom Forum</p>
+            </a>
+
+            <a href="https://wwilson-ui.github.io/MootCourt/" class="app-card">
+                <div class="icon-logo">⚖️</div>
+                <div class="card-title">SCOTUS Brief Pro</div>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #666;">Moot Court Generator</p>
+            </a>
+
+            <a href="https://wwilson-ui.github.io/ClassCast/" class="app-card">
+                <div class="icon-logo">🎙️</div>
+                <div class="card-title">ClassCast</div>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #666;">Podcast Platform</p>
+            </a>
+
+            <a href="#" class="app-card disabled">
+                <div class="watermark">Pending</div>
+                <div class="icon-logo">📖</div>
+                <div class="card-title">Class Ebook</div>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #666;">Coming Soon</p>
+            </a>
         </div>
+    </div>
 
-        <div id="docket" class="tab-content">
-            <h2>Public Court Docket</h2>
-            <div id="docket-table-container">
-                <table class="docket-table">
-                    <thead>
-                        <tr>
-                            <th>Case Name</th>
-                            <th>Case Brief</th>
-                            <th>Petitioner</th>
-                            <th>Respondent</th>
-                            <th>Amicus Curiae</th>
-                        </tr>
-                    </thead>
-                    <tbody id="docket-body"></tbody>
-                </table>
-            </div>
-        </div>
+    <footer class="site-footer">
+        <p>&copy; 2024 Mr. Wilson's Class | <a href="https://wwilson-ui.github.io/MootCourt/terms.html" target="_blank">Terms of Service</a></p>
+    </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // 1. Initialize Supabase (Using keys from your config)
+        const SUPABASE_URL = 'https://mvxuubwbtkhdbhuadxtu.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHV1YndidGtoZGJodWFkeHR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQyMDgsImV4cCI6MjA4Njc2MDIwOH0.FzsVt0bmWnrc3pYUWfJyS-9PE9oJY1ZzoGbax3q_LGk';
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // 2. Check Session on Load
+        async function checkSession() {
+            const authSection = document.getElementById('authSection');
+            const { data: { session } } = await sb.auth.getSession();
 
-        <div id="admin" class="tab-content">
-            <div class="admin-header">
-                <h2>⚖️ Teacher Case Manager</h2>
-                <p>Add cases here to populate the dropdown menu for students.</p>
-            </div>
+            if (session) {
+                // Logged In: Show Email and Sign Out button
+                const emailPrefix = session.user.email.split('@')[0];
+                authSection.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <span style="font-weight: 600; color: #444;">${emailPrefix}</span>
+                        <button onclick="signOut()" class="auth-btn" style="padding: 6px 10px; font-size: 0.8rem;">Sign Out</button>
+                    </div>
+                `;
+            } else {
+                // Logged Out: Show Google Sign In
+                authSection.innerHTML = `
+                    <button onclick="signIn()" class="auth-btn">
+                        <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" width="18" height="18" alt="G">
+                        Sign in
+                    </button>
+                `;
+            }
+        }
 
-            <div class="admin-card">
-                <h3>Add New Case</h3>
-                <div class="admin-form-group">
-                    <label>Case Name (e.g., Cooksey v. MTPS)</label>
-                    <input type="text" id="newCaseName" placeholder="Enter case name...">
-                </div>
-                <div class="admin-form-group">
-                    <label>Google Drive Brief Link</label>
-                    <input type="text" id="newCaseLink" placeholder="Paste the shared Google Drive URL here...">
-                </div>
-                <button class="action-btn" style="background: var(--legal-blue); color: white;" onclick="addNewCase()">Add Case to Student List</button>
-            </div>
+        // 3. Auth Functions
+        async function signIn() {
+            await sb.auth.signInWithOAuth({
+                provider: 'google',
+                options: { 
+                    redirectTo: window.location.href, // Reloads this portal page after login
+                    queryParams: { hd: 'mtps.us' }    // Restricts to your school domain
+                }
+            });
+        }
 
-            <div class="admin-card" style="margin-top: 20px;">
-                <h3>Existing Cases</h3>
-                <div id="manage-cases-list">
-                    <p style="color: #666;">Loading active cases...</p>
-                </div>
-            </div>
-        </div>
+        async function signOut() {
+            await sb.auth.signOut();
+            window.location.reload();
+        }
 
-        
-
-</section>
-
-    <section class="preview-panel">
-        <div id="render-target"></div>
-    </section>
-</main>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-<script src="script.js"></script>
+        // Run on page load
+        document.addEventListener('DOMContentLoaded', checkSession);
+    </script>
 </body>
 </html>
