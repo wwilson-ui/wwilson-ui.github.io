@@ -155,10 +155,12 @@
                             
                             <label>Sub-Spark Community Link (Optional)</label>
                                 <div style="margin: 15px 0; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: #f9f9f9;">
+                                    <input type="hidden" id="existingSubsparkUrl" value="">
+    
                                     <label style="font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                                         <input type="checkbox" id="autoCreateSubspark" onchange="toggleSubsparkOptions()">
                                         Instantly generate a Sub-spark Community for this assignment
-                                    </label>
+                                        </label>
     
                                     <div id="subsparkInitialPostContainer" class="hidden" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ccc;">
                                         <p style="margin-top: 0; font-size: 0.9rem; color: #555;">Create the first post to kick off the discussion:</p>
@@ -166,7 +168,7 @@
                                         <input type="text" id="subsparkFirstPostPhoto" placeholder="Photo URL (optional)" style="width: 100%; margin-bottom: 10px; padding: 8px;">
                                         <input type="text" id="subsparkFirstPostLink" placeholder="External Link URL (optional)" style="width: 100%; margin-bottom: 10px; padding: 8px;">
                                     </div>
-                                </div>                            
+                                </div>                           
                             <label>Transcript</label>
                             <textarea id="newAssignTranscript" rows="4" placeholder="Paste full transcript here..."></textarea>
 
