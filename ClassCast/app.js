@@ -11,6 +11,9 @@ let activeQuestions = [];
 let answeredCheckpoints = [];
 let sessionStartTime = null;
 
+// --- NEW TRACKING VARIABLE FOR EDITING ---
+let editingAssignmentId = null;
+
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
         const url = window.SUPABASE_URL || 'https://mvxuubwbtkhdbhuadxtu.supabase.co';
@@ -115,7 +118,8 @@ async function checkUser() {
 window.signIn = async function() { await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + window.location.pathname, queryParams: { prompt: 'select_account' } } }); };
 window.signOut = async function() { await sb.auth.signOut(); window.location.reload(); };
 
-// ================= TEACHER PANEL 1: ASSIGNMENTS =================
+// ================= TEACHER PANEL 1: ASSIGNMENTS (WITH EDIT LOGIC) =================
+
 window.addQuestionBuilderRow = function() {
     const list = document.getElementById('questionsBuilderList');
     const id = Date.now();
@@ -132,10 +136,84 @@ window.addQuestionBuilderRow = function() {
     list.appendChild(div);
 };
 
+window.editAssignment = async function(id) {
+    editingAssignmentId = id;
+    
+    // Fetch the assignment and questions
+    const { data: assignData } = await sb.from('classcast_assignments').select('*').eq('id', id).single();
+    const { data: qData } = await sb.from('classcast_questions').select('*').eq('assignment_id', id);
+    
+    if(!assignData) return;
+
+    // Populate the form
+    document.getElementById('newAssignTitle').value = assignData.title;
+    
+    // Find the dropdown option that matches the text
+    const classDropdown = document.getElementById('newAssignClassDropdown');
+    for (let i = 0; i < classDropdown.options.length; i++) {
+        if (classDropdown.options[i].text === assignData.target_class) {
+            classDropdown.selectedIndex = i;
+            break;
+        }
+    }
+
+    // Set Audio Source to dropbox input visually so we can hold the old URL
+    document.querySelector('input[name="audioSourceType"][value="dropbox"]').checked = true;
+    toggleAudioSourceUI();
+    document.getElementById('newAssignAudioUrl').value = assignData.audio_url;
+    
+    document.getElementById('newAssignSpark').value = assignData.subspark_url || '';
+    document.getElementById('newAssignTranscript').value = assignData.transcript || '';
+
+    // Populate Questions
+    document.getElementById('questionsBuilderList').innerHTML = '';
+    if (qData) {
+        qData.forEach(q => {
+            const list = document.getElementById('questionsBuilderList');
+            const rowId = Date.now() + Math.random();
+            const div = document.createElement('div');
+            div.id = `qb-${rowId}`;
+            div.style.display = 'flex'; div.style.gap = '10px'; div.style.marginBottom = '10px';
+            div.innerHTML = `
+                <input type="number" class="q-time" value="${q.trigger_second}" placeholder="Timestamp (sec)" style="width: 130px; margin:0;" min="0">
+                <input type="text" class="q-text" value="${q.question_text}" placeholder="Question Text" style="flex:1; margin:0;">
+                <button class="danger-btn" onclick="document.getElementById('qb-${rowId}').remove()">X</button>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    // Change UI state to editing
+    document.getElementById('publishBtn').innerText = 'Update Assignment';
+    document.getElementById('cancelEditBtn').classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+window.cancelEdit = function() {
+    editingAssignmentId = null;
+    document.getElementById('publishBtn').innerText = 'Publish Assignment';
+    
+    const cancelBtn = document.getElementById('cancelEditBtn');
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+    
+    // Clear form
+    document.getElementById('newAssignTitle').value = '';
+    document.getElementById('newAssignClassDropdown').value = '';
+    if(document.getElementById('newAssignAudioFile')) document.getElementById('newAssignAudioFile').value = '';
+    if(document.getElementById('newAssignAudioUrl')) document.getElementById('newAssignAudioUrl').value = '';
+    document.getElementById('newAssignSpark').value = '';
+    document.getElementById('newAssignTranscript').value = '';
+    document.getElementById('questionsBuilderList').innerHTML = '';
+    
+    // Reset to Upload mode visually
+    document.querySelector('input[name="audioSourceType"][value="upload"]').checked = true;
+    toggleAudioSourceUI();
+};
+
 window.saveNewAssignment = async function() {
     const publishBtn = document.getElementById('publishBtn');
     const title = document.getElementById('newAssignTitle').value;
-    const targetClassId = document.getElementById('newAssignClassDropdown').value; // Now an ID
+    const targetClassId = document.getElementById('newAssignClassDropdown').value; 
     const targetClassText = document.getElementById('newAssignClassDropdown').options[document.getElementById('newAssignClassDropdown').selectedIndex]?.text;
     const subSpark = document.getElementById('newAssignSpark').value;
     const transcript = document.getElementById('newAssignTranscript').value;
@@ -147,38 +225,78 @@ window.saveNewAssignment = async function() {
 
     try {
         publishBtn.disabled = true;
-        publishBtn.innerText = 'Publishing... Please wait...';
+        publishBtn.innerText = editingAssignmentId ? 'Updating... Please wait...' : 'Publishing... Please wait...';
 
+        // --- Handle Audio Source ---
         if (sourceType === 'upload') {
             const fileInput = document.getElementById('newAssignAudioFile');
             const file = fileInput.files[0];
-            if (!file) { alert("Please select an audio file."); publishBtn.disabled = false; publishBtn.innerText = 'Publish Assignment'; return; }
+            
+            if (!file && !editingAssignmentId) { 
+                alert("Please select an audio file."); 
+                publishBtn.disabled = false; 
+                publishBtn.innerText = 'Publish Assignment'; 
+                return; 
+            }
 
-            const fileExt = file.name.split('.').pop();
-            const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            if (file) {
+                // Upload new file
+                const fileExt = file.name.split('.').pop();
+                const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-            const { data: uploadData, error: uploadError } = await sb.storage.from('audio-files').upload(uniqueFileName, file);
-            if (uploadError) throw new Error("Storage Error. Did you set the Storage Policies? " + uploadError.message);
+                const { data: uploadData, error: uploadError } = await sb.storage.from('audio-files').upload(uniqueFileName, file);
+                if (uploadError) throw new Error("Storage Error: " + uploadError.message);
 
-            const { data: publicUrlData } = sb.storage.from('audio-files').getPublicUrl(uniqueFileName);
-            finalAudioUrl = publicUrlData.publicUrl;
+                const { data: publicUrlData } = sb.storage.from('audio-files').getPublicUrl(uniqueFileName);
+                finalAudioUrl = publicUrlData.publicUrl;
+            } else {
+                // If editing and didn't upload a new file, keep the old URL
+                finalAudioUrl = document.getElementById('newAssignAudioUrl').value;
+            }
 
         } else if (sourceType === 'dropbox') {
             let dropboxUrl = document.getElementById('newAssignAudioUrl').value;
-            if (!dropboxUrl) { alert("Please paste a Dropbox URL."); publishBtn.disabled = false; publishBtn.innerText = 'Publish Assignment'; return; }
+            if (!dropboxUrl && !editingAssignmentId) { 
+                alert("Please paste a Dropbox URL."); 
+                publishBtn.disabled = false; 
+                publishBtn.innerText = 'Publish Assignment'; 
+                return; 
+            }
             if (dropboxUrl.includes('dropbox.com')) {
                 dropboxUrl = dropboxUrl.replace('?dl=0', '').replace('?dl=1', '');
                 finalAudioUrl = dropboxUrl + (dropboxUrl.includes('?') ? '&' : '?') + 'raw=1';
             } else finalAudioUrl = dropboxUrl;
         }
 
-        const { data: assignData, error: assignError } = await sb.from('classcast_assignments').insert([{
-            title: title, target_class: targetClassText, audio_url: finalAudioUrl, subspark_url: subSpark, transcript: transcript
-        }]).select();
+        let newId;
 
-        if(assignError) throw assignError;
-        const newId = assignData[0].id;
+        // --- Insert OR Update Database ---
+        if (editingAssignmentId) {
+            // Update
+            const { error: updateError } = await sb.from('classcast_assignments')
+                .update({
+                    title: title, 
+                    target_class: targetClassText, 
+                    audio_url: finalAudioUrl, 
+                    subspark_url: subSpark, 
+                    transcript: transcript
+                }).eq('id', editingAssignmentId);
+            if(updateError) throw updateError;
+            
+            newId = editingAssignmentId;
+            
+            // Delete old questions so we can replace them cleanly
+            await sb.from('classcast_questions').delete().eq('assignment_id', newId);
+        } else {
+            // Insert
+            const { data: assignData, error: assignError } = await sb.from('classcast_assignments').insert([{
+                title: title, target_class: targetClassText, audio_url: finalAudioUrl, subspark_url: subSpark, transcript: transcript
+            }]).select();
+            if(assignError) throw assignError;
+            newId = assignData[0].id;
+        }
 
+        // --- Save Questions ---
         const questionRows = document.querySelectorAll('#questionsBuilderList > div');
         const questionsToInsert = [];
         questionRows.forEach(row => {
@@ -189,20 +307,18 @@ window.saveNewAssignment = async function() {
 
         if(questionsToInsert.length > 0) await sb.from('classcast_questions').insert(questionsToInsert);
 
-        alert("Assignment published successfully!");
+        alert(editingAssignmentId ? "Assignment updated successfully!" : "Assignment published successfully!");
         
-        document.getElementById('newAssignTitle').value = '';
-        document.getElementById('newAssignClassDropdown').value = '';
-        if(document.getElementById('newAssignAudioFile')) document.getElementById('newAssignAudioFile').value = '';
-        if(document.getElementById('newAssignAudioUrl')) document.getElementById('newAssignAudioUrl').value = '';
-        document.getElementById('newAssignSpark').value = '';
-        document.getElementById('newAssignTranscript').value = '';
-        document.getElementById('questionsBuilderList').innerHTML = '';
-        
+        cancelEdit(); // Clears form & resets buttons
         loadTeacherAssignments();
 
-    } catch (error) { alert("Error: " + error.message); console.error(error); } 
-    finally { publishBtn.disabled = false; publishBtn.innerText = 'Publish Assignment'; }
+    } catch (error) { 
+        alert("Error: " + error.message); 
+        console.error(error); 
+    } finally { 
+        publishBtn.disabled = false; 
+        publishBtn.innerText = editingAssignmentId ? 'Update Assignment' : 'Publish Assignment'; 
+    }
 };
 
 async function loadTeacherAssignments() {
@@ -211,7 +327,17 @@ async function loadTeacherAssignments() {
     const { data } = await sb.from('classcast_assignments').select('*').order('created_at', { ascending: false });
     
     if(!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No assignments.</td></tr>'; return; }
-    tbody.innerHTML = data.map(a => `<tr><td><strong>${a.title}</strong></td><td>${a.target_class}</td><td><button class="danger-btn" onclick="deleteAssignment(${a.id})">Delete</button></td></tr>`).join('');
+    
+    // --- THIS INCLUDES THE NEW EDIT BUTTON ---
+    tbody.innerHTML = data.map(a => `
+    <tr>
+        <td><strong>${a.title}</strong></td>
+        <td>${a.target_class}</td>
+        <td>
+            <button class="action-btn" style="padding: 6px 12px; font-size: 0.8rem; background: #555; margin-right: 5px;" onclick="editAssignment(${a.id})">Edit</button>
+            <button class="danger-btn" onclick="deleteAssignment(${a.id})">Delete</button>
+        </td>
+    </tr>`).join('');
 }
 
 window.deleteAssignment = async function(id) {
@@ -315,7 +441,6 @@ async function loadManageFiles() {
     if(error) { tbody.innerHTML = `<tr><td colspan="3">Error: ${error.message}</td></tr>`; return; }
     if(!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No files found.</td></tr>'; return; }
     
-    // Filter out hidden files like .emptyFolderPlaceholder
     const validFiles = data.filter(f => f.name !== '.emptyFolderPlaceholder');
     tbody.innerHTML = validFiles.map(f => `<tr><td>${f.name}</td><td>${(f.metadata.size / 1024 / 1024).toFixed(2)} MB</td><td><button class="danger-btn" onclick="deleteFile('${f.name}')">Delete</button></td></tr>`).join('');
 }
@@ -325,7 +450,7 @@ window.deleteFile = async function(fileName) {
 
 // ================= STUDENT: ASSIGNMENTS & TRACKING =================
 async function loadStudentClasses() {
-    populateClassDropdown('studentClassFilter'); // Uses the same DB logic as teacher
+    populateClassDropdown('studentClassFilter'); 
 }
 
 window.loadStudentAssignments = async function() {
