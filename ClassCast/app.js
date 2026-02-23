@@ -128,7 +128,7 @@ window.signIn = async function() {
         options: { 
             scopes: 'https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.rosters.readonly',
             redirectTo: window.location.origin + window.location.pathname, 
-            queryParams: { prompt: 'consent'; hd: 'mtps.us' } 
+            queryParams: { prompt: 'consent', hd: 'mtps.us' } 
         } 
     }); 
 };
