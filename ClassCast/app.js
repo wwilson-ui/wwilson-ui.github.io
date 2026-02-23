@@ -12,7 +12,9 @@ let activeQuestions = [];
 let answeredCheckpoints = [];
 let sessionStartTime = null;
 let editingAssignmentId = null;
-let maxReachedTime = 0; 
+let maxReachedTime = 0;
+let rewindCount = 0; 
+let studentSessionAnswers = {};
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
@@ -99,6 +101,19 @@ window.toggleSubsparkOptions = function() {
     } else {
         container.classList.add('hidden');
     }
+};
+
+
+window.rewindAudio = function() {
+    const player = document.getElementById('audioPlayer');
+    player.currentTime = Math.max(0, player.currentTime - 10);
+    rewindCount++;
+};
+
+window.changePlaybackSpeed = function() {
+    const player = document.getElementById('audioPlayer');
+    const speed = document.getElementById('playbackSpeedSelect').value;
+    player.playbackRate = parseFloat(speed);
 };
 
 // ================= AUTHENTICATION =================
@@ -275,6 +290,7 @@ window.editAssignment = async function(id) {
     toggleAudioSourceUI();
     document.getElementById('newAssignAudioUrl').value = assignData.audio_url || '';
     document.getElementById('newAssignTranscript').value = assignData.transcript || '';
+    document.getElementById('newAssignAllowSpeed').checked = assignData.allow_speed !== false;
 
     let existingSpark = document.getElementById('existingSubsparkUrl');
     if (existingSpark) existingSpark.value = assignData.subspark_url || '';
@@ -418,6 +434,7 @@ window.saveNewAssignment = async function() {
                 audio_url: finalAudioUrl, 
                 subspark_url: finalSubSparkUrl, 
                 transcript: transcript
+                allow_speed: document.getElementById('newAssignAllowSpeed').checked
             }).eq('id', editingAssignmentId);
             if(updateError) throw updateError;
             
@@ -844,8 +861,12 @@ window.startAssignment = async function() {
     const assignId = document.getElementById('studentAssignmentSelect').value;
     if(!assignId) return;
 
-    currentAssignmentId = assignId; answeredCheckpoints = []; sessionStartTime = null;
+    currentAssignmentId = assignId; 
+    answeredCheckpoints = []; 
+    sessionStartTime = null;
     maxReachedTime = 0; 
+    rewindCount = 0;
+    studentSessionAnswers = {};
     
     const subsparkContainer = document.getElementById('subsparkLinkContainer'); 
     if(subsparkContainer) subsparkContainer.classList.add('hidden');
@@ -853,10 +874,19 @@ window.startAssignment = async function() {
     const { data: assignData } = await sb.from('classcast_assignments').select('*').eq('id', assignId).single();
     const { data: qData } = await sb.from('classcast_questions').select('*').eq('assignment_id', assignId);
     
+    // Resume previous progress if they already started
     if (currentUser) {
-        const { data: progData } = await sb.from('classcast_progress').select('furthest_second').eq('assignment_id', assignId).eq('student_email', currentUser.email).single();
-        if (progData && progData.furthest_second) {
-            maxReachedTime = progData.furthest_second;
+        const { data: progData } = await sb.from('classcast_progress').select('*').eq('assignment_id', assignId).eq('student_email', currentUser.email).single();
+        if (progData) {
+            maxReachedTime = progData.furthest_second || 0;
+            rewindCount = progData.rewind_count || 0;
+            studentSessionAnswers = progData.student_answers || {};
+            // Pre-fill answered checkpoints so they don't have to answer them again
+            if (qData) {
+                qData.forEach(q => {
+                    if (studentSessionAnswers[q.id]) answeredCheckpoints.push(q.id);
+                });
+            }
         }
     }
 
@@ -868,11 +898,49 @@ window.startAssignment = async function() {
     
     const audioPlayer = document.getElementById('audioPlayer');
     document.getElementById('audioSource').src = assignData.audio_url; 
+    
+    // Apply Teacher Speed Rules
+    const speedWrapper = document.getElementById('speedControlWrapper');
+    if (assignData.allow_speed === false) {
+        audioPlayer.setAttribute('controlsList', 'nodownload noplaybackrate');
+        speedWrapper.classList.add('hidden');
+        audioPlayer.playbackRate = 1.0;
+    } else {
+        audioPlayer.setAttribute('controlsList', 'nodownload');
+        speedWrapper.classList.remove('hidden');
+        document.getElementById('playbackSpeedSelect').value = "1.0";
+        audioPlayer.playbackRate = 1.0;
+    }
+
     audioPlayer.load();
+
+    // Generate Question Preview
+    let previewHtml = '';
+    activeQuestions.sort((a,b) => a.trigger_second - b.trigger_second).forEach((q, index) => {
+        let typeLabel = q.question_type === 'mc' ? '[Multiple Choice]' : q.question_type === 'tf' ? '[True/False]' : q.question_type === 'match' ? '[Matching]' : '[Open-Ended]';
+        let parsedOptions = typeof q.options === 'string' ? JSON.parse(q.options || '{}') : (q.options || {});
+        
+        previewHtml += `<div style="margin-bottom: 12px; border-bottom: 1px dashed #ccc; padding-bottom: 8px;">
+            <strong>Q${index + 1}:</strong> ${q.question_text} <span style="color:#888; font-size: 0.8rem;">${typeLabel}</span>`;
+        
+        // Sneak peek of options (without answers)
+        if (q.question_type === 'mc' && parsedOptions.a) {
+            previewHtml += `<div style="margin-top: 4px; font-size: 0.8rem; color: #555;">
+                A: ${parsedOptions.a} | B: ${parsedOptions.b} | C: ${parsedOptions.c} | D: ${parsedOptions.d}
+            </div>`;
+        } else if (q.question_type === 'match' && parsedOptions.pairs) {
+            let terms = parsedOptions.pairs.map(p => p.t).join(', ');
+            previewHtml += `<div style="margin-top: 4px; font-size: 0.8rem; color: #555;">Terms to match: ${terms}</div>`;
+        }
+        previewHtml += `</div>`;
+    });
+    document.getElementById('questionPreviewList').innerHTML = previewHtml || '<em>No interactive questions for this assignment.</em>';
 
     if(assignData.subspark_url) document.getElementById('activeSubsparkLink').href = assignData.subspark_url;
     document.getElementById('activeAssignmentCard').classList.remove('hidden');
 };
+
+function escapeHTML(str) { return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
 function handleAudioTimeUpdate() {
     if(!currentAssignmentId) return;
@@ -885,22 +953,90 @@ function handleAudioTimeUpdate() {
     }
 
     const currentTime = Math.floor(player.currentTime);
-
     const question = activeQuestions.find(q => q.trigger_second === currentTime);
+    
     if (question && !answeredCheckpoints.includes(question.id)) {
         player.pause();
         document.getElementById('questionModal').classList.remove('hidden');
         document.getElementById('questionText').innerText = question.question_text;
         document.getElementById('feedback').innerText = "";
         
+        // Smart Rendering
+        let qType = question.question_type || 'open';
+        let options = typeof question.options === 'string' ? JSON.parse(question.options || '{}') : (question.options || {});
+        let interactiveHtml = '';
+
+        if (qType === 'mc') {
+            interactiveHtml = `
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <label style="cursor:pointer;"><input type="radio" name="student_ans" value="a"> ${escapeHTML(options.a)}</label>
+                    <label style="cursor:pointer;"><input type="radio" name="student_ans" value="b"> ${escapeHTML(options.b)}</label>
+                    <label style="cursor:pointer;"><input type="radio" name="student_ans" value="c"> ${escapeHTML(options.c)}</label>
+                    <label style="cursor:pointer;"><input type="radio" name="student_ans" value="d"> ${escapeHTML(options.d)}</label>
+                </div>`;
+        } else if (qType === 'tf') {
+            interactiveHtml = `
+                <div style="display:flex; gap:15px;">
+                    <label style="cursor:pointer;"><input type="radio" name="student_ans" value="true"> True</label>
+                    <label style="cursor:pointer;"><input type="radio" name="student_ans" value="false"> False</label>
+                </div>`;
+        } else if (qType === 'match') {
+            let pairs = options.pairs || [];
+            let shuffledMatches = pairs.map(p => p.m).sort(() => Math.random() - 0.5);
+            interactiveHtml = pairs.map((p, i) => `
+                <div style="margin-bottom:8px; display:flex; align-items:center; gap: 10px;">
+                    <strong style="width: 40%; text-align:right;">${escapeHTML(p.t)} = </strong> 
+                    <select class="student_match_select" data-index="${i}" style="width: 50%; padding: 4px;">
+                        <option value="">-- Select Match --</option>
+                        ${shuffledMatches.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('')}
+                    </select>
+                </div>`).join('');
+        } else {
+            interactiveHtml = `<textarea id="studentAnswerText" rows="3" style="width:100%; font-family:inherit; padding:8px;" placeholder="Type your answer here..."></textarea>`;
+        }
+        
+        document.getElementById('questionInteractiveArea').innerHTML = interactiveHtml;
+        
+        // Smart Grading
         document.getElementById('submitAnswerBtn').onclick = () => {
-            if(document.getElementById('studentAnswer').value.trim().length >= 3) {
+            let studentAns = null;
+            let isCorrect = false;
+            let valid = false;
+
+            if (qType === 'mc' || qType === 'tf') {
+                const checked = document.querySelector('input[name="student_ans"]:checked');
+                if (checked) { 
+                    studentAns = checked.value; 
+                    valid = true; 
+                    isCorrect = (studentAns === String(question.correct_answer)); 
+                }
+            } else if (qType === 'match') {
+                const selects = document.querySelectorAll('.student_match_select');
+                studentAns = [];
+                let allFilled = true;
+                let allCorrect = true;
+                
+                selects.forEach(s => {
+                    if (!s.value) allFilled = false;
+                    let idx = s.getAttribute('data-index');
+                    if (s.value !== options.pairs[idx].m) allCorrect = false;
+                    studentAns.push(s.value);
+                });
+                if (allFilled) { valid = true; isCorrect = allCorrect; }
+            } else {
+                studentAns = document.getElementById('studentAnswerText').value.trim();
+                if (studentAns.length >= 3) { valid = true; isCorrect = null; /* Open-ended requires manual grading later */ }
+            }
+
+            if(valid) {
                 document.getElementById('questionModal').classList.add('hidden');
-                document.getElementById('studentAnswer').value = ''; 
                 answeredCheckpoints.push(question.id); 
+                studentSessionAnswers[question.id] = { answer: studentAns, isCorrect: isCorrect, type: qType };
                 player.play(); 
                 logProgress(currentTime, 'in_progress');
-            } else document.getElementById('feedback').innerText = "Please provide a valid answer.";
+            } else {
+                document.getElementById('feedback').innerText = "Please complete the question to continue.";
+            }
         };
     }
     if(currentTime > 0 && currentTime % 10 === 0) logProgress(currentTime, 'in_progress');
@@ -914,5 +1050,15 @@ function handleAudioComplete() {
 async function logProgress(currentSecond, status) {
     if(!currentUser || !currentAssignmentId) return;
     let totalListenSeconds = sessionStartTime ? Math.floor((new Date() - sessionStartTime) / 1000) : 0;
-    await sb.from('classcast_progress').upsert({ student_email: currentUser.email, assignment_id: currentAssignmentId, furthest_second: currentSecond, total_session_seconds: totalListenSeconds, status: status, last_updated: new Date().toISOString() }, { onConflict: 'student_email, assignment_id' });
+    
+    await sb.from('classcast_progress').upsert({ 
+        student_email: currentUser.email, 
+        assignment_id: currentAssignmentId, 
+        furthest_second: currentSecond, 
+        total_session_seconds: totalListenSeconds, 
+        status: status, 
+        rewind_count: rewindCount, 
+        student_answers: studentSessionAnswers,
+        last_updated: new Date().toISOString() 
+    }, { onConflict: 'student_email, assignment_id' });
 }
