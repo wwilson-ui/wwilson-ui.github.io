@@ -14,7 +14,6 @@ let sessionStartTime = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
-        // Fallback to manual keys if config.js is missing for some reason
         const url = window.SUPABASE_URL || 'https://mvxuubwbtkhdbhuadxtu.supabase.co';
         const key = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHV1YndidGtoZGJodWFkeHR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQyMDgsImV4cCI6MjA4Njc2MDIwOH0.FzsVt0bmWnrc3pYUWfJyS-9PE9oJY1ZzoGbax3q_LGk';
         sb = window.supabase.createClient(url, key);
@@ -55,6 +54,17 @@ window.toggleAdminView = function() {
         switchView('studentView');
     } else {
         switchView('teacherView');
+    }
+};
+
+window.toggleAudioSourceUI = function() {
+    const sourceType = document.querySelector('input[name="audioSourceType"]:checked').value;
+    if (sourceType === 'upload') {
+        document.getElementById('audioUploadContainer').classList.remove('hidden');
+        document.getElementById('audioDropboxContainer').classList.add('hidden');
+    } else {
+        document.getElementById('audioUploadContainer').classList.add('hidden');
+        document.getElementById('audioDropboxContainer').classList.remove('hidden');
     }
 };
 
@@ -127,47 +137,89 @@ window.addQuestionBuilderRow = function() {
 };
 
 window.saveNewAssignment = async function() {
-    console.log("Publishing assignment...");
-    
+    const publishBtn = document.getElementById('publishBtn');
     const title = document.getElementById('newAssignTitle').value;
     const targetClass = document.getElementById('newAssignClass').value;
-    let audioUrl = document.getElementById('newAssignAudio').value; 
     const subSpark = document.getElementById('newAssignSpark').value;
     const transcript = document.getElementById('newAssignTranscript').value;
+    const sourceType = document.querySelector('input[name="audioSourceType"]:checked').value;
+    
+    let finalAudioUrl = '';
 
-    if(!title || !audioUrl) { 
-        alert("Title and Audio URL are required fields."); 
+    if(!title) { 
+        alert("Assignment Title is required."); 
         return; 
     }
 
-    // --- Convert Google Drive link to a direct streaming link ---
-    if (audioUrl.includes('drive.google.com/file/d/')) {
-        const fileIdMatch = audioUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (fileIdMatch && fileIdMatch[1]) {
-            // Reformat into a direct streamable URL
-            audioUrl = `https://drive.google.com/uc?export=download&id=${fileIdMatch[1]}`;
-        }
-    }
-
-    // ALL database calls must be wrapped in a completed Try/Catch block
     try {
-        // 1. Insert Assignment
+        publishBtn.disabled = true;
+        publishBtn.innerText = 'Publishing... Please wait...';
+
+        // --- STEP 1: Handle Audio URL Based on Selection ---
+        if (sourceType === 'upload') {
+            const fileInput = document.getElementById('newAssignAudioFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert("Please select an audio file to upload.");
+                publishBtn.disabled = false;
+                publishBtn.innerText = 'Publish Assignment';
+                return;
+            }
+
+            // Generate a unique filename to prevent overwriting
+            const fileExt = file.name.split('.').pop();
+            const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+            // Upload the file to Supabase bucket 'audio-files'
+            const { data: uploadData, error: uploadError } = await sb.storage
+                .from('audio-files')
+                .upload(uniqueFileName, file);
+
+            if (uploadError) {
+                throw new Error("Failed to upload file to Supabase: " + uploadError.message);
+            }
+
+            // Retrieve the public URL for the newly uploaded file
+            const { data: publicUrlData } = sb.storage
+                .from('audio-files')
+                .getPublicUrl(uniqueFileName);
+
+            finalAudioUrl = publicUrlData.publicUrl;
+
+        } else if (sourceType === 'dropbox') {
+            let dropboxUrl = document.getElementById('newAssignAudioUrl').value;
+            if (!dropboxUrl) {
+                alert("Please paste a Dropbox URL.");
+                publishBtn.disabled = false;
+                publishBtn.innerText = 'Publish Assignment';
+                return;
+            }
+
+            // Convert Dropbox URL to a direct stream link
+            if (dropboxUrl.includes('dropbox.com')) {
+                dropboxUrl = dropboxUrl.replace('?dl=0', '').replace('?dl=1', '');
+                const joiner = dropboxUrl.includes('?') ? '&' : '?';
+                finalAudioUrl = dropboxUrl + joiner + 'raw=1';
+            } else {
+                finalAudioUrl = dropboxUrl; // Fallback just in case
+            }
+        }
+
+        // --- STEP 2: Save to Database ---
         const { data: assignData, error: assignError } = await sb.from('classcast_assignments').insert([{
             title: title,
             target_class: targetClass,
-            audio_url: audioUrl, // It will now save the clean, streamable link
+            audio_url: finalAudioUrl, 
             subspark_url: subSpark,
             transcript: transcript
         }]).select();
 
-        if(assignError) { 
-            alert("Error saving assignment: " + assignError.message); 
-            return; 
-        }
+        if(assignError) throw assignError;
         
         const newId = assignData[0].id;
 
-        // 2. Insert Questions
+        // --- STEP 3: Save Questions ---
         const questionRows = document.querySelectorAll('#questionsBuilderList > div');
         const questionsToInsert = [];
         questionRows.forEach(row => {
@@ -187,7 +239,8 @@ window.saveNewAssignment = async function() {
         // Clear form
         document.getElementById('newAssignTitle').value = '';
         document.getElementById('newAssignClass').value = '';
-        document.getElementById('newAssignAudio').value = '';
+        if(document.getElementById('newAssignAudioFile')) document.getElementById('newAssignAudioFile').value = '';
+        if(document.getElementById('newAssignAudioUrl')) document.getElementById('newAssignAudioUrl').value = '';
         document.getElementById('newAssignSpark').value = '';
         document.getElementById('newAssignTranscript').value = '';
         document.getElementById('questionsBuilderList').innerHTML = '';
@@ -196,7 +249,10 @@ window.saveNewAssignment = async function() {
 
     } catch (error) {
         console.error("Critical error saving assignment:", error);
-        alert("An error occurred. Check the console for details.");
+        alert("An error occurred: " + error.message);
+    } finally {
+        publishBtn.disabled = false;
+        publishBtn.innerText = 'Publish Assignment';
     }
 };
 
