@@ -12,31 +12,33 @@
             --bg-primary: #DAE0E6;
             --bg-card: #FFFFFF;
             --text-primary: #1A1A1B;
+            --danger: #c62828;
         }
 
         body { font-family: 'IBM Plex Sans', sans-serif; background-color: var(--bg-primary); margin: 0; color: var(--text-primary); }
         
-        /* Navbar matching r/Spark */
         .navbar { background: var(--bg-card); padding: 0.5rem 1.5rem; display: flex; justify-content: space-between; align-items: center; height: 60px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 100; }
         .logo { font-weight: 700; font-size: 1.2rem; text-decoration: none; color: inherit; display: flex; align-items: center; gap: 8px; }
         .google-btn { display: flex; align-items: center; gap: 10px; background: white; color: #333; border: 1px solid #ccc; padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer; }
         .logout-btn { background: #eee; border: 1px solid #ccc; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
         
-        /* Layout */
         .app-container { max-width: 900px; margin: 40px auto; padding: 0 20px; }
-        .view-section { display: none; } /* Hides all views by default */
+        .view-section { display: none; } 
         .card { background: var(--bg-card); padding: 25px; border-radius: 8px; border: 1px solid #dee2e6; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
         
-        /* Buttons & Inputs */
         .action-btn { background: var(--primary); color: white; border: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
         .action-btn:hover { opacity: 0.9; }
-        input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; margin: 10px 0; box-sizing: border-box; }
+        .danger-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8rem; }
         
-        /* Tables matching SCOTUS app */
+        input[type="text"], input[type="url"], input[type="number"], select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; margin: 5px 0 15px 0; box-sizing: border-box; font-family: inherit; }
+        label { font-weight: 600; font-size: 0.9rem; color: #444; }
+        
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #dee2e6; padding: 12px; text-align: left; }
         th { background-color: #f8f9fa; font-weight: 600; }
         tr:nth-child(even) { background-color: #f8f9fa; }
+        
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -52,53 +54,106 @@
     <main class="app-container">
         
         <section id="loginView" class="view-section card" style="text-align: center; margin-top: 10%;">
-            <h1 style="margin-top: 0;">Audio Assignments</h1>
-            <p style="color: #666; margin-bottom: 25px;">Please sign in with your MTPS account to access your assignment.</p>
+            <h1 style="margin-top: 0;">ClassCast Audio Assignments</h1>
+            <p style="color: #666; margin-bottom: 25px;">Please sign in with your school account to access your assignment.</p>
             <div id="loginBtnWrapper" style="display: flex; justify-content: center;"></div>
         </section>
 
         <section id="studentView" class="view-section">
-            <div class="card">
-                <h2 style="margin-top: 0;">Assignment: Chapter 1 Audio</h2>
+            <div class="card" id="assignmentSelectorCard">
+                <h2 style="margin-top: 0;">Select Your Assignment</h2>
+                <select id="studentClassFilter" onchange="loadStudentAssignments()">
+                    <option value="">-- Select Your Class/Period --</option>
+                    </select>
+                <select id="studentAssignmentSelect" class="hidden" onchange="startAssignment()">
+                    <option value="">-- Choose Assignment --</option>
+                </select>
+            </div>
+
+            <div class="card hidden" id="activeAssignmentCard">
+                <h2 id="activeAssignmentTitle" style="margin-top: 0;">Loading...</h2>
                 <audio id="audioPlayer" controls style="width: 100%; margin: 15px 0;">
-                    <source src="YOUR_AUDIO_FILE.mp3" type="audio/mpeg"> 
-                    Your browser does not support the audio element.
+                    <source id="audioSource" src="" type="audio/mpeg"> 
                 </audio>
 
+                <div id="subsparkLinkContainer" class="hidden" style="margin: 15px 0; padding: 15px; background: #e3f2fd; border-left: 4px solid var(--primary); border-radius: 4px;">
+                    <strong style="color: var(--primary);">Assignment Complete! 🎉</strong><br>
+                    <p style="margin: 5px 0;">Head over to the forum to discuss this episode.</p>
+                    <a id="activeSubsparkLink" href="#" target="_blank" class="action-btn" style="display: inline-block; text-decoration: none; margin-top: 5px;">Go to r/Spark</a>
+                </div>
+
                 <div style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 4px;">
-                    <p id="transcriptText" style="margin: 0; line-height: 1.6;">
-                        The transcript will appear here. In the future, we can wrap individual words in HTML span tags to highlight them via JavaScript as the time updates.
-                    </p>
+                    <h4 style="margin-top: 0; color: #555;">Transcript</h4>
+                    <p id="transcriptText" style="margin: 0; line-height: 1.6; white-space: pre-wrap; max-height: 300px; overflow-y: auto;"></p>
                 </div>
             </div>
 
-            <div id="questionModal" class="card" style="display:none; border-left: 4px solid var(--primary);">
-                <h3 id="questionText" style="margin-top: 0;"></h3>
+            <div id="questionModal" class="card hidden" style="border-left: 4px solid var(--primary);">
+                <span style="background: var(--primary); color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">Knowledge Check</span>
+                <h3 id="questionText" style="margin-top: 10px;"></h3>
                 <input type="text" id="studentAnswer" placeholder="Type your answer here...">
-                <button id="submitAnswerBtn" class="action-btn">Submit Answer</button>
-                <p id="feedback" style="color: #c62828; margin-top: 10px; font-weight: 600;"></p>
+                <button id="submitAnswerBtn" class="action-btn">Submit Answer & Continue</button>
+                <p id="feedback" style="color: var(--danger); margin-top: 10px; font-weight: 600;"></p>
             </div>
         </section>
 
         <section id="teacherView" class="view-section">
+            
             <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2 style="margin: 0;">Student Progress</h2>
-                    <button id="exportCsvBtn" class="action-btn">📥 Export to CSV</button>
+                <h2 style="margin-top: 0;">Create New Assignment</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <label>Assignment Title</label>
+                        <input type="text" id="newAssignTitle" placeholder="e.g., Chapter 1: The Beginning">
+                    </div>
+                    <div>
+                        <label>Target Class / Period</label>
+                        <input type="text" id="newAssignClass" placeholder="e.g., Period 1">
+                    </div>
                 </div>
                 
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Student Email</th>
-                            <th>Listen Time (Seconds)</th>
-                            <th>Checkpoints Passed</th>
-                        </tr>
-                    </thead>
-                    <tbody id="studentDataTable">
-                        <tr><td colspan="3" style="text-align:center; color: #666;">Loading data...</td></tr>
-                    </tbody>
-                </table>
+                <label>Audio File URL (MP3/WAV)</label>
+                <input type="url" id="newAssignAudio" placeholder="https://drive.google.com/...">
+                
+                <label>Sub-Spark Community Link (Optional)</label>
+                <input type="url" id="newAssignSpark" placeholder="https://wwilson-ui.github.io/r/Spark/...">
+                
+                <label>Transcript</label>
+                <textarea id="newAssignTranscript" rows="4" placeholder="Paste full transcript here..."></textarea>
+
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; border: 1px dashed #ccc;">
+                    <h3 style="margin-top: 0; font-size: 1.1rem;">Interactive Questions</h3>
+                    <p style="font-size: 0.85rem; color: #666;">Audio will pause at the specified timestamp and require an answer.</p>
+                    <div id="questionsBuilderList"></div>
+                    <button class="action-btn" style="background: #555; margin-top: 10px;" onclick="addQuestionBuilderRow()">+ Add Question Checkpoint</button>
+                </div>
+
+                <button class="action-btn" onclick="saveNewAssignment()">Publish Assignment</button>
+            </div>
+
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0;">Active Assignments & Progress</h2>
+                    <button id="exportCsvBtn" class="action-btn">📥 Export Student Data</button>
+                </div>
+                
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Assignment</th>
+                                <th>Student Email</th>
+                                <th>Status</th>
+                                <th>Start Time</th>
+                                <th>Total Listen Time</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teacherProgressTable">
+                            <tr><td colspan="6" style="text-align:center; color: #666;">Loading data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
