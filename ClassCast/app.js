@@ -266,17 +266,9 @@ window.editAssignment = async function(id) {
     document.getElementById('questionsBuilderList').innerHTML = '';
     if (qData) {
         qData.forEach(q => {
-            const list = document.getElementById('questionsBuilderList');
-            const rowId = Date.now() + Math.random();
-            const div = document.createElement('div');
-            div.id = `qb-${rowId}`;
-            div.style.display = 'flex'; div.style.gap = '10px'; div.style.marginBottom = '10px';
-            div.innerHTML = `
-                <input type="number" class="q-time" value="${q.trigger_second}" placeholder="Timestamp (sec)" style="width: 130px; margin:0;" min="0">
-                <input type="text" class="q-text" value="${q.question_text}" placeholder="Question Text" style="flex:1; margin:0;">
-                <button class="danger-btn" onclick="document.getElementById('qb-${rowId}').remove()">X</button>
-            `;
-            list.appendChild(div);
+            // Fallback to 'open' if it's an old question from before we added this feature
+            const qType = q.question_type || 'open'; 
+            addQuestionRow(qType, q);
         });
     }
 
@@ -437,24 +429,54 @@ window.saveNewAssignment = async function() {
         }
 
         // --- Save Interactive Questions ---
-        const questionRows = document.querySelectorAll('#questionsBuilderList > div');
+        const questionRows = document.querySelectorAll('.question-row-item');
         const questionsToInsert = [];
+        
         questionRows.forEach(row => {
+            const type = row.dataset.type;
             const time = row.querySelector('.q-time').value;
             const text = row.querySelector('.q-text').value;
-            if(time && text) questionsToInsert.push({ assignment_id: newId, trigger_second: parseInt(time), question_text: text });
+
+            if (time && text) {
+                let options = null;
+                let correctAnswer = null;
+
+                if (type === 'mc') {
+                    options = {
+                        a: row.querySelector('.opt-a').value,
+                        b: row.querySelector('.opt-b').value,
+                        c: row.querySelector('.opt-c').value,
+                        d: row.querySelector('.opt-d').value
+                    };
+                    const checked = row.querySelector(`input[type="radio"]:checked`);
+                    correctAnswer = checked ? checked.value : 'a';
+                } else if (type === 'tf') {
+                    const checked = row.querySelector(`input[type="radio"]:checked`);
+                    correctAnswer = checked ? checked.value : 'true';
+                } else if (type === 'match') {
+                    options = {
+                        pairs: [
+                            { t: row.querySelector('.p1-t').value, m: row.querySelector('.p1-m').value },
+                            { t: row.querySelector('.p2-t').value, m: row.querySelector('.p2-m').value },
+                            { t: row.querySelector('.p3-t').value, m: row.querySelector('.p3-m').value }
+                        ]
+                    };
+                    // For matching, the options array IS the correct answer map
+                    correctAnswer = options; 
+                }
+
+                questionsToInsert.push({ 
+                    assignment_id: newId, 
+                    trigger_second: parseInt(time), 
+                    question_text: text,
+                    question_type: type,
+                    options: options,
+                    correct_answer: correctAnswer
+                });
+            }
         });
 
-        if(questionsToInsert.length > 0) await sb.from('classcast_questions').insert(questionsToInsert);
-
-        alert(editingAssignmentId ? "Assignment updated successfully!" : "Assignment and Community published successfully!");
-        
-        cancelEdit(); 
-        loadTeacherAssignments();
-
-    } catch (error) { alert("Error: " + error.message); console.error(error); } 
-    finally { publishBtn.disabled = false; publishBtn.innerText = editingAssignmentId ? 'Update Assignment' : 'Publish Assignment'; }
-};
+        if(questionsToInsert.length > 0) await sb.from('classcast_questions').insert(questionsToInsert);};
 
 async function loadTeacherAssignments() {
     const tbody = document.getElementById('teacherAssignmentsTable');
