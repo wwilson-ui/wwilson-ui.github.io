@@ -87,23 +87,42 @@
             <div class="card hidden" id="activeAssignmentCard">
                 <h2 id="activeAssignmentTitle" style="margin-top: 0;">Loading...</h2>
                 
-                <audio id="audioPlayer" controls controlsList="nodownload" style="width: 100%; margin: 15px 0 5px 0;">
+                <audio id="audioPlayer" style="display: none;">
                     <source id="audioSource" src="" type="audio/mpeg"> 
                 </audio>
                 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f0f2f5; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">
-                    <button class="action-btn" style="background: #555; font-size: 0.85rem; padding: 6px 12px;" onclick="rewindAudio()">⏪ Rewind 10s</button>
+                <div style="display: flex; align-items: center; gap: 12px; background: #f8f9fa; padding: 12px 18px; border-radius: 50px; border: 1px solid #dee2e6; margin: 20px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
                     
-                    <div id="speedControlWrapper" class="hidden">
-                        <label style="font-size: 0.85rem; font-weight: bold; margin-right: 5px;">Speed:</label>
-                        <select id="playbackSpeedSelect" onchange="changePlaybackSpeed()" style="width: auto; padding: 4px; margin: 0; font-size: 0.85rem;">
-                            <option value="0.75">0.75x</option>
-                            <option value="1.0" selected>1.0x (Normal)</option>
-                            <option value="1.25">1.25x</option>
-                            <option value="1.5">1.5x</option>
-                        </select>
-                    </div>
+                    <button id="playPauseBtn" onclick="togglePlayPause()" style="background: var(--primary); color: white; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.2rem; transition: 0.2s;">▶</button>
+                    
+                    <button id="rewindBtn" onclick="rewindAudio()" style="background: transparent; color: #444; border: none; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; padding: 0;" title="Rewind 10 Seconds">⏪</button>
+                    
+                    <span id="currentTimeDisplay" style="font-size: 0.85rem; color: #555; font-family: monospace; min-width: 35px; text-align: right;">0:00</span>
+                    
+                    <input type="range" id="audioScrubber" value="0" min="0" step="1" style="flex: 1; cursor: pointer; margin: 0 5px;" oninput="scrubAudio(event)">
+                    
+                    <span id="durationDisplay" style="font-size: 0.85rem; color: #555; font-family: monospace; min-width: 35px;">0:00</span>
+
+                    <button id="speedToggleBtn" onclick="cycleSpeed()" style="background: #e3f2fd; border: 1px solid #90caf9; color: var(--primary); border-radius: 12px; padding: 4px 10px; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: 0.2s;">1x</button>
                 </div>
+
+                <div id="subsparkLinkContainer" class="hidden" style="margin: 15px 0; padding: 15px; background: #e3f2fd; border-left: 4px solid var(--primary); border-radius: 4px;">
+                    <strong style="color: var(--primary);">Assignment Complete! 🎉</strong><br>
+                    <p style="margin: 5px 0;">Head over to the forum to discuss this episode.</p>
+                    <a id="activeSubsparkLink" href="#" target="_blank" class="action-btn" style="display: inline-block; text-decoration: none; margin-top: 5px;">Go to r/Spark</a>
+                </div>
+
+                <div style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 4px;">
+                    <h4 style="margin-top: 0; color: #555;">Transcript</h4>
+                    <p id="transcriptText" style="margin: 0; line-height: 1.6; white-space: pre-wrap; max-height: 300px; overflow-y: auto;"></p>
+                </div>
+
+                <div style="background: #e8f5e9; border: 1px solid #a5d6a7; padding: 15px; border-radius: 4px; margin-top: 15px;">
+                    <h4 style="margin-top: 0; color: #1e8e3e;">Question Preview</h4>
+                    <p style="font-size: 0.85rem; color: #555; margin-bottom: 10px;">Review these questions before listening so you know what to listen for!</p>
+                    <div id="questionPreviewList" style="font-size: 0.9rem;"></div>
+                </div>
+            </div>
 
                 <div id="subsparkLinkContainer" class="hidden" style="margin: 15px 0; padding: 15px; background: #e3f2fd; border-left: 4px solid var(--primary); border-radius: 4px;">
                     <strong style="color: var(--primary);">Assignment Complete! 🎉</strong><br>
