@@ -104,17 +104,46 @@ window.toggleSubsparkOptions = function() {
 };
 
 
+// --- Custom Player Controls ---
+window.togglePlayPause = function() {
+    const player = document.getElementById('audioPlayer');
+    if (player.paused) player.play();
+    else player.pause();
+};
+
 window.rewindAudio = function() {
     const player = document.getElementById('audioPlayer');
     player.currentTime = Math.max(0, player.currentTime - 10);
     rewindCount++;
 };
 
-window.changePlaybackSpeed = function() {
-    const player = document.getElementById('audioPlayer');
-    const speed = document.getElementById('playbackSpeedSelect').value;
-    player.playbackRate = parseFloat(speed);
+const playSpeeds = [1, 1.25, 1.5, 0.75];
+let currentSpeedIndex = 0;
+window.cycleSpeed = function() {
+    currentSpeedIndex = (currentSpeedIndex + 1) % playSpeeds.length;
+    const newSpeed = playSpeeds[currentSpeedIndex];
+    document.getElementById('audioPlayer').playbackRate = newSpeed;
+    document.getElementById('speedToggleBtn').innerText = newSpeed + 'x';
 };
+
+window.scrubAudio = function(e) {
+    const player = document.getElementById('audioPlayer');
+    let targetTime = parseInt(e.target.value);
+    // Anti-cheat: prevent scrubbing past maxReachedTime
+    if (targetTime > maxReachedTime + 1) {
+        targetTime = maxReachedTime;
+        e.target.value = maxReachedTime;
+    }
+    player.currentTime = targetTime;
+};
+
+// Helper function to format seconds into M:SS
+function formatTime(seconds) {
+    if (isNaN(seconds)) return "0:00";
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
 
 // ================= AUTHENTICATION =================
 async function checkUser() {
