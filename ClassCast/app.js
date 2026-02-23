@@ -185,6 +185,7 @@ window.editAssignment = async function(id) {
     
     if(!assignData) return;
 
+    
     document.getElementById('newAssignTitle').value = assignData.title;
     
     // NEW: Uncheck everything first to start clean
@@ -221,6 +222,9 @@ window.editAssignment = async function(id) {
     document.getElementById('newAssignSpark').value = assignData.subspark_url || '';
     document.getElementById('newAssignTranscript').value = assignData.transcript || '';
 
+    document.getElementById('existingSubsparkUrl').value = assignData.subspark_url || '';
+    document.getElementById('autoCreateSubspark').checked = false; // Hide generation tools on edit
+    toggleSubsparkOptions();
     document.getElementById('questionsBuilderList').innerHTML = '';
     if (qData) {
         qData.forEach(q => {
@@ -265,6 +269,14 @@ window.cancelEdit = function() {
     if(document.getElementById('newAssignAudioUrl')) document.getElementById('newAssignAudioUrl').value = '';
     document.getElementById('newAssignSpark').value = '';
     document.getElementById('newAssignTranscript').value = '';
+    
+    document.getElementById('existingSubsparkUrl').value = '';
+    document.getElementById('autoCreateSubspark').checked = false;
+    document.getElementById('subsparkFirstPostText').value = '';
+    document.getElementById('subsparkFirstPostPhoto').value = '';
+    document.getElementById('subsparkFirstPostLink').value = '';
+    toggleSubsparkOptions();
+    
     document.getElementById('questionsBuilderList').innerHTML = '';
     
     document.querySelector('input[name="audioSourceType"][value="upload"]').checked = true;
@@ -274,11 +286,10 @@ window.cancelEdit = function() {
 window.saveNewAssignment = async function() {
     const publishBtn = document.getElementById('publishBtn');
     const title = document.getElementById('newAssignTitle').value;
-    const subSpark = document.getElementById('newAssignSpark').value;
     const transcript = document.getElementById('newAssignTranscript').value;
     const sourceType = document.querySelector('input[name="audioSourceType"]:checked').value;
     
-    // --- NEW: Gather selected classes and students ---
+    // --- Gather selected classes and students ---
     const selectedClasses = Array.from(document.querySelectorAll('.class-checkbox:checked')).map(cb => cb.value);
     const selectedStudents = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
     
@@ -287,7 +298,6 @@ window.saveNewAssignment = async function() {
         return; 
     }
 
-    // Convert arrays to JSON strings so the database can hold them in a single text column
     const targetClassesJSON = JSON.stringify(selectedClasses);
     const targetStudentsJSON = JSON.stringify(selectedStudents);
 
@@ -297,23 +307,19 @@ window.saveNewAssignment = async function() {
         publishBtn.disabled = true;
         publishBtn.innerText = editingAssignmentId ? 'Updating... Please wait...' : 'Publishing... Please wait...';
 
+        // ==========================================
+        // 1. AUDIO UPLOAD LOGIC
+        // ==========================================
         if (sourceType === 'upload') {
             const fileInput = document.getElementById('newAssignAudioFile');
             const file = fileInput.files[0];
+            if (!file && !editingAssignmentId) { alert("Please select an audio file."); publishBtn.disabled = false; publishBtn.innerText = 'Publish Assignment'; return; }
             
-            if (!file && !editingAssignmentId) { 
-                alert("Please select an audio file."); 
-                publishBtn.disabled = false; publishBtn.innerText = 'Publish Assignment'; 
-                return; 
-            }
-
             if (file) {
                 const fileExt = file.name.split('.').pop();
                 const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-
                 const { error: uploadError } = await sb.storage.from('audio-files').upload(uniqueFileName, file);
                 if (uploadError) throw new Error("Storage Error: " + uploadError.message);
-
                 const { data: publicUrlData } = sb.storage.from('audio-files').getPublicUrl(uniqueFileName);
                 finalAudioUrl = publicUrlData.publicUrl;
             } else {
@@ -328,6 +334,47 @@ window.saveNewAssignment = async function() {
             } else finalAudioUrl = dropboxUrl;
         }
 
+        // ==========================================
+        // 2. SUBSPARK AUTOMATION LOGIC
+        // ==========================================
+        let finalSubSparkUrl = document.getElementById('existingSubsparkUrl')?.value || ''; 
+        const isSubsparkEnabled = document.getElementById('autoCreateSubspark').checked;
+
+        // Only create a new community if this is a brand new assignment AND the box is checked
+        if (isSubsparkEnabled && !editingAssignmentId) {
+            const postText = document.getElementById('subsparkFirstPostText').value;
+            const postPhoto = document.getElementById('subsparkFirstPostPhoto').value;
+            const postLink = document.getElementById('subsparkFirstPostLink').value;
+
+            // A. Create the Community (Subreddit)
+            const { data: newSub, error: subError } = await sb.from('subreddits').insert([{
+                name: title,
+                created_by: currentUser.id
+            }]).select().single();
+
+            if (subError) throw new Error("Sub-spark Creation Error: " + subError.message);
+
+            // B. Create the First Post (if they typed anything)
+            if (postText || postPhoto || postLink) {
+                const { error: postError } = await sb.from('posts').insert([{
+                    title: `Discussion: ${title}`,
+                    content: postText,
+                    image_url: postPhoto,
+                    url: postLink,
+                    subreddit_id: newSub.id,
+                    user_id: currentUser.id
+                }]);
+
+                if (postError) throw new Error("Sub-spark Post Error: " + postError.message);
+            }
+
+            // C. Save the direct link to the community!
+            finalSubSparkUrl = `https://wwilson-ui.github.io/r/Spark/?sub=${newSub.id}`;
+        }
+
+        // ==========================================
+        // 3. DATABASE SAVING
+        // ==========================================
         let newId;
 
         if (editingAssignmentId) {
@@ -336,7 +383,7 @@ window.saveNewAssignment = async function() {
                 target_class: targetClassesJSON, 
                 target_students: targetStudentsJSON, 
                 audio_url: finalAudioUrl, 
-                subspark_url: subSpark, 
+                subspark_url: finalSubSparkUrl, 
                 transcript: transcript
             }).eq('id', editingAssignmentId);
             if(updateError) throw updateError;
@@ -349,13 +396,14 @@ window.saveNewAssignment = async function() {
                 target_class: targetClassesJSON, 
                 target_students: targetStudentsJSON, 
                 audio_url: finalAudioUrl, 
-                subspark_url: subSpark, 
+                subspark_url: finalSubSparkUrl, 
                 transcript: transcript
             }]).select();
             if(assignError) throw assignError;
             newId = assignData[0].id;
         }
 
+        // --- Save Interactive Questions ---
         const questionRows = document.querySelectorAll('#questionsBuilderList > div');
         const questionsToInsert = [];
         questionRows.forEach(row => {
@@ -366,7 +414,7 @@ window.saveNewAssignment = async function() {
 
         if(questionsToInsert.length > 0) await sb.from('classcast_questions').insert(questionsToInsert);
 
-        alert(editingAssignmentId ? "Assignment updated successfully!" : "Assignment published successfully!");
+        alert(editingAssignmentId ? "Assignment updated successfully!" : "Assignment and Community published successfully!");
         
         cancelEdit(); 
         loadTeacherAssignments();
