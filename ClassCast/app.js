@@ -433,7 +433,7 @@ window.saveNewAssignment = async function() {
                 target_students: targetStudentsJSON, 
                 audio_url: finalAudioUrl, 
                 subspark_url: finalSubSparkUrl, 
-                transcript: transcript
+                transcript: transcript,
                 allow_speed: document.getElementById('newAssignAllowSpeed').checked
             }).eq('id', editingAssignmentId);
             if(updateError) throw updateError;
