@@ -160,19 +160,65 @@ window.signOut = async function() {
 };
 
 // ================= TEACHER PANEL 1: ASSIGNMENTS =================
-window.addQuestionBuilderRow = function() {
+window.addQuestionRow = function(type, qData = null) {
     const list = document.getElementById('questionsBuilderList');
-    const id = Date.now();
+    const id = Date.now() + Math.random().toString().slice(2, 6);
     const div = document.createElement('div');
-    div.id = `qb-${id}`;
-    div.style.display = 'flex';
-    div.style.gap = '10px';
-    div.style.marginBottom = '10px';
-    div.innerHTML = `
-        <input type="number" class="q-time" placeholder="Timestamp (sec)" style="width: 130px; margin:0;" min="0">
-        <input type="text" class="q-text" placeholder="Question Text" style="flex:1; margin:0;">
-        <button class="danger-btn" onclick="document.getElementById('qb-${id}').remove()">X</button>
+    div.className = 'question-row-item';
+    div.dataset.type = type; // Stores the question type invisibly in the HTML
+    div.style.border = "1px solid #ccc";
+    div.style.padding = "10px";
+    div.style.marginBottom = "10px";
+    div.style.borderRadius = "4px";
+    div.style.background = "#fff";
+
+    let timeVal = qData ? qData.trigger_second : '';
+    let textVal = qData ? qData.question_text : '';
+
+    let headerHtml = `
+        <div style="display:flex; gap:10px; margin-bottom:10px; align-items:center;">
+            <span style="font-weight:bold; background:#555; color:white; padding:2px 6px; border-radius:4px; font-size:0.7rem; text-transform:uppercase;">${type}</span>
+            <input type="number" class="q-time" value="${timeVal}" placeholder="Time (sec)" style="width: 100px; margin:0;" min="0">
+            <input type="text" class="q-text" value="${textVal}" placeholder="Question prompt..." style="flex:1; margin:0;">
+            <button class="danger-btn" onclick="this.parentElement.parentElement.remove()">X</button>
+        </div>
     `;
+
+    let bodyHtml = '';
+
+    if (type === 'mc') {
+        let opts = qData && qData.options ? qData.options : {a:'', b:'', c:'', d:''};
+        let ans = qData && qData.correct_answer ? qData.correct_answer : 'a'; // Default answer is A
+        bodyHtml = `
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; padding-left:70px; font-size: 0.9rem;">
+                <div><label><input type="radio" name="mc_${id}" value="a" ${ans==='a'?'checked':''}> A:</label> <input type="text" class="opt-a" value="${opts.a||''}" style="width:75%; margin:0; padding:4px;"></div>
+                <div><label><input type="radio" name="mc_${id}" value="b" ${ans==='b'?'checked':''}> B:</label> <input type="text" class="opt-b" value="${opts.b||''}" style="width:75%; margin:0; padding:4px;"></div>
+                <div><label><input type="radio" name="mc_${id}" value="c" ${ans==='c'?'checked':''}> C:</label> <input type="text" class="opt-c" value="${opts.c||''}" style="width:75%; margin:0; padding:4px;"></div>
+                <div><label><input type="radio" name="mc_${id}" value="d" ${ans==='d'?'checked':''}> D:</label> <input type="text" class="opt-d" value="${opts.d||''}" style="width:75%; margin:0; padding:4px;"></div>
+            </div>
+        `;
+    } else if (type === 'tf') {
+        let ans = qData && qData.correct_answer ? qData.correct_answer : 'true';
+        bodyHtml = `
+            <div style="padding-left:70px; font-size: 0.9rem;">
+                <strong>Correct Answer: </strong>
+                <label style="margin-right:15px;"><input type="radio" name="tf_${id}" value="true" ${ans==='true'?'checked':''}> True</label>
+                <label><input type="radio" name="tf_${id}" value="false" ${ans==='false'?'checked':''}> False</label>
+            </div>
+        `;
+    } else if (type === 'match') {
+        let pairs = qData && qData.options && qData.options.pairs ? qData.options.pairs : [{t:'',m:''}, {t:'',m:''}, {t:'',m:''}];
+        bodyHtml = `
+            <div style="padding-left:70px; font-size:0.85rem; color:#666;">
+                <em>Enter exactly matching pairs. The system will shuffle them for the students automatically.</em>
+                <div style="margin-top:5px;">Pair 1: <input type="text" class="p1-t" value="${pairs[0]?.t||''}" placeholder="Term" style="width:30%; padding:4px;"> = <input type="text" class="p1-m" value="${pairs[0]?.m||''}" placeholder="Match" style="width:30%; padding:4px;"></div>
+                <div style="margin-top:5px;">Pair 2: <input type="text" class="p2-t" value="${pairs[1]?.t||''}" placeholder="Term" style="width:30%; padding:4px;"> = <input type="text" class="p2-m" value="${pairs[1]?.m||''}" placeholder="Match" style="width:30%; padding:4px;"></div>
+                <div style="margin-top:5px;">Pair 3: <input type="text" class="p3-t" value="${pairs[2]?.t||''}" placeholder="Term" style="width:30%; padding:4px;"> = <input type="text" class="p3-m" value="${pairs[2]?.m||''}" placeholder="Match" style="width:30%; padding:4px;"></div>
+            </div>
+        `;
+    }
+
+    div.innerHTML = headerHtml + bodyHtml;
     list.appendChild(div);
 };
 
