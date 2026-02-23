@@ -173,9 +173,16 @@
 
                             <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; border: 1px dashed #ccc;">
                                 <h3 style="margin-top: 0; font-size: 1.1rem;">Interactive Questions</h3>
-                                <p style="font-size: 0.85rem; color: #666;">Audio will pause at the specified timestamp and require an answer.</p>
+                                <p style="font-size: 0.85rem; color: #666;">Audio will pause at the specified timestamp. Select the type of question to add:</p>
+    
+                                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                                    <button class="action-btn" style="background: #0079D3; font-size: 0.8rem; padding: 6px 10px;" onclick="addQuestionRow('open')">+ Open-Ended</button>
+                                    <button class="action-btn" style="background: #1e8e3e; font-size: 0.8rem; padding: 6px 10px;" onclick="addQuestionRow('mc')">+ Multiple Choice</button>
+                                    <button class="action-btn" style="background: #f4b400; font-size: 0.8rem; padding: 6px 10px; color: black;" onclick="addQuestionRow('tf')">+ True/False</button>
+                                    <button class="action-btn" style="background: #e53935; font-size: 0.8rem; padding: 6px 10px;" onclick="addQuestionRow('match')">+ Matching</button>
+                                </div>
+
                                 <div id="questionsBuilderList"></div>
-                                <button class="action-btn" style="background: #555; margin-top: 10px;" onclick="addQuestionBuilderRow()">+ Add Question Checkpoint</button>
                             </div>
 
                             <div style="display: flex; gap: 10px;">
