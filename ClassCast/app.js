@@ -174,17 +174,36 @@ window.editAssignment = async function(id) {
 
     document.getElementById('newAssignTitle').value = assignData.title;
     
-    const classDropdown = document.getElementById('newAssignClassDropdown');
-    for (let i = 0; i < classDropdown.options.length; i++) {
-        if (classDropdown.options[i].text === assignData.target_class) {
-            classDropdown.selectedIndex = i;
-            break;
+    // NEW: Uncheck everything first to start clean
+    document.querySelectorAll('.class-checkbox').forEach(cb => cb.checked = false);
+    document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = false);
+    
+    // Parse the saved arrays (with a safety net for legacy assignments)
+    let targetClasses = [];
+    let targetStudents = [];
+    try { targetClasses = JSON.parse(assignData.target_class || '[]'); } catch(e) { targetClasses = [assignData.target_class]; }
+    try { targetStudents = JSON.parse(assignData.target_students || '[]'); } catch(e) { targetStudents = []; }
+
+    // Check the saved classes and reveal their student lists
+    document.querySelectorAll('.class-checkbox').forEach(cb => {
+        if (targetClasses.includes(cb.value)) {
+            cb.checked = true;
+            const classId = cb.getAttribute('data-class-id');
+            const studentListDiv = document.getElementById(`student-list-${classId}`);
+            if (studentListDiv) studentListDiv.style.display = 'block';
         }
-    }
+    });
+
+    // Check the saved specific students
+    document.querySelectorAll('.student-checkbox').forEach(cb => {
+        if (targetStudents.includes(cb.value)) {
+            cb.checked = true;
+        }
+    });
 
     document.querySelector('input[name="audioSourceType"][value="dropbox"]').checked = true;
     toggleAudioSourceUI();
-    document.getElementById('newAssignAudioUrl').value = assignData.audio_url;
+    document.getElementById('newAssignAudioUrl').value = assignData.audio_url || '';
     
     document.getElementById('newAssignSpark').value = assignData.subspark_url || '';
     document.getElementById('newAssignTranscript').value = assignData.transcript || '';
@@ -217,7 +236,18 @@ window.cancelEdit = function() {
     document.getElementById('cancelEditBtn').classList.add('hidden');
     
     document.getElementById('newAssignTitle').value = '';
-    document.getElementById('newAssignClassDropdown').value = '';
+    
+    // NEW: Uncheck all class and student checkboxes and hide student lists
+    document.querySelectorAll('.class-checkbox').forEach(cb => {
+        cb.checked = false;
+        const classId = cb.getAttribute('data-class-id');
+        if (classId) {
+            const studentListDiv = document.getElementById(`student-list-${classId}`);
+            if (studentListDiv) studentListDiv.style.display = 'none';
+        }
+    });
+    document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = false);
+    
     if(document.getElementById('newAssignAudioFile')) document.getElementById('newAssignAudioFile').value = '';
     if(document.getElementById('newAssignAudioUrl')) document.getElementById('newAssignAudioUrl').value = '';
     document.getElementById('newAssignSpark').value = '';
