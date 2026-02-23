@@ -476,7 +476,7 @@ window.saveNewAssignment = async function() {
             }
         });
 
-        if(questionsToInsert.length > 0) await sb.from('classcast_questions').insert(questionsToInsert);};
+        if(questionsToInsert.length > 0) await sb.from('classcast_questions').insert(questionsToInsert);
 
 async function loadTeacherAssignments() {
     const tbody = document.getElementById('teacherAssignmentsTable');
