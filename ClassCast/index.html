@@ -135,7 +135,7 @@
                                     <label>Target Class / Period</label>
                                     <div id="assignmentTargetsContainer" style="max-height: 250px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 5px; background: #fafafa;">
     </div>
-                                        <option value="">-- Loading Classes... --</option>
+                                        <option value=""></option>
                                     </select>
                                 </div>
                             </div>
@@ -154,8 +154,19 @@
                             </div>
                             
                             <label>Sub-Spark Community Link (Optional)</label>
-                            <input type="url" id="newAssignSpark" placeholder="https://wwilson-ui.github.io/r/Spark/...">
-                            
+                                <div style="margin: 15px 0; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: #f9f9f9;">
+                                    <label style="font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                                        <input type="checkbox" id="autoCreateSubspark" onchange="toggleSubsparkOptions()">
+                                        Instantly generate a Sub-spark Community for this assignment
+                                    </label>
+    
+                                    <div id="subsparkInitialPostContainer" class="hidden" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ccc;">
+                                        <p style="margin-top: 0; font-size: 0.9rem; color: #555;">Create the first post to kick off the discussion:</p>
+                                        <textarea id="subsparkFirstPostText" placeholder="Type your first post here..." style="width: 100%; height: 80px; margin-bottom: 10px; font-family: inherit; padding: 8px;"></textarea>
+                                        <input type="text" id="subsparkFirstPostPhoto" placeholder="Photo URL (optional)" style="width: 100%; margin-bottom: 10px; padding: 8px;">
+                                        <input type="text" id="subsparkFirstPostLink" placeholder="External Link URL (optional)" style="width: 100%; margin-bottom: 10px; padding: 8px;">
+                                    </div>
+                                </div>                            
                             <label>Transcript</label>
                             <textarea id="newAssignTranscript" rows="4" placeholder="Paste full transcript here..."></textarea>
 
