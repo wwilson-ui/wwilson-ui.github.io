@@ -41,7 +41,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         player.addEventListener('seeking', () => { 
             if(player.currentTime > maxReachedTime + 1) player.currentTime = maxReachedTime; 
         });
-        player.addEventListener('play', () => { if(!sessionStartTime) sessionStartTime = new Date(); });
+        player.addEventListener('play', () => { 
+            if(!sessionStartTime) sessionStartTime = new Date(); 
+            document.getElementById('playPauseBtn').innerText = '⏸'; // Change to Pause icon
+        });
+        player.addEventListener('pause', () => { 
+            document.getElementById('playPauseBtn').innerText = '▶'; // Change to Play icon
+        });
+        player.addEventListener('loadedmetadata', () => {
+            document.getElementById('audioScrubber').max = Math.floor(player.duration);
+            document.getElementById('durationDisplay').innerText = formatTime(player.duration);
+        });
         player.addEventListener('ended', handleAudioComplete);
     }
 });
