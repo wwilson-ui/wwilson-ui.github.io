@@ -42,14 +42,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         player.addEventListener('seeking', () => { 
             if(player.currentTime > maxReachedTime + 1) player.currentTime = maxReachedTime; 
         });
+        const playSVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+        const pauseSVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
+        
         player.addEventListener('play', () => { 
             if(!sessionStartTime) sessionStartTime = new Date(); 
             const playBtn = document.getElementById('playPauseBtn');
-            if (playBtn) playBtn.innerText = '⏸'; 
+            if (playBtn) playBtn.innerHTML = pauseSVG; 
         });
         player.addEventListener('pause', () => { 
             const playBtn = document.getElementById('playPauseBtn');
-            if (playBtn) playBtn.innerText = '▶'; 
+            if (playBtn) playBtn.innerHTML = playSVG; 
         });
         player.addEventListener('loadedmetadata', () => {
             const scrubber = document.getElementById('audioScrubber');
