@@ -4,7 +4,6 @@
 
 let sb = null;
 let currentUser = null;
-// Pull the token from browser memory if it exists
 let googleProviderToken = sessionStorage.getItem('googleClassroomToken') || null; 
 const TEACHER_EMAIL = 'wwilson@mtps.us'; 
 
@@ -13,7 +12,7 @@ let activeQuestions = [];
 let answeredCheckpoints = [];
 let sessionStartTime = null;
 let editingAssignmentId = null;
-let maxReachedTime = 0; // NEW: Tracks how far the student has listened
+let maxReachedTime = 0; 
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
@@ -21,14 +20,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const key = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHV1YndidGtoZGJodWFkeHR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQyMDgsImV4cCI6MjA4Njc2MDIwOH0.FzsVt0bmWnrc3pYUWfJyS-9PE9oJY1ZzoGbax3q_LGk';
         sb = window.supabase.createClient(url, key);
         
-        // Listen for logins and save the Google Token permanently to browser memory
         sb.auth.onAuthStateChange((event, session) => {
             if (session && session.provider_token) {
                 googleProviderToken = session.provider_token;
                 sessionStorage.setItem('googleClassroomToken', session.provider_token);
             }
         });
-
     } else {
         alert('Supabase not loaded. Check config.js path.');
         return;
@@ -77,7 +74,8 @@ window.switchAdminPanel = function(panelId, event = null) {
     if(event) event.currentTarget.classList.add('active');
     else document.querySelector(`[onclick*="${panelId}"]`).classList.add('active');
 
-    if (panelId === 'admin-assignments') { loadTeacherAssignments(); populateClassCheckboxes(); }    if (panelId === 'admin-progress') loadTeacherProgress();
+    if (panelId === 'admin-assignments') { loadTeacherAssignments(); populateClassCheckboxes(); }    
+    if (panelId === 'admin-progress') loadTeacherProgress();
     if (panelId === 'admin-classes') loadManageClasses();
     if (panelId === 'admin-files') loadManageFiles();
 };
@@ -93,7 +91,6 @@ window.toggleAudioSourceUI = function() {
     }
 };
 
-
 window.toggleSubsparkOptions = function() {
     const isChecked = document.getElementById('autoCreateSubspark').checked;
     const container = document.getElementById('subsparkInitialPostContainer');
@@ -103,8 +100,6 @@ window.toggleSubsparkOptions = function() {
         container.classList.add('hidden');
     }
 };
-
-
 
 // ================= AUTHENTICATION =================
 async function checkUser() {
@@ -152,7 +147,7 @@ window.signIn = async function() {
             redirectTo: window.location.origin + window.location.pathname, 
             queryParams: { 
                 prompt: 'consent',
-                hd: 'mtps.us' // RESTRICTS TO MTPS ONLY
+                hd: 'mtps.us'
             } 
         } 
     }); 
@@ -242,7 +237,7 @@ window.editAssignment = async function(id) {
     document.getElementById('publishBtn').innerText = 'Update Assignment';
     document.getElementById('cancelEditBtn').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-};;
+};
 
 window.cancelEdit = function() {
     editingAssignmentId = null;
@@ -341,7 +336,6 @@ window.saveNewAssignment = async function() {
             const postPhoto = document.getElementById('subsparkFirstPostPhoto').value;
             const postLink = document.getElementById('subsparkFirstPostLink').value;
 
-            // A. Create the Community (Subreddit)
             const { data: newSub, error: subError } = await sb.from('subreddits').insert([{
                 name: title,
                 created_by: currentUser.id
@@ -349,7 +343,6 @@ window.saveNewAssignment = async function() {
 
             if (subError) throw new Error("Sub-spark Creation Error: " + subError.message);
 
-            // B. Create the First Post (if they typed anything)
             if (postText || postPhoto || postLink) {
                 const { error: postError } = await sb.from('posts').insert([{
                     title: `Discussion: ${title}`,
@@ -363,7 +356,6 @@ window.saveNewAssignment = async function() {
                 if (postError) throw new Error("Sub-spark Post Error: " + postError.message);
             }
 
-            // C. Save the direct link to the community!
             finalSubSparkUrl = `https://wwilson-ui.github.io/r/Spark/?sub=${newSub.id}`;
         }
 
@@ -505,7 +497,6 @@ window.openClassroomImport = async function() {
         }
     } catch (err) {
         console.error("Classroom Error:", err);
-        // Display the EXACT error Google is giving us so we can troubleshoot it easily
         statusTxt.innerText = "Google API Error: " + err.message;
         statusTxt.style.color = "red";
     }
@@ -523,9 +514,8 @@ window.importSelectedClassroom = async function() {
     try {
         importBtn.disabled = true;
         statusTxt.innerText = `Downloading roster for ${courseName}...`;
-        statusTxt.style.color = "black"; // Reset color
+        statusTxt.style.color = "black"; 
 
-        // 1. Fetch from Google
         const res = await fetch(`https://classroom.googleapis.com/v1/courses/${courseId}/students`, {
             headers: { Authorization: `Bearer ${googleProviderToken}` }
         });
@@ -540,11 +530,10 @@ window.importSelectedClassroom = async function() {
             return;
         }
 
-        // 2. Ensure Class Exists in Database
         let classRecordId;
         const { data: existingClass, error: classSearchError } = await sb.from('classcast_classes').select('*').eq('class_name', courseName).single();
         
-        if (classSearchError && classSearchError.code !== 'PGRST116') { // PGRST116 just means no rows found, which is fine
+        if (classSearchError && classSearchError.code !== 'PGRST116') { 
             throw new Error("DB Search Error: " + classSearchError.message);
         }
 
@@ -556,9 +545,7 @@ window.importSelectedClassroom = async function() {
             classRecordId = newClass[0].id;
         }
 
-        // 3. Map students, providing a fallback if Google hid the email
         const rosterInserts = students.map(s => {
-            // If the district blocks emails, grab their full name instead so it doesn't crash
             const identifier = s.profile.emailAddress || s.profile.name?.fullName || `Unknown Student (${s.profile.id})`;
             return {
                 class_id: classRecordId,
@@ -566,13 +553,11 @@ window.importSelectedClassroom = async function() {
             };
         });
 
-        // 4. Clear old roster and insert new one
         await sb.from('classcast_roster').delete().eq('class_id', classRecordId);
         
         const { error: insertError } = await sb.from('classcast_roster').insert(rosterInserts);
         if (insertError) throw new Error("DB Roster Insert Error: " + insertError.message);
 
-        // 5. Success!
         statusTxt.innerText = `Successfully saved ${students.length} students to the database!`;
         statusTxt.style.color = "#1e8e3e";
         setTimeout(() => {
@@ -582,7 +567,6 @@ window.importSelectedClassroom = async function() {
 
     } catch (err) {
         console.error(err);
-        // Print the EXACT database or Google error to the screen
         statusTxt.innerText = err.message;
         statusTxt.style.color = "red";
     } finally {
@@ -640,13 +624,21 @@ window.addStudentToClass = async function(classId) {
 };
 window.removeStudent = async function(id) { await sb.from('classcast_roster').delete().eq('id', id); loadManageClasses(); };
 
+// --- THE MISSING FUNCTION HAS RETURNED ---
+async function populateClassDropdown(dropdownId) {
+    const select = document.getElementById(dropdownId);
+    if(!select) return;
+    const { data } = await sb.from('classcast_classes').select('*').order('class_name');
+    select.innerHTML = '<option value="">-- Choose Class --</option>';
+    if(data) data.forEach(c => select.innerHTML += `<option value="${c.id}">${c.class_name}</option>`);
+}
+
 window.populateClassCheckboxes = async function() {
     const container = document.getElementById('assignmentTargetsContainer');
     if(!container) return;
     
     container.innerHTML = '<p style="margin:0; font-size:0.9rem; color:#666;">Loading classes and rosters...</p>';
     
-    // Fetch classes and rosters
     const { data: classes } = await sb.from('classcast_classes').select('*').order('class_name');
     const { data: rosters } = await sb.from('classcast_roster').select('*');
     
@@ -679,7 +671,6 @@ window.populateClassCheckboxes = async function() {
     container.innerHTML = html;
 };
 
-// Helper function to show/hide the student lists when a class is checked
 window.toggleStudentList = function(classId) {
     const classCheckbox = document.querySelector(`.class-checkbox[data-class-id="${classId}"]`);
     const studentListDiv = document.getElementById(`student-list-${classId}`);
@@ -687,7 +678,6 @@ window.toggleStudentList = function(classId) {
         studentListDiv.style.display = 'block';
     } else {
         studentListDiv.style.display = 'none';
-        // Uncheck all students if the class is unchecked
         document.querySelectorAll(`.class-${classId}-student`).forEach(cb => cb.checked = false);
     }
 };
@@ -715,7 +705,6 @@ async function loadStudentClasses() {
 window.loadStudentAssignments = async function() {
     const classSelect = document.getElementById('studentClassFilter');
     const classId = classSelect.value;
-    // .trim() ensures no accidental blank spaces break the match
     const classText = classSelect.options[classSelect.selectedIndex]?.text.trim(); 
     const assignSelect = document.getElementById('studentAssignmentSelect');
 
@@ -724,7 +713,6 @@ window.loadStudentAssignments = async function() {
         return; 
     }
 
-    // Fetch ALL assignments from the database
     const { data, error } = await sb.from('classcast_assignments').select('*');
     if (error) { 
         console.error("Error loading assignments:", error); 
@@ -738,37 +726,29 @@ window.loadStudentAssignments = async function() {
             let isTargetedClass = false;
             let isTargetedStudent = false;
 
-            // 1. Check if the assignment is meant for this Class
             try {
-                // Read the new Multi-Class JSON list
                 const targetClassesArray = JSON.parse(d.target_class || '[]');
                 if (targetClassesArray.includes(classText)) {
                     isTargetedClass = true;
                 }
             } catch (e) {
-                // Fallback: If it's an old assignment from before our update
                 if (d.target_class === classText) {
                     isTargetedClass = true;
                 }
             }
 
-            // 2. Check if the assignment is meant for this specific Student
             try {
                 const targetStudentsArray = JSON.parse(d.target_students || '[]');
                 
                 if (targetStudentsArray.length === 0) {
-                    // If the list is empty, the teacher assigned it to the WHOLE class
                     isTargetedStudent = true; 
                 } else if (currentUser && targetStudentsArray.includes(currentUser.email)) {
-                    // If there are names in the list, the current student MUST be on it
                     isTargetedStudent = true; 
                 }
             } catch (e) {
-                // Fallback for legacy assignments
                 isTargetedStudent = true;
             }
 
-            // 3. If they match the class AND they have permission to see it, show it!
             if (isTargetedClass && isTargetedStudent) {
                 assignSelect.innerHTML += `<option value="${d.id}">${d.title}</option>`;
             }
@@ -783,7 +763,7 @@ window.startAssignment = async function() {
     if(!assignId) return;
 
     currentAssignmentId = assignId; answeredCheckpoints = []; sessionStartTime = null;
-    maxReachedTime = 0; // Reset anti-cheat tracker
+    maxReachedTime = 0; 
     
     const subsparkContainer = document.getElementById('subsparkLinkContainer'); 
     if(subsparkContainer) subsparkContainer.classList.add('hidden');
@@ -791,7 +771,6 @@ window.startAssignment = async function() {
     const { data: assignData } = await sb.from('classcast_assignments').select('*').eq('id', assignId).single();
     const { data: qData } = await sb.from('classcast_questions').select('*').eq('assignment_id', assignId);
     
-    // Check if the student already started this previously to restore their max time
     if (currentUser) {
         const { data: progData } = await sb.from('classcast_progress').select('furthest_second').eq('assignment_id', assignId).eq('student_email', currentUser.email).single();
         if (progData && progData.furthest_second) {
@@ -817,12 +796,9 @@ function handleAudioTimeUpdate() {
     if(!currentAssignmentId) return;
     const player = document.getElementById('audioPlayer');
     
-    // --- ANTI-CHEAT LOGIC ---
-    // If they scrubbed forward more than 1 second past their max time, snap them back
     if (player.currentTime > maxReachedTime + 1) {
         player.currentTime = maxReachedTime;
     } else {
-        // Otherwise, they are listening normally, so update their max reached time
         maxReachedTime = Math.max(maxReachedTime, player.currentTime);
     }
 
