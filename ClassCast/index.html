@@ -86,9 +86,24 @@
 
             <div class="card hidden" id="activeAssignmentCard">
                 <h2 id="activeAssignmentTitle" style="margin-top: 0;">Loading...</h2>
-                <audio id="audioPlayer" controls style="width: 100%; margin: 15px 0;">
+                
+                <audio id="audioPlayer" controls controlsList="nodownload" style="width: 100%; margin: 15px 0 5px 0;">
                     <source id="audioSource" src="" type="audio/mpeg"> 
                 </audio>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #f0f2f5; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">
+                    <button class="action-btn" style="background: #555; font-size: 0.85rem; padding: 6px 12px;" onclick="rewindAudio()">⏪ Rewind 10s</button>
+                    
+                    <div id="speedControlWrapper" class="hidden">
+                        <label style="font-size: 0.85rem; font-weight: bold; margin-right: 5px;">Speed:</label>
+                        <select id="playbackSpeedSelect" onchange="changePlaybackSpeed()" style="width: auto; padding: 4px; margin: 0; font-size: 0.85rem;">
+                            <option value="0.75">0.75x</option>
+                            <option value="1.0" selected>1.0x (Normal)</option>
+                            <option value="1.25">1.25x</option>
+                            <option value="1.5">1.5x</option>
+                        </select>
+                    </div>
+                </div>
 
                 <div id="subsparkLinkContainer" class="hidden" style="margin: 15px 0; padding: 15px; background: #e3f2fd; border-left: 4px solid var(--primary); border-radius: 4px;">
                     <strong style="color: var(--primary);">Assignment Complete! 🎉</strong><br>
@@ -100,12 +115,21 @@
                     <h4 style="margin-top: 0; color: #555;">Transcript</h4>
                     <p id="transcriptText" style="margin: 0; line-height: 1.6; white-space: pre-wrap; max-height: 300px; overflow-y: auto;"></p>
                 </div>
+
+                <div style="background: #e8f5e9; border: 1px solid #a5d6a7; padding: 15px; border-radius: 4px; margin-top: 15px;">
+                    <h4 style="margin-top: 0; color: #1e8e3e;">Question Preview</h4>
+                    <p style="font-size: 0.85rem; color: #555; margin-bottom: 10px;">Review these questions before listening so you know what to listen for!</p>
+                    <div id="questionPreviewList" style="font-size: 0.9rem;"></div>
+                </div>
             </div>
 
             <div id="questionModal" class="card hidden" style="border-left: 4px solid var(--primary);">
                 <span style="background: var(--primary); color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">Knowledge Check</span>
                 <h3 id="questionText" style="margin-top: 10px;"></h3>
-                <input type="text" id="studentAnswer" placeholder="Type your answer here...">
+                
+                <div id="questionInteractiveArea" style="margin: 15px 0;">
+                    </div>
+
                 <button id="submitAnswerBtn" class="action-btn">Submit Answer & Continue</button>
                 <p id="feedback" style="color: var(--danger); margin-top: 10px; font-weight: 600;"></p>
             </div>
@@ -150,7 +174,11 @@
                             <div id="audioDropboxContainer" class="hidden">
                                 <input type="url" id="newAssignAudioUrl" placeholder="https://www.dropbox.com/s/..." style="margin-bottom: 15px;">
                             </div>
-                            
+
+                            <label style="font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 15px 0; background: #f0f2f5; padding: 10px; border-radius: 4px;">
+                                    <input type="checkbox" id="newAssignAllowSpeed" checked>
+                                    Allow students to adjust playback speed
+                            </label>
                             <label>Sub-Spark Community Link (Optional)</label>
                             <div style="margin: 15px 0; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: #f9f9f9;">
                                 <input type="hidden" id="existingSubsparkUrl" value="">
