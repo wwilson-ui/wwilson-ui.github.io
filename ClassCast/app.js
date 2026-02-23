@@ -4,14 +4,13 @@
 
 let sb = null;
 let currentUser = null;
+let googleProviderToken = null; // Store the OAuth token for Classroom APIs
 const TEACHER_EMAIL = 'wwilson@mtps.us'; 
 
 let currentAssignmentId = null;
 let activeQuestions = [];
 let answeredCheckpoints = [];
 let sessionStartTime = null;
-
-// --- NEW TRACKING VARIABLE FOR EDITING ---
 let editingAssignmentId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -90,6 +89,12 @@ async function checkUser() {
         
         if (session) {
             currentUser = session.user;
+            
+            // Capture the Google Provider Token if it exists (for Classroom APIs)
+            if (session.provider_token) {
+                googleProviderToken = session.provider_token;
+            }
+
             const isTeacher = currentUser.email.toLowerCase() === TEACHER_EMAIL.toLowerCase();
             
             if (adminToggle) adminToggle.style.display = isTeacher ? 'block' : 'none';
@@ -103,6 +108,7 @@ async function checkUser() {
             switchView('studentView');
         } else {
             currentUser = null;
+            googleProviderToken = null;
             if (adminToggle) adminToggle.style.display = 'none';
             if (authSection) authSection.innerHTML = ''; 
             
@@ -115,10 +121,20 @@ async function checkUser() {
     } catch (err) { console.error("Auth error:", err); }
 }
 
-window.signIn = async function() { await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + window.location.pathname, queryParams: { prompt: 'select_account' } } }); };
+// UPDATE: Ask for Classroom API scopes when logging in
+window.signIn = async function() { 
+    await sb.auth.signInWithOAuth({ 
+        provider: 'google', 
+        options: { 
+            scopes: 'https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.rosters.readonly',
+            redirectTo: window.location.origin + window.location.pathname, 
+            queryParams: { prompt: 'select_account' } 
+        } 
+    }); 
+};
 window.signOut = async function() { await sb.auth.signOut(); window.location.reload(); };
 
-// ================= TEACHER PANEL 1: ASSIGNMENTS (WITH EDIT LOGIC) =================
+// ================= TEACHER PANEL 1: ASSIGNMENTS =================
 
 window.addQuestionBuilderRow = function() {
     const list = document.getElementById('questionsBuilderList');
@@ -139,16 +155,13 @@ window.addQuestionBuilderRow = function() {
 window.editAssignment = async function(id) {
     editingAssignmentId = id;
     
-    // Fetch the assignment and questions
     const { data: assignData } = await sb.from('classcast_assignments').select('*').eq('id', id).single();
     const { data: qData } = await sb.from('classcast_questions').select('*').eq('assignment_id', id);
     
     if(!assignData) return;
 
-    // Populate the form
     document.getElementById('newAssignTitle').value = assignData.title;
     
-    // Find the dropdown option that matches the text
     const classDropdown = document.getElementById('newAssignClassDropdown');
     for (let i = 0; i < classDropdown.options.length; i++) {
         if (classDropdown.options[i].text === assignData.target_class) {
@@ -157,7 +170,6 @@ window.editAssignment = async function(id) {
         }
     }
 
-    // Set Audio Source to dropbox input visually so we can hold the old URL
     document.querySelector('input[name="audioSourceType"][value="dropbox"]').checked = true;
     toggleAudioSourceUI();
     document.getElementById('newAssignAudioUrl').value = assignData.audio_url;
@@ -165,7 +177,6 @@ window.editAssignment = async function(id) {
     document.getElementById('newAssignSpark').value = assignData.subspark_url || '';
     document.getElementById('newAssignTranscript').value = assignData.transcript || '';
 
-    // Populate Questions
     document.getElementById('questionsBuilderList').innerHTML = '';
     if (qData) {
         qData.forEach(q => {
@@ -183,7 +194,6 @@ window.editAssignment = async function(id) {
         });
     }
 
-    // Change UI state to editing
     document.getElementById('publishBtn').innerText = 'Update Assignment';
     document.getElementById('cancelEditBtn').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -192,11 +202,8 @@ window.editAssignment = async function(id) {
 window.cancelEdit = function() {
     editingAssignmentId = null;
     document.getElementById('publishBtn').innerText = 'Publish Assignment';
+    document.getElementById('cancelEditBtn').classList.add('hidden');
     
-    const cancelBtn = document.getElementById('cancelEditBtn');
-    if (cancelBtn) cancelBtn.classList.add('hidden');
-    
-    // Clear form
     document.getElementById('newAssignTitle').value = '';
     document.getElementById('newAssignClassDropdown').value = '';
     if(document.getElementById('newAssignAudioFile')) document.getElementById('newAssignAudioFile').value = '';
@@ -205,7 +212,6 @@ window.cancelEdit = function() {
     document.getElementById('newAssignTranscript').value = '';
     document.getElementById('questionsBuilderList').innerHTML = '';
     
-    // Reset to Upload mode visually
     document.querySelector('input[name="audioSourceType"][value="upload"]').checked = true;
     toggleAudioSourceUI();
 };
@@ -227,7 +233,6 @@ window.saveNewAssignment = async function() {
         publishBtn.disabled = true;
         publishBtn.innerText = editingAssignmentId ? 'Updating... Please wait...' : 'Publishing... Please wait...';
 
-        // --- Handle Audio Source ---
         if (sourceType === 'upload') {
             const fileInput = document.getElementById('newAssignAudioFile');
             const file = fileInput.files[0];
@@ -240,28 +245,20 @@ window.saveNewAssignment = async function() {
             }
 
             if (file) {
-                // Upload new file
                 const fileExt = file.name.split('.').pop();
                 const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-                const { data: uploadData, error: uploadError } = await sb.storage.from('audio-files').upload(uniqueFileName, file);
+                const { error: uploadError } = await sb.storage.from('audio-files').upload(uniqueFileName, file);
                 if (uploadError) throw new Error("Storage Error: " + uploadError.message);
 
                 const { data: publicUrlData } = sb.storage.from('audio-files').getPublicUrl(uniqueFileName);
                 finalAudioUrl = publicUrlData.publicUrl;
             } else {
-                // If editing and didn't upload a new file, keep the old URL
                 finalAudioUrl = document.getElementById('newAssignAudioUrl').value;
             }
-
         } else if (sourceType === 'dropbox') {
             let dropboxUrl = document.getElementById('newAssignAudioUrl').value;
-            if (!dropboxUrl && !editingAssignmentId) { 
-                alert("Please paste a Dropbox URL."); 
-                publishBtn.disabled = false; 
-                publishBtn.innerText = 'Publish Assignment'; 
-                return; 
-            }
+            if (!dropboxUrl && !editingAssignmentId) { alert("Please paste a Dropbox URL."); publishBtn.disabled = false; publishBtn.innerText = 'Publish Assignment'; return; }
             if (dropboxUrl.includes('dropbox.com')) {
                 dropboxUrl = dropboxUrl.replace('?dl=0', '').replace('?dl=1', '');
                 finalAudioUrl = dropboxUrl + (dropboxUrl.includes('?') ? '&' : '?') + 'raw=1';
@@ -270,25 +267,15 @@ window.saveNewAssignment = async function() {
 
         let newId;
 
-        // --- Insert OR Update Database ---
         if (editingAssignmentId) {
-            // Update
-            const { error: updateError } = await sb.from('classcast_assignments')
-                .update({
-                    title: title, 
-                    target_class: targetClassText, 
-                    audio_url: finalAudioUrl, 
-                    subspark_url: subSpark, 
-                    transcript: transcript
-                }).eq('id', editingAssignmentId);
+            const { error: updateError } = await sb.from('classcast_assignments').update({
+                title: title, target_class: targetClassText, audio_url: finalAudioUrl, subspark_url: subSpark, transcript: transcript
+            }).eq('id', editingAssignmentId);
             if(updateError) throw updateError;
             
             newId = editingAssignmentId;
-            
-            // Delete old questions so we can replace them cleanly
             await sb.from('classcast_questions').delete().eq('assignment_id', newId);
         } else {
-            // Insert
             const { data: assignData, error: assignError } = await sb.from('classcast_assignments').insert([{
                 title: title, target_class: targetClassText, audio_url: finalAudioUrl, subspark_url: subSpark, transcript: transcript
             }]).select();
@@ -296,7 +283,6 @@ window.saveNewAssignment = async function() {
             newId = assignData[0].id;
         }
 
-        // --- Save Questions ---
         const questionRows = document.querySelectorAll('#questionsBuilderList > div');
         const questionsToInsert = [];
         questionRows.forEach(row => {
@@ -309,16 +295,11 @@ window.saveNewAssignment = async function() {
 
         alert(editingAssignmentId ? "Assignment updated successfully!" : "Assignment published successfully!");
         
-        cancelEdit(); // Clears form & resets buttons
+        cancelEdit(); 
         loadTeacherAssignments();
 
-    } catch (error) { 
-        alert("Error: " + error.message); 
-        console.error(error); 
-    } finally { 
-        publishBtn.disabled = false; 
-        publishBtn.innerText = editingAssignmentId ? 'Update Assignment' : 'Publish Assignment'; 
-    }
+    } catch (error) { alert("Error: " + error.message); console.error(error); } 
+    finally { publishBtn.disabled = false; publishBtn.innerText = editingAssignmentId ? 'Update Assignment' : 'Publish Assignment'; }
 };
 
 async function loadTeacherAssignments() {
@@ -328,7 +309,6 @@ async function loadTeacherAssignments() {
     
     if(!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No assignments.</td></tr>'; return; }
     
-    // --- THIS INCLUDES THE NEW EDIT BUTTON ---
     tbody.innerHTML = data.map(a => `
     <tr>
         <td><strong>${a.title}</strong></td>
@@ -375,7 +355,108 @@ window.exportStudentData = async function() {
     const link = document.createElement("a"); link.setAttribute("href", encodeURI(csv)); link.setAttribute("download", "Progress.csv"); document.body.appendChild(link); link.click();
 };
 
-// ================= TEACHER PANEL 3: CLASSES & ROSTERS =================
+// ================= TEACHER PANEL 3: CLASSES, ROSTERS & GOOGLE CLASSROOM =================
+
+// Google Classroom Integration
+window.openClassroomImport = async function() {
+    // If we don't have the token, we need the teacher to sign out and back in to grant permissions
+    if (!googleProviderToken) {
+        alert("To access Google Classroom, please Sign Out and Sign Back in. Google requires fresh permission!");
+        return;
+    }
+
+    document.getElementById('classroomImportCard').classList.remove('hidden');
+    const statusTxt = document.getElementById('classroomStatus');
+    const select = document.getElementById('classroomCourseSelect');
+    
+    statusTxt.innerText = "Fetching your Google Classrooms...";
+    
+    try {
+        const res = await fetch('https://classroom.googleapis.com/v1/courses?courseStates=ACTIVE', {
+            headers: { Authorization: `Bearer ${googleProviderToken}` }
+        });
+        const data = await res.json();
+        
+        if (data.error) throw new Error(data.error.message);
+        
+        select.innerHTML = '<option value="">-- Choose a Google Classroom --</option>';
+        if (data.courses && data.courses.length > 0) {
+            data.courses.forEach(c => {
+                select.innerHTML += `<option value="${c.id}">${c.name} ${c.section ? `(${c.section})` : ''}</option>`;
+            });
+            statusTxt.innerText = "Select a class to import its roster.";
+        } else {
+            statusTxt.innerText = "No active Google Classrooms found for your account.";
+        }
+    } catch (err) {
+        console.error("Classroom Error:", err);
+        statusTxt.innerText = "Error connecting to Google Classroom. You may need to sign out and sign back in.";
+    }
+};
+
+window.importSelectedClassroom = async function() {
+    const select = document.getElementById('classroomCourseSelect');
+    const courseId = select.value;
+    const courseName = select.options[select.selectedIndex].text;
+    const statusTxt = document.getElementById('classroomStatus');
+    const importBtn = document.getElementById('importRosterBtn');
+    
+    if (!courseId) return alert("Please select a course first.");
+
+    try {
+        importBtn.disabled = true;
+        statusTxt.innerText = `Downloading roster for ${courseName}...`;
+
+        // 1. Fetch Roster from Google
+        const res = await fetch(`https://classroom.googleapis.com/v1/courses/${courseId}/students`, {
+            headers: { Authorization: `Bearer ${googleProviderToken}` }
+        });
+        const data = await res.json();
+        
+        if (data.error) throw new Error(data.error.message);
+        
+        const students = data.students || [];
+        if (students.length === 0) {
+            statusTxt.innerText = "No students found in this Google Classroom.";
+            importBtn.disabled = false;
+            return;
+        }
+
+        // 2. Create the Class in Supabase (or find existing)
+        let classRecordId;
+        const { data: existingClass } = await sb.from('classcast_classes').select('*').eq('class_name', courseName).single();
+        
+        if (existingClass) {
+            classRecordId = existingClass.id;
+        } else {
+            const { data: newClass } = await sb.from('classcast_classes').insert([{ class_name: courseName }]).select();
+            classRecordId = newClass[0].id;
+        }
+
+        // 3. Insert Students into Supabase Roster
+        const rosterInserts = students.map(s => ({
+            class_id: classRecordId,
+            student_email: s.profile.emailAddress
+        }));
+
+        // Delete old roster for this specific class to prevent duplicates before inserting new
+        await sb.from('classcast_roster').delete().eq('class_id', classRecordId);
+        await sb.from('classcast_roster').insert(rosterInserts);
+
+        statusTxt.innerText = `Successfully imported ${students.length} students!`;
+        setTimeout(() => {
+            document.getElementById('classroomImportCard').classList.add('hidden');
+            loadManageClasses();
+        }, 1500);
+
+    } catch (err) {
+        console.error(err);
+        statusTxt.innerText = "Error importing roster. " + err.message;
+    } finally {
+        importBtn.disabled = false;
+    }
+};
+
 async function loadManageClasses() {
     const container = document.getElementById('classesListContainer');
     container.innerHTML = '<p>Loading classes...</p>';
@@ -421,6 +502,7 @@ window.addStudentToClass = async function(classId) {
     const email = document.getElementById(`addStudent_${classId}`).value;
     if(!email) return;
     await sb.from('classcast_roster').insert([{ class_id: classId, student_email: email }]);
+    document.getElementById(`addStudent_${classId}`).value = '';
     loadManageClasses();
 };
 window.removeStudent = async function(id) { await sb.from('classcast_roster').delete().eq('id', id); loadManageClasses(); };
