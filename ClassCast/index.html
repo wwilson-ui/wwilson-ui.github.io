@@ -7,54 +7,102 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="https://wwilson-ui.github.io/ClassCast/favicon.png">
     <style>
-        body {
-            font-family: 'IBM Plex Sans', sans-serif;
-            background-color: #DAE0E6;
-            margin: 0;
-            color: #1A1A1B;
+        :root {
+            --primary: #0079D3;
+            --bg-primary: #DAE0E6;
+            --bg-card: #FFFFFF;
+            --text-primary: #1A1A1B;
         }
-        .navbar {
-            background: white;
-            padding: 0.5rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 60px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .google-btn {
-            display: flex; align-items: center; gap: 10px;
-            background: white; color: #333; border: 1px solid #ccc;
-            padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer;
-        }
-        .logout-btn {
-            background: #eee; border: 1px solid #ccc; padding: 6px 12px; border-radius: 4px; cursor: pointer;
-        }
-        .main-container {
-            text-align: center; margin-top: 10%;
-        }
-        .nav-btn {
-            padding: 10px 20px; margin: 5px; cursor: pointer;
-            background: #0079D3; color: white; border: none; border-radius: 4px; font-weight: bold;
-        }
+
+        body { font-family: 'IBM Plex Sans', sans-serif; background-color: var(--bg-primary); margin: 0; color: var(--text-primary); }
+        
+        /* Navbar matching r/Spark */
+        .navbar { background: var(--bg-card); padding: 0.5rem 1.5rem; display: flex; justify-content: space-between; align-items: center; height: 60px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 100; }
+        .logo { font-weight: 700; font-size: 1.2rem; text-decoration: none; color: inherit; display: flex; align-items: center; gap: 8px; }
+        .google-btn { display: flex; align-items: center; gap: 10px; background: white; color: #333; border: 1px solid #ccc; padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer; }
+        .logout-btn { background: #eee; border: 1px solid #ccc; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+        
+        /* Layout */
+        .app-container { max-width: 900px; margin: 40px auto; padding: 0 20px; }
+        .view-section { display: none; } /* Hides all views by default */
+        .card { background: var(--bg-card); padding: 25px; border-radius: 8px; border: 1px solid #dee2e6; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        
+        /* Buttons & Inputs */
+        .action-btn { background: var(--primary); color: white; border: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .action-btn:hover { opacity: 0.9; }
+        input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; margin: 10px 0; box-sizing: border-box; }
+        
+        /* Tables matching SCOTUS app */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #dee2e6; padding: 12px; text-align: left; }
+        th { background-color: #f8f9fa; font-weight: 600; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
     </style>
 </head>
 <body>
 
     <nav class="navbar">
-        <div style="font-weight: 700; font-size: 1.2rem;">🎧 ClassCast</div>
-        <div id="authSection"></div>
+        <a href="#" class="logo" onclick="location.reload()">🎧 ClassCast</a>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <a id="adminToggle" href="#" style="display: none; color: var(--primary); font-weight: 600; text-decoration: none;" onclick="toggleAdminView()">🛡️ Admin</a>
+            <div id="authSection"></div>
+        </div>
     </nav>
 
-    <div class="main-container">
-        <h1>Welcome to ClassCast</h1>
-        <p id="statusMsg">Please sign in with your MTPS account to access your assignments.</p>
+    <main class="app-container">
         
-        <div id="portalLinks" style="display: none; margin-top: 20px;">
-            <button class="nav-btn" onclick="window.location.href='student.html'">Student Assignment</button>
-            <button class="nav-btn" onclick="window.location.href='teacher.html'">Teacher Dashboard</button>
-        </div>
-    </div>
+        <section id="loginView" class="view-section card" style="text-align: center; margin-top: 10%;">
+            <h1 style="margin-top: 0;">Audio Assignments</h1>
+            <p style="color: #666; margin-bottom: 25px;">Please sign in with your MTPS account to access your assignment.</p>
+            <div id="loginBtnWrapper" style="display: flex; justify-content: center;"></div>
+        </section>
+
+        <section id="studentView" class="view-section">
+            <div class="card">
+                <h2 style="margin-top: 0;">Assignment: Chapter 1 Audio</h2>
+                <audio id="audioPlayer" controls style="width: 100%; margin: 15px 0;">
+                    <source src="YOUR_AUDIO_FILE.mp3" type="audio/mpeg"> 
+                    Your browser does not support the audio element.
+                </audio>
+
+                <div style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 4px;">
+                    <p id="transcriptText" style="margin: 0; line-height: 1.6;">
+                        The transcript will appear here. In the future, we can wrap individual words in HTML span tags to highlight them via JavaScript as the time updates.
+                    </p>
+                </div>
+            </div>
+
+            <div id="questionModal" class="card" style="display:none; border-left: 4px solid var(--primary);">
+                <h3 id="questionText" style="margin-top: 0;"></h3>
+                <input type="text" id="studentAnswer" placeholder="Type your answer here...">
+                <button id="submitAnswerBtn" class="action-btn">Submit Answer</button>
+                <p id="feedback" style="color: #c62828; margin-top: 10px; font-weight: 600;"></p>
+            </div>
+        </section>
+
+        <section id="teacherView" class="view-section">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0;">Student Progress</h2>
+                    <button id="exportCsvBtn" class="action-btn">📥 Export to CSV</button>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student Email</th>
+                            <th>Listen Time (Seconds)</th>
+                            <th>Checkpoints Passed</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentDataTable">
+                        <tr><td colspan="3" style="text-align:center; color: #666;">Loading data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../config.js"></script>
