@@ -89,6 +89,19 @@ window.toggleAudioSourceUI = function() {
     }
 };
 
+
+window.toggleSubsparkOptions = function() {
+    const isChecked = document.getElementById('autoCreateSubspark').checked;
+    const container = document.getElementById('subsparkInitialPostContainer');
+    if (isChecked) {
+        container.classList.remove('hidden');
+    } else {
+        container.classList.add('hidden');
+    }
+};
+
+
+
 // ================= AUTHENTICATION =================
 async function checkUser() {
     try {
