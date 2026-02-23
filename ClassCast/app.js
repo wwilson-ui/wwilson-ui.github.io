@@ -12,7 +12,7 @@ let activeQuestions = [];
 let answeredCheckpoints = [];
 let sessionStartTime = null;
 let editingAssignmentId = null;
-let maxReachedTime = 0;
+let maxReachedTime = 0; 
 let rewindCount = 0; 
 let studentSessionAnswers = {};
 
@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await checkUser();
     
+    // Setup Custom Audio Player Listeners
     const player = document.getElementById('audioPlayer');
     if(player) {
         player.addEventListener('timeupdate', handleAudioTimeUpdate);
@@ -43,14 +44,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         player.addEventListener('play', () => { 
             if(!sessionStartTime) sessionStartTime = new Date(); 
-            document.getElementById('playPauseBtn').innerText = '⏸'; // Change to Pause icon
+            const playBtn = document.getElementById('playPauseBtn');
+            if (playBtn) playBtn.innerText = '⏸'; 
         });
         player.addEventListener('pause', () => { 
-            document.getElementById('playPauseBtn').innerText = '▶'; // Change to Play icon
+            const playBtn = document.getElementById('playPauseBtn');
+            if (playBtn) playBtn.innerText = '▶'; 
         });
         player.addEventListener('loadedmetadata', () => {
-            document.getElementById('audioScrubber').max = Math.floor(player.duration);
-            document.getElementById('durationDisplay').innerText = formatTime(player.duration);
+            const scrubber = document.getElementById('audioScrubber');
+            const durDisplay = document.getElementById('durationDisplay');
+            if (scrubber) scrubber.max = Math.floor(player.duration);
+            if (durDisplay) durDisplay.innerText = formatTime(player.duration);
         });
         player.addEventListener('ended', handleAudioComplete);
     }
@@ -113,8 +118,7 @@ window.toggleSubsparkOptions = function() {
     }
 };
 
-
-// --- Custom Player Controls ---
+// ================= CUSTOM PLAYER CONTROLS =================
 window.togglePlayPause = function() {
     const player = document.getElementById('audioPlayer');
     if (player.paused) player.play();
@@ -139,7 +143,6 @@ window.cycleSpeed = function() {
 window.scrubAudio = function(e) {
     const player = document.getElementById('audioPlayer');
     let targetTime = parseInt(e.target.value);
-    // Anti-cheat: prevent scrubbing past maxReachedTime
     if (targetTime > maxReachedTime + 1) {
         targetTime = maxReachedTime;
         e.target.value = maxReachedTime;
@@ -147,7 +150,6 @@ window.scrubAudio = function(e) {
     player.currentTime = targetTime;
 };
 
-// Helper function to format seconds into M:SS
 function formatTime(seconds) {
     if (isNaN(seconds)) return "0:00";
     const m = Math.floor(seconds / 60);
@@ -214,6 +216,11 @@ window.signOut = async function() {
 };
 
 // ================= TEACHER PANEL 1: ASSIGNMENTS =================
+function escapeHTML(str) { 
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); 
+}
+
 window.addQuestionRow = function(type, qData = null) {
     const list = document.getElementById('questionsBuilderList');
     const id = Date.now() + Math.random().toString().slice(2, 6);
@@ -225,12 +232,6 @@ window.addQuestionRow = function(type, qData = null) {
     div.style.marginBottom = "10px";
     div.style.borderRadius = "4px";
     div.style.background = "#fff";
-
-    // Helper to ensure quotation marks don't break the HTML text boxes
-    const escapeHTML = (str) => {
-        if (str === null || str === undefined) return '';
-        return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    };
 
     let timeVal = qData && qData.trigger_second ? qData.trigger_second : '';
     let textVal = qData && qData.question_text ? escapeHTML(qData.question_text) : '';
@@ -246,7 +247,6 @@ window.addQuestionRow = function(type, qData = null) {
 
     let bodyHtml = '';
 
-    // Handle database parsing safety securely
     let parsedOptions = null;
     let parsedCorrectAnswer = null;
     if (qData) {
@@ -329,7 +329,9 @@ window.editAssignment = async function(id) {
     toggleAudioSourceUI();
     document.getElementById('newAssignAudioUrl').value = assignData.audio_url || '';
     document.getElementById('newAssignTranscript').value = assignData.transcript || '';
-    document.getElementById('newAssignAllowSpeed').checked = assignData.allow_speed !== false;
+    
+    let speedCheck = document.getElementById('newAssignAllowSpeed');
+    if (speedCheck) speedCheck.checked = assignData.allow_speed !== false;
 
     let existingSpark = document.getElementById('existingSubsparkUrl');
     if (existingSpark) existingSpark.value = assignData.subspark_url || '';
@@ -472,8 +474,8 @@ window.saveNewAssignment = async function() {
                 target_students: targetStudentsJSON, 
                 audio_url: finalAudioUrl, 
                 subspark_url: finalSubSparkUrl, 
-                transcript: transcript,
-                allow_speed: document.getElementById('newAssignAllowSpeed').checked
+                transcript: transcript, 
+                allow_speed: document.getElementById('newAssignAllowSpeed') ? document.getElementById('newAssignAllowSpeed').checked : true
             }).eq('id', editingAssignmentId);
             if(updateError) throw updateError;
             
@@ -486,7 +488,8 @@ window.saveNewAssignment = async function() {
                 target_students: targetStudentsJSON, 
                 audio_url: finalAudioUrl, 
                 subspark_url: finalSubSparkUrl, 
-                transcript: transcript,
+                transcript: transcript, 
+                allow_speed: document.getElementById('newAssignAllowSpeed') ? document.getElementById('newAssignAllowSpeed').checked : true
             }]).select();
             if(assignError) throw assignError;
             newId = assignData[0].id;
@@ -510,11 +513,11 @@ window.saveNewAssignment = async function() {
                         c: row.querySelector('.opt-c').value,
                         d: row.querySelector('.opt-d').value
                     };
-                    const checked = row.querySelector(`input[type="radio"]:checked`);
-                    correctAnswer = checked ? checked.value : 'a';
+                    const checkedNode = row.querySelector(`input[type="radio"]:checked`);
+                    correctAnswer = checkedNode ? checkedNode.value : 'a';
                 } else if (type === 'tf') {
-                    const checked = row.querySelector(`input[type="radio"]:checked`);
-                    correctAnswer = checked ? checked.value : 'true';
+                    const checkedNode = row.querySelector(`input[type="radio"]:checked`);
+                    correctAnswer = checkedNode ? checkedNode.value : 'true';
                 } else if (type === 'match') {
                     options = {
                         pairs: [
@@ -913,14 +916,12 @@ window.startAssignment = async function() {
     const { data: assignData } = await sb.from('classcast_assignments').select('*').eq('id', assignId).single();
     const { data: qData } = await sb.from('classcast_questions').select('*').eq('assignment_id', assignId);
     
-    // Resume previous progress if they already started
     if (currentUser) {
         const { data: progData } = await sb.from('classcast_progress').select('*').eq('assignment_id', assignId).eq('student_email', currentUser.email).single();
         if (progData) {
             maxReachedTime = progData.furthest_second || 0;
             rewindCount = progData.rewind_count || 0;
             studentSessionAnswers = progData.student_answers || {};
-            // Pre-fill answered checkpoints so they don't have to answer them again
             if (qData) {
                 qData.forEach(q => {
                     if (studentSessionAnswers[q.id]) answeredCheckpoints.push(q.id);
@@ -938,48 +939,38 @@ window.startAssignment = async function() {
     const audioPlayer = document.getElementById('audioPlayer');
     document.getElementById('audioSource').src = assignData.audio_url; 
     
-    // Apply Teacher Speed Rules
-    const speedWrapper = document.getElementById('speedControlWrapper');
+    // Configure sleek custom speed button based on Teacher preference
+    const speedBtn = document.getElementById('speedToggleBtn');
     if (assignData.allow_speed === false) {
-        audioPlayer.setAttribute('controlsList', 'nodownload noplaybackrate');
-        speedWrapper.classList.add('hidden');
+        speedBtn.classList.add('hidden');
         audioPlayer.playbackRate = 1.0;
     } else {
-        audioPlayer.setAttribute('controlsList', 'nodownload');
-        speedWrapper.classList.remove('hidden');
-        document.getElementById('playbackSpeedSelect').value = "1.0";
+        speedBtn.classList.remove('hidden');
+        currentSpeedIndex = 0;
+        speedBtn.innerText = '1x';
         audioPlayer.playbackRate = 1.0;
     }
-
+    
+    document.getElementById('audioScrubber').value = 0;
+    document.getElementById('currentTimeDisplay').innerText = "0:00";
+    document.getElementById('playPauseBtn').innerText = '▶';
+    
     audioPlayer.load();
 
-    // Generate Question Preview
+    // Generate Question Preview (Text Only, No Answers)
     let previewHtml = '';
     activeQuestions.sort((a,b) => a.trigger_second - b.trigger_second).forEach((q, index) => {
         let typeLabel = q.question_type === 'mc' ? '[Multiple Choice]' : q.question_type === 'tf' ? '[True/False]' : q.question_type === 'match' ? '[Matching]' : '[Open-Ended]';
-        let parsedOptions = typeof q.options === 'string' ? JSON.parse(q.options || '{}') : (q.options || {});
         
         previewHtml += `<div style="margin-bottom: 12px; border-bottom: 1px dashed #ccc; padding-bottom: 8px;">
-            <strong>Q${index + 1}:</strong> ${q.question_text} <span style="color:#888; font-size: 0.8rem;">${typeLabel}</span>`;
-        
-        // Sneak peek of options (without answers)
-        if (q.question_type === 'mc' && parsedOptions.a) {
-            previewHtml += `<div style="margin-top: 4px; font-size: 0.8rem; color: #555;">
-                A: ${parsedOptions.a} | B: ${parsedOptions.b} | C: ${parsedOptions.c} | D: ${parsedOptions.d}
-            </div>`;
-        } else if (q.question_type === 'match' && parsedOptions.pairs) {
-            let terms = parsedOptions.pairs.map(p => p.t).join(', ');
-            previewHtml += `<div style="margin-top: 4px; font-size: 0.8rem; color: #555;">Terms to match: ${terms}</div>`;
-        }
-        previewHtml += `</div>`;
+            <strong>Q${index + 1}:</strong> ${q.question_text} <span style="color:#888; font-size: 0.8rem;">${typeLabel}</span>
+        </div>`;
     });
     document.getElementById('questionPreviewList').innerHTML = previewHtml || '<em>No interactive questions for this assignment.</em>';
 
     if(assignData.subspark_url) document.getElementById('activeSubsparkLink').href = assignData.subspark_url;
     document.getElementById('activeAssignmentCard').classList.remove('hidden');
 };
-
-function escapeHTML(str) { return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
 function handleAudioTimeUpdate() {
     if(!currentAssignmentId) return;
@@ -991,6 +982,12 @@ function handleAudioTimeUpdate() {
         maxReachedTime = Math.max(maxReachedTime, player.currentTime);
     }
 
+    // Update Custom UI Scrubber
+    const scrubber = document.getElementById('audioScrubber');
+    const timeDisplay = document.getElementById('currentTimeDisplay');
+    if(scrubber) scrubber.value = Math.floor(player.currentTime);
+    if(timeDisplay) timeDisplay.innerText = formatTime(player.currentTime);
+
     const currentTime = Math.floor(player.currentTime);
     const question = activeQuestions.find(q => q.trigger_second === currentTime);
     
@@ -1000,7 +997,6 @@ function handleAudioTimeUpdate() {
         document.getElementById('questionText').innerText = question.question_text;
         document.getElementById('feedback').innerText = "";
         
-        // Smart Rendering
         let qType = question.question_type || 'open';
         let options = typeof question.options === 'string' ? JSON.parse(question.options || '{}') : (question.options || {});
         let interactiveHtml = '';
@@ -1036,7 +1032,6 @@ function handleAudioTimeUpdate() {
         
         document.getElementById('questionInteractiveArea').innerHTML = interactiveHtml;
         
-        // Smart Grading
         document.getElementById('submitAnswerBtn').onclick = () => {
             let studentAns = null;
             let isCorrect = false;
@@ -1064,7 +1059,7 @@ function handleAudioTimeUpdate() {
                 if (allFilled) { valid = true; isCorrect = allCorrect; }
             } else {
                 studentAns = document.getElementById('studentAnswerText').value.trim();
-                if (studentAns.length >= 3) { valid = true; isCorrect = null; /* Open-ended requires manual grading later */ }
+                if (studentAns.length >= 3) { valid = true; isCorrect = null; }
             }
 
             if(valid) {
