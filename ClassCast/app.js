@@ -165,40 +165,54 @@ window.addQuestionRow = function(type, qData = null) {
     const id = Date.now() + Math.random().toString().slice(2, 6);
     const div = document.createElement('div');
     div.className = 'question-row-item';
-    div.dataset.type = type; // Stores the question type invisibly in the HTML
+    div.dataset.type = type; 
     div.style.border = "1px solid #ccc";
     div.style.padding = "10px";
     div.style.marginBottom = "10px";
     div.style.borderRadius = "4px";
     div.style.background = "#fff";
 
-    let timeVal = qData ? qData.trigger_second : '';
-    let textVal = qData ? qData.question_text : '';
+    // Helper to ensure quotation marks don't break the HTML text boxes
+    const escapeHTML = (str) => {
+        if (str === null || str === undefined) return '';
+        return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    };
+
+    let timeVal = qData && qData.trigger_second ? qData.trigger_second : '';
+    let textVal = qData && qData.question_text ? escapeHTML(qData.question_text) : '';
 
     let headerHtml = `
         <div style="display:flex; gap:10px; margin-bottom:10px; align-items:center;">
             <span style="font-weight:bold; background:#555; color:white; padding:2px 6px; border-radius:4px; font-size:0.7rem; text-transform:uppercase;">${type}</span>
             <input type="number" class="q-time" value="${timeVal}" placeholder="Time (sec)" style="width: 100px; margin:0;" min="0">
             <input type="text" class="q-text" value="${textVal}" placeholder="Question prompt..." style="flex:1; margin:0;">
-            <button class="danger-btn" onclick="this.parentElement.parentElement.remove()">X</button>
+            <button type="button" class="danger-btn" onclick="this.parentElement.parentElement.remove()">X</button>
         </div>
     `;
 
     let bodyHtml = '';
 
+    // Handle database parsing safety securely
+    let parsedOptions = null;
+    let parsedCorrectAnswer = null;
+    if (qData) {
+        parsedOptions = typeof qData.options === 'string' ? JSON.parse(qData.options || '{}') : qData.options;
+        parsedCorrectAnswer = typeof qData.correct_answer === 'string' ? JSON.parse(qData.correct_answer || 'null') : qData.correct_answer;
+    }
+
     if (type === 'mc') {
-        let opts = qData && qData.options ? qData.options : {a:'', b:'', c:'', d:''};
-        let ans = qData && qData.correct_answer ? qData.correct_answer : 'a'; // Default answer is A
+        let opts = parsedOptions || {a:'', b:'', c:'', d:''};
+        let ans = parsedCorrectAnswer || 'a'; 
         bodyHtml = `
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; padding-left:70px; font-size: 0.9rem;">
-                <div><label><input type="radio" name="mc_${id}" value="a" ${ans==='a'?'checked':''}> A:</label> <input type="text" class="opt-a" value="${opts.a||''}" style="width:75%; margin:0; padding:4px;"></div>
-                <div><label><input type="radio" name="mc_${id}" value="b" ${ans==='b'?'checked':''}> B:</label> <input type="text" class="opt-b" value="${opts.b||''}" style="width:75%; margin:0; padding:4px;"></div>
-                <div><label><input type="radio" name="mc_${id}" value="c" ${ans==='c'?'checked':''}> C:</label> <input type="text" class="opt-c" value="${opts.c||''}" style="width:75%; margin:0; padding:4px;"></div>
-                <div><label><input type="radio" name="mc_${id}" value="d" ${ans==='d'?'checked':''}> D:</label> <input type="text" class="opt-d" value="${opts.d||''}" style="width:75%; margin:0; padding:4px;"></div>
+                <div><label><input type="radio" name="mc_${id}" value="a" ${ans==='a'?'checked':''}> A:</label> <input type="text" class="opt-a" value="${escapeHTML(opts.a)}" style="width:75%; margin:0; padding:4px;"></div>
+                <div><label><input type="radio" name="mc_${id}" value="b" ${ans==='b'?'checked':''}> B:</label> <input type="text" class="opt-b" value="${escapeHTML(opts.b)}" style="width:75%; margin:0; padding:4px;"></div>
+                <div><label><input type="radio" name="mc_${id}" value="c" ${ans==='c'?'checked':''}> C:</label> <input type="text" class="opt-c" value="${escapeHTML(opts.c)}" style="width:75%; margin:0; padding:4px;"></div>
+                <div><label><input type="radio" name="mc_${id}" value="d" ${ans==='d'?'checked':''}> D:</label> <input type="text" class="opt-d" value="${escapeHTML(opts.d)}" style="width:75%; margin:0; padding:4px;"></div>
             </div>
         `;
     } else if (type === 'tf') {
-        let ans = qData && qData.correct_answer ? qData.correct_answer : 'true';
+        let ans = parsedCorrectAnswer || 'true';
         bodyHtml = `
             <div style="padding-left:70px; font-size: 0.9rem;">
                 <strong>Correct Answer: </strong>
@@ -207,13 +221,17 @@ window.addQuestionRow = function(type, qData = null) {
             </div>
         `;
     } else if (type === 'match') {
-        let pairs = qData && qData.options && qData.options.pairs ? qData.options.pairs : [{t:'',m:''}, {t:'',m:''}, {t:'',m:''}];
+        let pairs = (parsedOptions && parsedOptions.pairs) ? parsedOptions.pairs : [{t:'',m:''}, {t:'',m:''}, {t:'',m:''}];
+        let p1 = pairs[0] || {t:'',m:''};
+        let p2 = pairs[1] || {t:'',m:''};
+        let p3 = pairs[2] || {t:'',m:''};
+        
         bodyHtml = `
             <div style="padding-left:70px; font-size:0.85rem; color:#666;">
                 <em>Enter exactly matching pairs. The system will shuffle them for the students automatically.</em>
-                <div style="margin-top:5px;">Pair 1: <input type="text" class="p1-t" value="${pairs[0]?.t||''}" placeholder="Term" style="width:30%; padding:4px;"> = <input type="text" class="p1-m" value="${pairs[0]?.m||''}" placeholder="Match" style="width:30%; padding:4px;"></div>
-                <div style="margin-top:5px;">Pair 2: <input type="text" class="p2-t" value="${pairs[1]?.t||''}" placeholder="Term" style="width:30%; padding:4px;"> = <input type="text" class="p2-m" value="${pairs[1]?.m||''}" placeholder="Match" style="width:30%; padding:4px;"></div>
-                <div style="margin-top:5px;">Pair 3: <input type="text" class="p3-t" value="${pairs[2]?.t||''}" placeholder="Term" style="width:30%; padding:4px;"> = <input type="text" class="p3-m" value="${pairs[2]?.m||''}" placeholder="Match" style="width:30%; padding:4px;"></div>
+                <div style="margin-top:5px;">Pair 1: <input type="text" class="p1-t" value="${escapeHTML(p1.t)}" placeholder="Term" style="width:30%; padding:4px;"> = <input type="text" class="p1-m" value="${escapeHTML(p1.m)}" placeholder="Match" style="width:30%; padding:4px;"></div>
+                <div style="margin-top:5px;">Pair 2: <input type="text" class="p2-t" value="${escapeHTML(p2.t)}" placeholder="Term" style="width:30%; padding:4px;"> = <input type="text" class="p2-m" value="${escapeHTML(p2.m)}" placeholder="Match" style="width:30%; padding:4px;"></div>
+                <div style="margin-top:5px;">Pair 3: <input type="text" class="p3-t" value="${escapeHTML(p3.t)}" placeholder="Term" style="width:30%; padding:4px;"> = <input type="text" class="p3-m" value="${escapeHTML(p3.m)}" placeholder="Match" style="width:30%; padding:4px;"></div>
             </div>
         `;
     }
@@ -258,15 +276,14 @@ window.editAssignment = async function(id) {
     document.getElementById('newAssignAudioUrl').value = assignData.audio_url || '';
     document.getElementById('newAssignTranscript').value = assignData.transcript || '';
 
-    // Sub-spark existing memory
-    document.getElementById('existingSubsparkUrl').value = assignData.subspark_url || '';
+    let existingSpark = document.getElementById('existingSubsparkUrl');
+    if (existingSpark) existingSpark.value = assignData.subspark_url || '';
     document.getElementById('autoCreateSubspark').checked = false;
     toggleSubsparkOptions();
 
     document.getElementById('questionsBuilderList').innerHTML = '';
     if (qData) {
         qData.forEach(q => {
-            // Fallback to 'open' if it's an old question from before we added this feature
             const qType = q.question_type || 'open'; 
             addQuestionRow(qType, q);
         });
@@ -300,7 +317,8 @@ window.cancelEdit = function() {
     document.getElementById('questionsBuilderList').innerHTML = '';
     
     // Sub-spark Resets
-    document.getElementById('existingSubsparkUrl').value = '';
+    let existingSpark = document.getElementById('existingSubsparkUrl');
+    if (existingSpark) existingSpark.value = '';
     document.getElementById('autoCreateSubspark').checked = false;
     document.getElementById('subsparkFirstPostText').value = '';
     document.getElementById('subsparkFirstPostPhoto').value = '';
@@ -317,7 +335,6 @@ window.saveNewAssignment = async function() {
     const transcript = document.getElementById('newAssignTranscript').value;
     const sourceType = document.querySelector('input[name="audioSourceType"]:checked').value;
     
-    // --- Gather selected classes and students ---
     const selectedClasses = Array.from(document.querySelectorAll('.class-checkbox:checked')).map(cb => cb.value);
     const selectedStudents = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
     
@@ -335,9 +352,6 @@ window.saveNewAssignment = async function() {
         publishBtn.disabled = true;
         publishBtn.innerText = editingAssignmentId ? 'Updating... Please wait...' : 'Publishing... Please wait...';
 
-        // ==========================================
-        // 1. AUDIO UPLOAD LOGIC
-        // ==========================================
         if (sourceType === 'upload') {
             const fileInput = document.getElementById('newAssignAudioFile');
             const file = fileInput.files[0];
@@ -362,13 +376,10 @@ window.saveNewAssignment = async function() {
             } else finalAudioUrl = dropboxUrl;
         }
 
-        // ==========================================
-        // 2. SUBSPARK AUTOMATION LOGIC
-        // ==========================================
-        let finalSubSparkUrl = document.getElementById('existingSubsparkUrl')?.value || ''; 
+        let existingSpark = document.getElementById('existingSubsparkUrl');
+        let finalSubSparkUrl = existingSpark ? existingSpark.value : ''; 
         const isSubsparkEnabled = document.getElementById('autoCreateSubspark').checked;
 
-        // Only create a new community if this is a brand new assignment AND the box is checked
         if (isSubsparkEnabled && !editingAssignmentId) {
             const postText = document.getElementById('subsparkFirstPostText').value;
             const postPhoto = document.getElementById('subsparkFirstPostPhoto').value;
@@ -397,9 +408,6 @@ window.saveNewAssignment = async function() {
             finalSubSparkUrl = `https://wwilson-ui.github.io/r/Spark/?sub=${newSub.id}`;
         }
 
-        // ==========================================
-        // 3. DATABASE SAVING
-        // ==========================================
         let newId;
 
         if (editingAssignmentId) {
@@ -428,10 +436,8 @@ window.saveNewAssignment = async function() {
             newId = assignData[0].id;
         }
 
-        // --- Save Interactive Questions ---
         const questionRows = document.querySelectorAll('.question-row-item');
         const questionsToInsert = [];
-        
         questionRows.forEach(row => {
             const type = row.dataset.type;
             const time = row.querySelector('.q-time').value;
@@ -461,7 +467,6 @@ window.saveNewAssignment = async function() {
                             { t: row.querySelector('.p3-t').value, m: row.querySelector('.p3-m').value }
                         ]
                     };
-                    // For matching, the options array IS the correct answer map
                     correctAnswer = options; 
                 }
 
@@ -478,7 +483,14 @@ window.saveNewAssignment = async function() {
 
         if(questionsToInsert.length > 0) await sb.from('classcast_questions').insert(questionsToInsert);
 
-    };
+        alert(editingAssignmentId ? "Assignment updated successfully!" : "Assignment published successfully!");
+        
+        cancelEdit(); 
+        loadTeacherAssignments();
+
+    } catch (error) { alert("Error: " + error.message); console.error(error); } 
+    finally { publishBtn.disabled = false; publishBtn.innerText = editingAssignmentId ? 'Update Assignment' : 'Publish Assignment'; }
+};
 
 async function loadTeacherAssignments() {
     const tbody = document.getElementById('teacherAssignmentsTable');
@@ -694,7 +706,6 @@ window.addStudentToClass = async function(classId) {
 };
 window.removeStudent = async function(id) { await sb.from('classcast_roster').delete().eq('id', id); loadManageClasses(); };
 
-// --- THE MISSING FUNCTION HAS RETURNED ---
 async function populateClassDropdown(dropdownId) {
     const select = document.getElementById(dropdownId);
     if(!select) return;
@@ -775,7 +786,8 @@ async function loadStudentClasses() {
 window.loadStudentAssignments = async function() {
     const classSelect = document.getElementById('studentClassFilter');
     const classId = classSelect.value;
-    const classText = classSelect.options[classSelect.selectedIndex]?.text.trim(); 
+    const selectedOption = classSelect.options[classSelect.selectedIndex];
+    const classText = selectedOption ? selectedOption.text.trim() : ''; 
     const assignSelect = document.getElementById('studentAssignmentSelect');
 
     if(!classId) { 
