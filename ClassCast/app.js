@@ -420,13 +420,15 @@ window.importSelectedClassroom = async function() {
     try {
         importBtn.disabled = true;
         statusTxt.innerText = `Downloading roster for ${courseName}...`;
+        statusTxt.style.color = "black"; // Reset color
 
+        // 1. Fetch from Google
         const res = await fetch(`https://classroom.googleapis.com/v1/courses/${courseId}/students`, {
             headers: { Authorization: `Bearer ${googleProviderToken}` }
         });
         const data = await res.json();
         
-        if (data.error) throw new Error(data.error.message);
+        if (data.error) throw new Error("Google Error: " + data.error.message);
         
         const students = data.students || [];
         if (students.length === 0) {
@@ -435,25 +437,40 @@ window.importSelectedClassroom = async function() {
             return;
         }
 
+        // 2. Ensure Class Exists in Database
         let classRecordId;
-        const { data: existingClass } = await sb.from('classcast_classes').select('*').eq('class_name', courseName).single();
+        const { data: existingClass, error: classSearchError } = await sb.from('classcast_classes').select('*').eq('class_name', courseName).single();
         
+        if (classSearchError && classSearchError.code !== 'PGRST116') { // PGRST116 just means no rows found, which is fine
+            throw new Error("DB Search Error: " + classSearchError.message);
+        }
+
         if (existingClass) {
             classRecordId = existingClass.id;
         } else {
-            const { data: newClass } = await sb.from('classcast_classes').insert([{ class_name: courseName }]).select();
+            const { data: newClass, error: classInsertError } = await sb.from('classcast_classes').insert([{ class_name: courseName }]).select();
+            if (classInsertError) throw new Error("DB Class Insert Error: " + classInsertError.message);
             classRecordId = newClass[0].id;
         }
 
-        const rosterInserts = students.map(s => ({
-            class_id: classRecordId,
-            student_email: s.profile.emailAddress
-        }));
+        // 3. Map students, providing a fallback if Google hid the email
+        const rosterInserts = students.map(s => {
+            // If the district blocks emails, grab their full name instead so it doesn't crash
+            const identifier = s.profile.emailAddress || s.profile.name?.fullName || `Unknown Student (${s.profile.id})`;
+            return {
+                class_id: classRecordId,
+                student_email: identifier
+            };
+        });
 
+        // 4. Clear old roster and insert new one
         await sb.from('classcast_roster').delete().eq('class_id', classRecordId);
-        await sb.from('classcast_roster').insert(rosterInserts);
+        
+        const { error: insertError } = await sb.from('classcast_roster').insert(rosterInserts);
+        if (insertError) throw new Error("DB Roster Insert Error: " + insertError.message);
 
-        statusTxt.innerText = `Successfully imported ${students.length} students!`;
+        // 5. Success!
+        statusTxt.innerText = `Successfully saved ${students.length} students to the database!`;
         statusTxt.style.color = "#1e8e3e";
         setTimeout(() => {
             document.getElementById('classroomImportCard').classList.add('hidden');
@@ -462,7 +479,8 @@ window.importSelectedClassroom = async function() {
 
     } catch (err) {
         console.error(err);
-        statusTxt.innerText = "Google API Error: " + err.message;
+        // Print the EXACT database or Google error to the screen
+        statusTxt.innerText = err.message;
         statusTxt.style.color = "red";
     } finally {
         importBtn.disabled = false;
