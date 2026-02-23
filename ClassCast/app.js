@@ -713,38 +713,68 @@ async function loadStudentClasses() {
 }
 
 window.loadStudentAssignments = async function() {
-    const classId = document.getElementById('studentClassFilter').value;
-    const classText = document.getElementById('studentClassFilter').options[document.getElementById('studentClassFilter').selectedIndex]?.text;
+    const classSelect = document.getElementById('studentClassFilter');
+    const classId = classSelect.value;
+    // .trim() ensures no accidental blank spaces break the match
+    const classText = classSelect.options[classSelect.selectedIndex]?.text.trim(); 
     const assignSelect = document.getElementById('studentAssignmentSelect');
-    
-    if(!classId) { assignSelect.classList.add('hidden'); return; }
 
-    // Fetch ALL assignments and filter them in the browser so we can parse the JSON
-    const { data } = await sb.from('classcast_assignments').select('*');
-    
+    if(!classId) { 
+        assignSelect.classList.add('hidden'); 
+        return; 
+    }
+
+    // Fetch ALL assignments from the database
+    const { data, error } = await sb.from('classcast_assignments').select('*');
+    if (error) { 
+        console.error("Error loading assignments:", error); 
+        return; 
+    }
+
     assignSelect.innerHTML = '<option value="">-- Choose Assignment --</option>';
-    
+
     if(data) {
         data.forEach(d => {
-            let isTargeted = false;
-            
+            let isTargetedClass = false;
+            let isTargetedStudent = false;
+
+            // 1. Check if the assignment is meant for this Class
             try {
-                // Try to read it as our new Multi-Class JSON format
+                // Read the new Multi-Class JSON list
                 const targetClassesArray = JSON.parse(d.target_class || '[]');
                 if (targetClassesArray.includes(classText)) {
-                    isTargeted = true;
+                    isTargetedClass = true;
                 }
             } catch (e) {
-                // Fallback: If JSON parsing fails, it's an old assignment from before the update
-                if (d.target_class === classText) isTargeted = true;
+                // Fallback: If it's an old assignment from before our update
+                if (d.target_class === classText) {
+                    isTargetedClass = true;
+                }
             }
 
-            // If the student is looking at the right class, we add the assignment
-            if (isTargeted) {
+            // 2. Check if the assignment is meant for this specific Student
+            try {
+                const targetStudentsArray = JSON.parse(d.target_students || '[]');
+                
+                if (targetStudentsArray.length === 0) {
+                    // If the list is empty, the teacher assigned it to the WHOLE class
+                    isTargetedStudent = true; 
+                } else if (currentUser && targetStudentsArray.includes(currentUser.email)) {
+                    // If there are names in the list, the current student MUST be on it
+                    isTargetedStudent = true; 
+                }
+            } catch (e) {
+                // Fallback for legacy assignments
+                isTargetedStudent = true;
+            }
+
+            // 3. If they match the class AND they have permission to see it, show it!
+            if (isTargetedClass && isTargetedStudent) {
                 assignSelect.innerHTML += `<option value="${d.id}">${d.title}</option>`;
             }
         });
     }
+    
     assignSelect.classList.remove('hidden');
 };
 
