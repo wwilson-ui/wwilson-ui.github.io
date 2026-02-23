@@ -13,6 +13,7 @@ let activeQuestions = [];
 let answeredCheckpoints = [];
 let sessionStartTime = null;
 let editingAssignmentId = null;
+let maxReachedTime = 0; // NEW: Tracks how far the student has listened
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
@@ -38,6 +39,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const player = document.getElementById('audioPlayer');
     if(player) {
         player.addEventListener('timeupdate', handleAudioTimeUpdate);
+        player.addEventListener('seeking', () => { 
+            if(player.currentTime > maxReachedTime + 1) player.currentTime = maxReachedTime; 
+        });
         player.addEventListener('play', () => { if(!sessionStartTime) sessionStartTime = new Date(); });
         player.addEventListener('ended', handleAudioComplete);
     }
@@ -185,20 +189,16 @@ window.editAssignment = async function(id) {
     
     if(!assignData) return;
 
-    
     document.getElementById('newAssignTitle').value = assignData.title;
     
-    // NEW: Uncheck everything first to start clean
     document.querySelectorAll('.class-checkbox').forEach(cb => cb.checked = false);
     document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = false);
     
-    // Parse the saved arrays (with a safety net for legacy assignments)
     let targetClasses = [];
     let targetStudents = [];
     try { targetClasses = JSON.parse(assignData.target_class || '[]'); } catch(e) { targetClasses = [assignData.target_class]; }
     try { targetStudents = JSON.parse(assignData.target_students || '[]'); } catch(e) { targetStudents = []; }
 
-    // Check the saved classes and reveal their student lists
     document.querySelectorAll('.class-checkbox').forEach(cb => {
         if (targetClasses.includes(cb.value)) {
             cb.checked = true;
@@ -208,23 +208,20 @@ window.editAssignment = async function(id) {
         }
     });
 
-    // Check the saved specific students
     document.querySelectorAll('.student-checkbox').forEach(cb => {
-        if (targetStudents.includes(cb.value)) {
-            cb.checked = true;
-        }
+        if (targetStudents.includes(cb.value)) { cb.checked = true; }
     });
 
     document.querySelector('input[name="audioSourceType"][value="dropbox"]').checked = true;
     toggleAudioSourceUI();
     document.getElementById('newAssignAudioUrl').value = assignData.audio_url || '';
-    
-    document.getElementById('newAssignSpark').value = assignData.subspark_url || '';
     document.getElementById('newAssignTranscript').value = assignData.transcript || '';
 
+    // Sub-spark existing memory
     document.getElementById('existingSubsparkUrl').value = assignData.subspark_url || '';
-    document.getElementById('autoCreateSubspark').checked = false; // Hide generation tools on edit
+    document.getElementById('autoCreateSubspark').checked = false;
     toggleSubsparkOptions();
+
     document.getElementById('questionsBuilderList').innerHTML = '';
     if (qData) {
         qData.forEach(q => {
@@ -245,7 +242,7 @@ window.editAssignment = async function(id) {
     document.getElementById('publishBtn').innerText = 'Update Assignment';
     document.getElementById('cancelEditBtn').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-};
+};;
 
 window.cancelEdit = function() {
     editingAssignmentId = null;
@@ -254,7 +251,6 @@ window.cancelEdit = function() {
     
     document.getElementById('newAssignTitle').value = '';
     
-    // NEW: Uncheck all class and student checkboxes and hide student lists
     document.querySelectorAll('.class-checkbox').forEach(cb => {
         cb.checked = false;
         const classId = cb.getAttribute('data-class-id');
@@ -267,17 +263,16 @@ window.cancelEdit = function() {
     
     if(document.getElementById('newAssignAudioFile')) document.getElementById('newAssignAudioFile').value = '';
     if(document.getElementById('newAssignAudioUrl')) document.getElementById('newAssignAudioUrl').value = '';
-    document.getElementById('newAssignSpark').value = '';
     document.getElementById('newAssignTranscript').value = '';
+    document.getElementById('questionsBuilderList').innerHTML = '';
     
+    // Sub-spark Resets
     document.getElementById('existingSubsparkUrl').value = '';
     document.getElementById('autoCreateSubspark').checked = false;
     document.getElementById('subsparkFirstPostText').value = '';
     document.getElementById('subsparkFirstPostPhoto').value = '';
     document.getElementById('subsparkFirstPostLink').value = '';
     toggleSubsparkOptions();
-    
-    document.getElementById('questionsBuilderList').innerHTML = '';
     
     document.querySelector('input[name="audioSourceType"][value="upload"]').checked = true;
     toggleAudioSourceUI();
@@ -758,11 +753,22 @@ window.startAssignment = async function() {
     if(!assignId) return;
 
     currentAssignmentId = assignId; answeredCheckpoints = []; sessionStartTime = null;
-    const subsparkContainer = document.getElementById('subsparkLinkContainer'); if(subsparkContainer) subsparkContainer.classList.add('hidden');
+    maxReachedTime = 0; // Reset anti-cheat tracker
+    
+    const subsparkContainer = document.getElementById('subsparkLinkContainer'); 
+    if(subsparkContainer) subsparkContainer.classList.add('hidden');
 
     const { data: assignData } = await sb.from('classcast_assignments').select('*').eq('id', assignId).single();
     const { data: qData } = await sb.from('classcast_questions').select('*').eq('assignment_id', assignId);
     
+    // Check if the student already started this previously to restore their max time
+    if (currentUser) {
+        const { data: progData } = await sb.from('classcast_progress').select('furthest_second').eq('assignment_id', assignId).eq('student_email', currentUser.email).single();
+        if (progData && progData.furthest_second) {
+            maxReachedTime = progData.furthest_second;
+        }
+    }
+
     if(!assignData) return;
     activeQuestions = qData || [];
     
@@ -770,7 +776,8 @@ window.startAssignment = async function() {
     document.getElementById('transcriptText').innerText = assignData.transcript || "No transcript provided.";
     
     const audioPlayer = document.getElementById('audioPlayer');
-    document.getElementById('audioSource').src = assignData.audio_url; audioPlayer.load();
+    document.getElementById('audioSource').src = assignData.audio_url; 
+    audioPlayer.load();
 
     if(assignData.subspark_url) document.getElementById('activeSubsparkLink').href = assignData.subspark_url;
     document.getElementById('activeAssignmentCard').classList.remove('hidden');
@@ -779,6 +786,16 @@ window.startAssignment = async function() {
 function handleAudioTimeUpdate() {
     if(!currentAssignmentId) return;
     const player = document.getElementById('audioPlayer');
+    
+    // --- ANTI-CHEAT LOGIC ---
+    // If they scrubbed forward more than 1 second past their max time, snap them back
+    if (player.currentTime > maxReachedTime + 1) {
+        player.currentTime = maxReachedTime;
+    } else {
+        // Otherwise, they are listening normally, so update their max reached time
+        maxReachedTime = Math.max(maxReachedTime, player.currentTime);
+    }
+
     const currentTime = Math.floor(player.currentTime);
 
     const question = activeQuestions.find(q => q.trigger_second === currentTime);
@@ -792,7 +809,9 @@ function handleAudioTimeUpdate() {
             if(document.getElementById('studentAnswer').value.trim().length >= 3) {
                 document.getElementById('questionModal').classList.add('hidden');
                 document.getElementById('studentAnswer').value = ''; 
-                answeredCheckpoints.push(question.id); player.play(); logProgress(currentTime, 'in_progress');
+                answeredCheckpoints.push(question.id); 
+                player.play(); 
+                logProgress(currentTime, 'in_progress');
             } else document.getElementById('feedback').innerText = "Please provide a valid answer.";
         };
     }
