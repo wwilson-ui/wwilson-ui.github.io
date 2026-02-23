@@ -447,7 +447,7 @@ window.saveNewAssignment = async function() {
                 target_students: targetStudentsJSON, 
                 audio_url: finalAudioUrl, 
                 subspark_url: finalSubSparkUrl, 
-                transcript: transcript
+                transcript: transcript,
             }]).select();
             if(assignError) throw assignError;
             newId = assignData[0].id;
