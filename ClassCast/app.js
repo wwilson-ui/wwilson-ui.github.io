@@ -119,22 +119,38 @@ window.addQuestionBuilderRow = function() {
 };
 
 window.saveNewAssignment = async function() {
+    console.log("Publishing assignment...");
+    
     const title = document.getElementById('newAssignTitle').value;
     const targetClass = document.getElementById('newAssignClass').value;
-    const audioUrl = document.getElementById('newAssignAudio').value;
+    let audioUrl = document.getElementById('newAssignAudio').value; // Changed to 'let' so we can modify it
     const subSpark = document.getElementById('newAssignSpark').value;
     const transcript = document.getElementById('newAssignTranscript').value;
 
-    if(!title || !audioUrl) { alert("Title and Audio URL are required."); return; }
+    if(!title || !audioUrl) { 
+        alert("Title and Audio URL are required fields."); 
+        return; 
+    }
 
-    // 1. Insert Assignment
-    const { data: assignData, error: assignError } = await sb.from('classcast_assignments').insert([{
-        title: title,
-        target_class: targetClass,
-        audio_url: audioUrl,
-        subspark_url: subSpark,
-        transcript: transcript
-    }]).select();
+    // --- NEW: Convert Google Drive link to a direct streaming link ---
+    if (audioUrl.includes('drive.google.com/file/d/')) {
+        const fileIdMatch = audioUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (fileIdMatch && fileIdMatch[1]) {
+            // Reformat into a direct streamable URL
+            audioUrl = `https://drive.google.com/uc?export=download&id=${fileIdMatch[1]}`;
+        }
+    }
+    // -----------------------------------------------------------------
+
+    try {
+        // 1. Insert Assignment
+        const { data: assignData, error: assignError } = await sb.from('classcast_assignments').insert([{
+            title: title,
+            target_class: targetClass,
+            audio_url: audioUrl, // It will now save the clean, streamable link
+            subspark_url: subSpark,
+            transcript: transcript
+        }]).select();
 
     if(assignError) { alert("Error saving assignment: " + assignError.message); return; }
     
