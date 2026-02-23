@@ -165,7 +165,10 @@
                                 <button class="action-btn" style="background: #555; margin-top: 10px;" onclick="addQuestionBuilderRow()">+ Add Question Checkpoint</button>
                             </div>
 
-                            <button id="publishBtn" class="action-btn" onclick="saveNewAssignment()">Publish Assignment</button>
+                            <div style="display: flex; gap: 10px;">
+                                <button id="publishBtn" class="action-btn" onclick="saveNewAssignment()">Publish Assignment</button>
+                                <button id="cancelEditBtn" class="danger-btn hidden" onclick="cancelEdit()">Cancel Edit</button>
+                            </div>
                         </div>
 
                         <div class="card">
