@@ -73,8 +73,7 @@ window.switchAdminPanel = function(panelId, event = null) {
     if(event) event.currentTarget.classList.add('active');
     else document.querySelector(`[onclick*="${panelId}"]`).classList.add('active');
 
-    if (panelId === 'admin-assignments') { loadTeacherAssignments(); populateClassDropdown('newAssignClassDropdown'); }
-    if (panelId === 'admin-progress') loadTeacherProgress();
+    if (panelId === 'admin-assignments') { loadTeacherAssignments(); populateClassCheckboxes(); }    if (panelId === 'admin-progress') loadTeacherProgress();
     if (panelId === 'admin-classes') loadManageClasses();
     if (panelId === 'admin-files') loadManageFiles();
 };
@@ -232,15 +231,24 @@ window.cancelEdit = function() {
 window.saveNewAssignment = async function() {
     const publishBtn = document.getElementById('publishBtn');
     const title = document.getElementById('newAssignTitle').value;
-    const targetClassId = document.getElementById('newAssignClassDropdown').value; 
-    const targetClassText = document.getElementById('newAssignClassDropdown').options[document.getElementById('newAssignClassDropdown').selectedIndex]?.text;
     const subSpark = document.getElementById('newAssignSpark').value;
     const transcript = document.getElementById('newAssignTranscript').value;
     const sourceType = document.querySelector('input[name="audioSourceType"]:checked').value;
     
-    let finalAudioUrl = '';
+    // --- NEW: Gather selected classes and students ---
+    const selectedClasses = Array.from(document.querySelectorAll('.class-checkbox:checked')).map(cb => cb.value);
+    const selectedStudents = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
+    
+    if(!title || selectedClasses.length === 0) { 
+        alert("Title and at least one Target Class are required."); 
+        return; 
+    }
 
-    if(!title || !targetClassId) { alert("Title and Target Class are required."); return; }
+    // Convert arrays to JSON strings so the database can hold them in a single text column
+    const targetClassesJSON = JSON.stringify(selectedClasses);
+    const targetStudentsJSON = JSON.stringify(selectedStudents);
+
+    let finalAudioUrl = '';
 
     try {
         publishBtn.disabled = true;
@@ -252,8 +260,7 @@ window.saveNewAssignment = async function() {
             
             if (!file && !editingAssignmentId) { 
                 alert("Please select an audio file."); 
-                publishBtn.disabled = false; 
-                publishBtn.innerText = 'Publish Assignment'; 
+                publishBtn.disabled = false; publishBtn.innerText = 'Publish Assignment'; 
                 return; 
             }
 
@@ -282,7 +289,12 @@ window.saveNewAssignment = async function() {
 
         if (editingAssignmentId) {
             const { error: updateError } = await sb.from('classcast_assignments').update({
-                title: title, target_class: targetClassText, audio_url: finalAudioUrl, subspark_url: subSpark, transcript: transcript
+                title: title, 
+                target_class: targetClassesJSON, 
+                target_students: targetStudentsJSON, 
+                audio_url: finalAudioUrl, 
+                subspark_url: subSpark, 
+                transcript: transcript
             }).eq('id', editingAssignmentId);
             if(updateError) throw updateError;
             
@@ -290,7 +302,12 @@ window.saveNewAssignment = async function() {
             await sb.from('classcast_questions').delete().eq('assignment_id', newId);
         } else {
             const { data: assignData, error: assignError } = await sb.from('classcast_assignments').insert([{
-                title: title, target_class: targetClassText, audio_url: finalAudioUrl, subspark_url: subSpark, transcript: transcript
+                title: title, 
+                target_class: targetClassesJSON, 
+                target_students: targetStudentsJSON, 
+                audio_url: finalAudioUrl, 
+                subspark_url: subSpark, 
+                transcript: transcript
             }]).select();
             if(assignError) throw assignError;
             newId = assignData[0].id;
@@ -537,13 +554,57 @@ window.addStudentToClass = async function(classId) {
 };
 window.removeStudent = async function(id) { await sb.from('classcast_roster').delete().eq('id', id); loadManageClasses(); };
 
-async function populateClassDropdown(dropdownId) {
-    const select = document.getElementById(dropdownId);
-    if(!select) return;
-    const { data } = await sb.from('classcast_classes').select('*').order('class_name');
-    select.innerHTML = '<option value="">-- Choose Class --</option>';
-    if(data) data.forEach(c => select.innerHTML += `<option value="${c.id}">${c.class_name}</option>`);
-}
+window.populateClassCheckboxes = async function() {
+    const container = document.getElementById('assignmentTargetsContainer');
+    if(!container) return;
+    
+    container.innerHTML = '<p style="margin:0; font-size:0.9rem; color:#666;">Loading classes and rosters...</p>';
+    
+    // Fetch classes and rosters
+    const { data: classes } = await sb.from('classcast_classes').select('*').order('class_name');
+    const { data: rosters } = await sb.from('classcast_roster').select('*');
+    
+    if(!classes || classes.length === 0) {
+        container.innerHTML = '<p style="margin:0; font-size:0.9rem; color:#red;">No classes available. Create one first.</p>';
+        return;
+    }
+
+    let html = '';
+    classes.forEach(cls => {
+        const students = (rosters || []).filter(r => r.class_id === cls.id);
+        
+        html += `
+        <div style="margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
+            <label style="font-weight: bold; cursor: pointer;">
+                <input type="checkbox" class="class-checkbox" value="${cls.class_name}" data-class-id="${cls.id}" onchange="toggleStudentList(${cls.id})"> 
+                ${cls.class_name}
+            </label>
+            <div id="student-list-${cls.id}" style="display: none; margin-top: 5px; padding-left: 20px;">
+                <p style="margin:0 0 5px 0; font-size:0.8rem; font-style:italic;">Select specific students (leave all unchecked to assign to the whole class):</p>
+                ${students.map(s => `
+                    <label style="display:block; font-size:0.85rem; cursor:pointer; margin-bottom:2px;">
+                        <input type="checkbox" class="student-checkbox class-${cls.id}-student" value="${s.student_email}">
+                        ${s.student_email}
+                    </label>
+                `).join('')}
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+};
+
+// Helper function to show/hide the student lists when a class is checked
+window.toggleStudentList = function(classId) {
+    const classCheckbox = document.querySelector(`.class-checkbox[data-class-id="${classId}"]`);
+    const studentListDiv = document.getElementById(`student-list-${classId}`);
+    if (classCheckbox.checked) {
+        studentListDiv.style.display = 'block';
+    } else {
+        studentListDiv.style.display = 'none';
+        // Uncheck all students if the class is unchecked
+        document.querySelectorAll(`.class-${classId}-student`).forEach(cb => cb.checked = false);
+    }
+};
 
 // ================= TEACHER PANEL 4: FILES =================
 async function loadManageFiles() {
@@ -572,9 +633,32 @@ window.loadStudentAssignments = async function() {
     
     if(!classId) { assignSelect.classList.add('hidden'); return; }
 
-    const { data } = await sb.from('classcast_assignments').select('*').eq('target_class', classText);
+    // Fetch ALL assignments and filter them in the browser so we can parse the JSON
+    const { data } = await sb.from('classcast_assignments').select('*');
+    
     assignSelect.innerHTML = '<option value="">-- Choose Assignment --</option>';
-    if(data) data.forEach(d => assignSelect.innerHTML += `<option value="${d.id}">${d.title}</option>`);
+    
+    if(data) {
+        data.forEach(d => {
+            let isTargeted = false;
+            
+            try {
+                // Try to read it as our new Multi-Class JSON format
+                const targetClassesArray = JSON.parse(d.target_class || '[]');
+                if (targetClassesArray.includes(classText)) {
+                    isTargeted = true;
+                }
+            } catch (e) {
+                // Fallback: If JSON parsing fails, it's an old assignment from before the update
+                if (d.target_class === classText) isTargeted = true;
+            }
+
+            // If the student is looking at the right class, we add the assignment
+            if (isTargeted) {
+                assignSelect.innerHTML += `<option value="${d.id}">${d.title}</option>`;
+            }
+        });
+    }
     assignSelect.classList.remove('hidden');
 };
 
