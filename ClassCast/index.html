@@ -93,25 +93,43 @@
                 
                 <div style="display: flex; align-items: center; gap: 12px; background: #f8f9fa; padding: 12px 18px; border-radius: 50px; border: 1px solid #dee2e6; margin: 20px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
                     
-                    <button id="playPauseBtn" onclick="togglePlayPause()" onmouseover="this.style.color='#000'; this.style.borderColor='#000';" onmouseout="this.style.color='#888'; this.style.borderColor='#888';" style="background: transparent; color: #888; border: 2px solid #888; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; outline: none; -webkit-tap-highlight-color: transparent; padding: 0;">
-                        <svg id="playIconSvg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    <button id="playPauseBtn" onclick="togglePlayPause()" onmouseover="this.style.color='#000'; this.style.borderColor='#000';" onmouseout="this.style.color='#888'; this.style.borderColor='#888';" style="background: transparent; color: #888; border: 2px solid #888; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; outline: none; padding: 0;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                     </button>
                     
-                    <button id="rewindBtn" onclick="rewindAudio()" onmouseover="this.style.color='#000'" onmouseout="this.style.color='#888'" style="background: transparent; color: #888; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; transition: 0.2s; outline: none; -webkit-tap-highlight-color: transparent;" title="Rewind 10 Seconds">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <button id="rewindBtn" onclick="rewindAudio()" onmouseover="this.style.color='#000'; this.style.borderColor='#000';" onmouseout="this.style.color='#888'; this.style.borderColor='transparent';" style="background: transparent; color: #888; border: 2px solid transparent; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; outline: none; padding: 0;" title="Rewind 10 Seconds">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M3 11a9 9 0 1 0 9-9 9.05 9.05 0 0 0-8 4"></path>
                             <polyline points="0 2 4 6 8 2"></polyline>
-                            <text x="12" y="16" font-size="8" font-family="sans-serif" font-weight="bold" stroke="none" fill="currentColor" text-anchor="middle">10</text>
+                            <text x="12" y="15.5" font-size="7" font-family="sans-serif" font-weight="bold" stroke="none" fill="currentColor" text-anchor="middle">10</text>
                         </svg>
                     </button>
                     
-                    <span id="currentTimeDisplay" style="font-size: 0.85rem; color: #555; font-family: monospace; min-width: 35px; text-align: right;">0:00</span>
+                    <span id="currentTimeDisplay" style="font-size: 0.9rem; color: #555; font-family: monospace; min-width: 40px; text-align: right;">0:00</span>
                     
                     <input type="range" id="audioScrubber" value="0" min="0" step="1" style="flex: 1; cursor: pointer; margin: 0 5px; outline: none;" oninput="scrubAudio(event)">
                     
-                    <span id="durationDisplay" style="font-size: 0.85rem; color: #555; font-family: monospace; min-width: 35px;">0:00</span>
+                    <span id="durationDisplay" style="font-size: 0.9rem; color: #555; font-family: monospace; min-width: 40px;">0:00</span>
 
-                    <button id="speedToggleBtn" onclick="cycleSpeed()" onmouseover="this.style.color='#000'; this.style.borderColor='#000';" onmouseout="this.style.color='#888'; this.style.borderColor='#dee2e6';" style="background: transparent; border: 1px solid #dee2e6; color: #888; border-radius: 12px; padding: 4px 10px; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: 0.2s; outline: none;">1x</button>
+                    <button id="speedToggleBtn" onclick="cycleSpeed()" onmouseover="this.style.color='#000'; this.style.borderColor='#000';" onmouseout="this.style.color='#888'; this.style.borderColor='#dee2e6';" style="background: transparent; border: 1px solid #dee2e6; color: #888; border-radius: 12px; padding: 4px 10px; font-size: 0.85rem; font-weight: bold; cursor: pointer; transition: 0.2s; outline: none;">1x</button>
+                </div>
+
+                <div id="questionModal" class="hidden" style="margin: 25px 0; border: 3px solid var(--primary); background: #f4f9ff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #ddebf7; padding-bottom: 12px; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="background: var(--primary); color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; font-weight: bold; text-transform: uppercase;">Knowledge Check</span>
+                            <span style="color: #666; font-size: 0.9rem; font-style: italic;">Audio is paused.</span>
+                        </div>
+                        <span style="font-size: 0.85rem; color: #555;">Need to hear it again? Use the Rewind button above! ⏪</span>
+                    </div>
+                    
+                    <h3 id="questionText" style="margin-top: 0; color: #1A1A1B; font-size: 1.2rem;"></h3>
+                    
+                    <div id="questionInteractiveArea" style="margin: 20px 0;">
+                        </div>
+
+                    <button id="submitAnswerBtn" class="action-btn" style="font-size: 1.05rem; padding: 12px 20px; width: 100%;">Submit Answer & Continue ▶</button>
+                    <p id="feedback" style="color: var(--danger); margin-top: 10px; font-weight: 600; text-align: center;"></p>
                 </div>
 
                 <div id="subsparkLinkContainer" class="hidden" style="margin: 15px 0; padding: 15px; background: #e3f2fd; border-left: 4px solid var(--primary); border-radius: 4px;">
@@ -130,17 +148,6 @@
                     <p style="font-size: 0.85rem; color: #555; margin-bottom: 10px;">Review these questions before listening so you know what to listen for!</p>
                     <div id="questionPreviewList" style="font-size: 0.9rem;"></div>
                 </div>
-            </div>
-
-            <div id="questionModal" class="card hidden" style="border-left: 4px solid var(--primary);">
-                <span style="background: var(--primary); color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">Knowledge Check</span>
-                <h3 id="questionText" style="margin-top: 10px;"></h3>
-                
-                <div id="questionInteractiveArea" style="margin: 15px 0;">
-                    </div>
-
-                <button id="submitAnswerBtn" class="action-btn">Submit Answer & Continue</button>
-                <p id="feedback" style="color: var(--danger); margin-top: 10px; font-weight: 600;"></p>
             </div>
         </section>
 
@@ -183,11 +190,12 @@
                             <div id="audioDropboxContainer" class="hidden">
                                 <input type="url" id="newAssignAudioUrl" placeholder="https://www.dropbox.com/s/..." style="margin-bottom: 15px;">
                             </div>
-
+                            
                             <label style="font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 15px 0; background: #f0f2f5; padding: 10px; border-radius: 4px;">
-                                    <input type="checkbox" id="newAssignAllowSpeed" checked>
-                                    Allow students to adjust playback speed
+                                <input type="checkbox" id="newAssignAllowSpeed" checked>
+                                Allow students to adjust playback speed
                             </label>
+
                             <label>Sub-Spark Community Link (Optional)</label>
                             <div style="margin: 15px 0; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: #f9f9f9;">
                                 <input type="hidden" id="existingSubsparkUrl" value="">
