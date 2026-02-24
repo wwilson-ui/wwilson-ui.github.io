@@ -16,6 +16,7 @@ let maxReachedTime = 0;
 let rewindCount = 0; 
 let studentSessionAnswers = {};
 let currentActiveQuestionId = null; 
+let previousTotalTime = 0; // Accumulates active time accurately across sessions
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
@@ -135,6 +136,7 @@ window.rewindAudio = function() {
     player.currentTime = Math.max(0, player.currentTime - 10);
     rewindCount++;
     
+    // Hide the inline question box so they can focus on relistening
     const qModal = document.getElementById('questionModal');
     if(qModal) qModal.classList.add('hidden');
     currentActiveQuestionId = null; 
@@ -165,8 +167,12 @@ window.scrubAudio = function(e) {
 
 function formatTime(seconds) {
     if (isNaN(seconds)) return "0:00";
-    const m = Math.floor(seconds / 60);
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
     const s = Math.floor(seconds % 60);
+    if (h > 0) {
+        return `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+    }
     return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
@@ -902,6 +908,7 @@ window.startAssignment = async function() {
     rewindCount = 0;
     studentSessionAnswers = {};
     currentActiveQuestionId = null; 
+    previousTotalTime = 0; // Reset accumulated time tracker
     
     const subsparkContainer = document.getElementById('subsparkLinkContainer'); 
     if(subsparkContainer) subsparkContainer.classList.add('hidden');
@@ -914,6 +921,7 @@ window.startAssignment = async function() {
         if (progData) {
             maxReachedTime = progData.furthest_second || 0;
             rewindCount = progData.rewind_count || 0;
+            previousTotalTime = progData.total_session_seconds || 0; // Retrieve their historical time spent
             studentSessionAnswers = progData.student_answers || {};
             if (qData) {
                 qData.forEach(q => {
@@ -1085,6 +1093,8 @@ function handleAudioTimeUpdate() {
         }
     }
     
+    // Log progress every 10 seconds normally
+    const currentTime = Math.floor(player.currentTime);
     if(currentTime > 0 && currentTime % 10 === 0) logProgress(currentTime, 'in_progress');
 }
 
@@ -1095,7 +1105,10 @@ function handleAudioComplete() {
 
 async function logProgress(currentSecond, status) {
     if(!currentUser || !currentAssignmentId) return;
-    let totalListenSeconds = sessionStartTime ? Math.floor((new Date() - sessionStartTime) / 1000) : 0;
+    
+    // Calculate total time accurately by accumulating historical time + this specific session's run time
+    let currentSessionTime = sessionStartTime ? Math.floor((new Date() - sessionStartTime) / 1000) : 0;
+    let totalListenSeconds = previousTotalTime + currentSessionTime;
     
     await sb.from('classcast_progress').upsert({ 
         student_email: currentUser.email, 
@@ -1108,6 +1121,7 @@ async function logProgress(currentSecond, status) {
         last_updated: new Date().toISOString() 
     }, { onConflict: 'student_email, assignment_id' });
 }
+
 
 // ================= PHASE 4: FORMATIVE.COM STYLE DASHBOARD =================
 
@@ -1137,9 +1151,11 @@ window.loadAssignmentProgress = async function() {
         return;
     }
 
+    // Fetch the specific questions for this assignment, sorted chronologically
     const { data: qData } = await sb.from('classcast_questions').select('*').eq('assignment_id', assignId).order('trigger_second', { ascending: true });
     currentProgressQuestions = qData || [];
 
+    // Fetch the progress data for all students on this assignment
     const { data: pData } = await sb.from('classcast_progress').select('*').eq('assignment_id', assignId);
     currentProgressData = pData || [];
 
@@ -1156,11 +1172,13 @@ function renderProgressGrid() {
         return;
     }
 
-    // Build Header
+    // Build the dynamic Grid Header
     let headerHtml = `<tr>
         <th style="position: sticky; left: 0; background: #f8f9fa; z-index: 2; border-right: 2px solid #ccc;">Student</th>
         <th>Status</th>
-        <th>Rewinds</th>
+        <th>Audio Reached</th>
+        <th>Total Time Spent</th>
+        <th style="text-align:center;">Rewinds</th>
         <th>Score</th>`;
     
     currentProgressQuestions.forEach((q, i) => {
@@ -1170,7 +1188,7 @@ function renderProgressGrid() {
     headerHtml += `</tr>`;
     thead.innerHTML = headerHtml;
 
-    // Build Body Rows
+    // Build the dynamic Grid Rows
     let bodyHtml = '';
     currentProgressData.forEach(p => {
         let answers = typeof p.student_answers === 'string' ? JSON.parse(p.student_answers || '{}') : (p.student_answers || {});
@@ -1187,10 +1205,16 @@ function renderProgressGrid() {
         });
         
         let scoreText = totalGraded > 0 ? `${Math.round((correctCount/totalGraded)*100)}% (${correctCount}/${totalGraded})` : 'N/A';
+        
+        // Format their time stats beautifully
+        let reachedText = formatTime(p.furthest_second || 0);
+        let timeSpentText = formatTime(p.total_session_seconds || 0);
 
         bodyHtml += `<tr>
             <td style="position: sticky; left: 0; background: #fff; z-index: 1; border-right: 2px solid #ccc;"><strong>${p.student_email.split('@')[0]}</strong></td>
             <td>${p.status === 'completed' ? '✅ Complete' : '🔄 In Progress'}</td>
+            <td style="font-family: monospace;">${reachedText}</td>
+            <td style="font-family: monospace;">${timeSpentText}</td>
             <td style="text-align:center;">${p.rewind_count || 0}</td>
             <td><strong>${scoreText}</strong></td>`;
         
@@ -1199,9 +1223,9 @@ function renderProgressGrid() {
             if (!ansData) {
                 bodyHtml += `<td style="color:#aaa; font-style:italic; background: #f9f9f9;">No Answer</td>`;
             } else {
-                let bgColor = '#fff3e0'; // Yellow/Orange for ungraded open-ended
-                if (ansData.isCorrect === true) bgColor = '#e8f5e9'; // Green
-                else if (ansData.isCorrect === false) bgColor = '#ffebee'; // Red
+                let bgColor = '#fff3e0'; // Yellow for ungraded open-ended
+                if (ansData.isCorrect === true) bgColor = '#e8f5e9'; // Green for correct
+                else if (ansData.isCorrect === false) bgColor = '#ffebee'; // Red for incorrect
 
                 let ansText = Array.isArray(ansData.answer) ? ansData.answer.join(', ') : escapeHTML(ansData.answer);
                 
@@ -1233,12 +1257,13 @@ window.gradeAnswer = async function(email, assignId, questionId, isCorrect) {
     if (!answers[questionId]) answers[questionId] = {};
     answers[questionId].isCorrect = isCorrect;
     
-    pRow.student_answers = answers; // Update local memory
+    pRow.student_answers = answers; // Update the local UI memory
     
+    // Save to database instantly
     await sb.from('classcast_progress').update({ student_answers: answers })
         .eq('student_email', email).eq('assignment_id', assignId);
         
-    renderProgressGrid(); // Re-render instantly
+    renderProgressGrid(); // Re-render the grid so the color instantly changes!
 };
 
 window.exportStudentData = async function() {
@@ -1248,7 +1273,7 @@ window.exportStudentData = async function() {
     const assignDropdown = document.getElementById('progressAssignmentSelect');
     const assignName = assignDropdown.options[assignDropdown.selectedIndex].text;
 
-    let csv = "Student Email,Status,Rewind Count,Score,Total Listen Time";
+    let csv = "Student Email,Status,Audio Reached,Total Time Spent,Rewind Count,Score";
     currentProgressQuestions.forEach((q, i) => {
         csv += `,Q${i+1} (${q.question_type || 'open'})`;
     });
@@ -1267,8 +1292,10 @@ window.exportStudentData = async function() {
         });
         
         let scoreText = totalGraded > 0 ? `${Math.round((correctCount/totalGraded)*100)}%` : 'N/A';
+        let reachedText = formatTime(p.furthest_second || 0);
+        let timeSpentText = formatTime(p.total_session_seconds || 0);
 
-        csv += `"${p.student_email}","${p.status}","${p.rewind_count || 0}","${scoreText}","${p.total_session_seconds || 0}s"`;
+        csv += `"${p.student_email}","${p.status}","${reachedText}","${timeSpentText}","${p.rewind_count || 0}","${scoreText}"`;
         
         currentProgressQuestions.forEach(q => {
             let ansData = answers[q.id];
