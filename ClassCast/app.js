@@ -683,13 +683,14 @@ window.importSelectedClassroom = async function() {
             classRecordId = newClass[0].id;
         }
 
+        // CAPTURES BOTH NAME AND EMAIL
         const rosterInserts = students.map(s => {
-            const email = s.profile.emailAddress;
+            const email = s.profile.emailAddress || '';
             const name = s.profile.name?.fullName || `Unknown Student (${s.profile.id})`;
-            const identifier = email || name; // Secures the email address into the DB
             return {
                 class_id: classRecordId,
-                student_email: identifier
+                student_email: email,
+                student_name: name
             };
         });
 
@@ -757,8 +758,9 @@ window.importFromCSV = async function() {
 
             const headers = splitCSV(rows[0]).map(h => h.toLowerCase());
             
+            let nameIdx = headers.findIndex(h => h.includes('name'));
             let emailIdx = headers.findIndex(h => h.includes('email'));
-            let classIdx = headers.findIndex(h => h.includes('class'));
+            let classIdx = headers.findIndex(h => h.includes('class') || h.includes('period'));
 
             if (emailIdx === -1 || classIdx === -1) {
                 throw new Error("CSV must contain columns explicitly named 'Email' and 'Class'.");
@@ -769,11 +771,12 @@ window.importFromCSV = async function() {
             let parsedData = [];
             for (let i = 1; i < rows.length; i++) {
                 const cols = splitCSV(rows[i]);
+                let rowName = nameIdx !== -1 ? cols[nameIdx] : '';
                 let rowEmail = cols[emailIdx];
                 let rowClass = cols[classIdx];
                 
                 if (rowEmail && rowClass) {
-                    parsedData.push({ email: rowEmail, className: rowClass });
+                    parsedData.push({ name: rowName, email: rowEmail, className: rowClass });
                 }
             }
 
@@ -796,9 +799,11 @@ window.importFromCSV = async function() {
                 }
             }
 
+            // CAPTURES BOTH NAME AND EMAIL FROM CSV
             const rosterInserts = parsedData.map(d => ({
                 class_id: classMap[d.className],
-                student_email: d.email
+                student_email: d.email,
+                student_name: d.name || d.email.split('@')[0]
             }));
 
             const { data: existingRosters, error: rosterFetchErr } = await sb.from('classcast_roster').select('*');
@@ -860,8 +865,10 @@ async function loadManageClasses() {
         let studentRows = students.length === 0 
             ? '<tr><td colspan="3" style="text-align:center; color:#666; padding: 15px;">No students added yet.</td></tr>'
             : students.map(s => {
-                const isRealEmail = s.student_email.includes('@');
-                const name = isRealEmail ? s.student_email.split('@')[0] : `<strong>${s.student_email}</strong>`;
+                const isRealEmail = s.student_email && s.student_email.includes('@');
+                
+                // DISPLAYS THE NEW DB NAME IF AVAILABLE, OTHERWISE FALLS BACK TO EMAIL PREFIX
+                let name = s.student_name ? s.student_name : (isRealEmail ? s.student_email.split('@')[0] : `<strong>${s.student_email}</strong>`);
                 
                 const emailDisplay = isRealEmail 
                     ? `<span style="color:#555;">${s.student_email}</span>` 
@@ -869,7 +876,7 @@ async function loadManageClasses() {
 
                 return `
                 <tr>
-                    <td style="padding: 10px;">${name}</td>
+                    <td style="padding: 10px;"><strong>${name}</strong></td>
                     <td style="padding: 10px;">${emailDisplay}</td>
                     <td style="text-align:center; padding: 10px;">
                         <button class="danger-btn" onclick="removeStudent(${s.id})" style="padding:6px 12px; font-size:0.75rem;">Remove</button>
@@ -885,7 +892,8 @@ async function loadManageClasses() {
             </div>
             
             <div style="margin-top: 15px; display:flex; gap:10px;">
-                <input type="email" id="addStudent_${cls.id}" placeholder="Type student email here to add manually..." style="margin:0; flex:1; padding: 10px;">
+                <input type="text" id="addStudentName_${cls.id}" placeholder="Name (e.g. John Doe)" style="margin:0; flex:1; padding: 10px;">
+                <input type="email" id="addStudentEmail_${cls.id}" placeholder="Email (jdoe@...)" style="margin:0; flex:1; padding: 10px;">
                 <button class="action-btn" onclick="addStudentToClass(${cls.id})">Add Student</button>
             </div>
             
@@ -919,10 +927,12 @@ window.deleteClass = async function(id) {
     if(confirm("Delete this class? This removes the roster too.")) { await sb.from('classcast_classes').delete().eq('id', id); loadManageClasses(); }
 };
 window.addStudentToClass = async function(classId) {
-    const email = document.getElementById(`addStudent_${classId}`).value;
+    const name = document.getElementById(`addStudentName_${classId}`).value;
+    const email = document.getElementById(`addStudentEmail_${classId}`).value;
     if(!email) return;
-    await sb.from('classcast_roster').insert([{ class_id: classId, student_email: email }]);
-    document.getElementById(`addStudent_${classId}`).value = '';
+    await sb.from('classcast_roster').insert([{ class_id: classId, student_name: name, student_email: email }]);
+    document.getElementById(`addStudentName_${classId}`).value = '';
+    document.getElementById(`addStudentEmail_${classId}`).value = '';
     loadManageClasses();
 };
 window.removeStudent = async function(id) { await sb.from('classcast_roster').delete().eq('id', id); loadManageClasses(); };
@@ -956,7 +966,7 @@ window.populateClassCheckboxes = async function() {
                 ${students.map(s => `
                     <label style="display:block; font-size:0.85rem; cursor:pointer; margin-bottom:2px;">
                         <input type="checkbox" class="student-checkbox class-${cls.id}-student" value="${s.student_email}">
-                        ${s.student_email}
+                        ${s.student_name ? s.student_name : s.student_email}
                     </label>
                 `).join('')}
             </div>
@@ -992,9 +1002,8 @@ window.deleteFile = async function(fileName) {
 };
 
 
-// ================= NEW REDESIGNED STUDENT PORTAL =================
+// ================= STUDENT PORTAL =================
 
-// NEW HELPER: Fetch ONLY the class names the logged-in student belongs to
 async function getStudentClassNames() {
     if (!currentUser || !currentUser.email) return [];
     
@@ -1012,7 +1021,6 @@ async function loadStudentClasses() {
     const select = document.getElementById('studentClassFilter');
     if (!select) return;
     
-    // Clear dropdown and inject "All Classes" hub + specific enrolled classes
     select.innerHTML = '<option value="all">My Assignments (All Classes)</option>';
     classNames.forEach(name => {
         select.innerHTML += `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`;
@@ -1074,14 +1082,12 @@ window.loadStudentAssignments = async function() {
                 assignmentClasses = [d.target_class];
             }
 
-            // FILTER: If Hub View ("all"), show if it matches ANY enrolled class. Otherwise, match the SPECIFIC dropdown class.
             if (selectedValue === 'all') {
                 isTargeted = assignmentClasses.some(className => studentClassNames.includes(className));
             } else {
                 isTargeted = assignmentClasses.includes(selectedValue);
             }
 
-            // Exclude if student is specifically left off a targeted list
             try {
                 const targetStudentsArray = JSON.parse(d.target_students || '[]');
                 if (targetStudentsArray.length > 0 && currentUser && !targetStudentsArray.includes(currentUser.email)) {
@@ -1097,7 +1103,6 @@ window.loadStudentAssignments = async function() {
                 if (prog && prog.status === 'completed') { btnText = 'Review Assignment'; btnColor = 'var(--success)'; }
                 else if (prog) { btnText = 'Continue Listening'; btnColor = '#f4b400'; }
 
-                // Inject a badge showing the Class Name if we are on the "All Classes" Hub view
                 let classBadge = selectedValue === 'all' 
                     ? `<span style="background: #eee; color: #555; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin-right: 10px;">${assignmentClasses.filter(c => studentClassNames.includes(c)).join(', ')}</span>` 
                     : '';
@@ -1394,6 +1399,15 @@ window.loadAssignmentProgress = async function() {
     const { data: pData } = await sb.from('classcast_progress').select('*').eq('assignment_id', assignId);
     currentProgressData = pData || [];
 
+    // GRAB THE NAMES MAP FOR THE DASHBOARD
+    const { data: rosterData } = await sb.from('classcast_roster').select('student_email, student_name');
+    window.currentRosterMap = {};
+    if (rosterData) {
+        rosterData.forEach(r => { 
+            if (r.student_name) window.currentRosterMap[r.student_email] = r.student_name; 
+        });
+    }
+
     renderProgressGrid();
 };
 
@@ -1442,9 +1456,12 @@ function renderProgressGrid() {
         let reachedText = formatTime(p.furthest_second || 0);
         let timeSpentText = formatTime(p.total_session_seconds || 0);
 
+        // USES THE FULL NAME IF AVAILABLE
+        let displayName = window.currentRosterMap[p.student_email] || p.student_email.split('@')[0];
+
         bodyHtml += `<tr>
             <td style="position: sticky; left: 0; background: #fff; z-index: 1; border-right: 2px solid #ccc;">
-                <strong>${p.student_email.split('@')[0]}</strong>
+                <strong>${displayName}</strong>
                 <div style="font-size: 0.75rem; color: #888;">${p.student_email}</div>
             </td>
             <td>${p.status === 'completed' ? '✅ Complete' : '🔄 In Progress'}</td>
@@ -1514,7 +1531,7 @@ window.exportStudentData = async function() {
     const assignDropdown = document.getElementById('progressAssignmentSelect');
     const assignName = assignDropdown.options[assignDropdown.selectedIndex].text;
 
-    let csv = "Student Username,Student Email,Status,Audio Reached,Total Time Spent,Rewind Count,Score";
+    let csv = "Student Name,Student Email,Status,Audio Reached,Total Time Spent,Rewind Count,Score";
     currentProgressQuestions.forEach((q, i) => {
         csv += `,Q${i+1} (${q.question_type || 'open'})`;
     });
@@ -1536,7 +1553,9 @@ window.exportStudentData = async function() {
         let reachedText = formatTime(p.furthest_second || 0);
         let timeSpentText = formatTime(p.total_session_seconds || 0);
 
-        csv += `"${p.student_email.split('@')[0]}","${p.student_email}","${p.status}","${reachedText}","${timeSpentText}","${p.rewind_count || 0}","${scoreText}"`;
+        let displayName = window.currentRosterMap[p.student_email] || p.student_email.split('@')[0];
+
+        csv += `"${displayName}","${p.student_email}","${p.status}","${reachedText}","${timeSpentText}","${p.rewind_count || 0}","${scoreText}"`;
         
         currentProgressQuestions.forEach(q => {
             let ansData = answers[q.id];
