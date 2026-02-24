@@ -51,7 +51,7 @@
         .admin-nav-btn { background: transparent; color: #444; border: none; padding: 12px; border-radius: 4px; cursor: pointer; text-align: left; font-weight: 600; font-size: 1rem; transition: background 0.2s; }
         .admin-nav-btn:hover { background: #f0f2f5; }
         .admin-nav-btn.active { background: #e3f2fd; color: var(--primary); }
-        .admin-content { flex: 1; }
+        .admin-content { flex: 1; min-width: 0; /* Ensures the grid container doesn't blow out the page width */ }
         .admin-panel { display: none; }
         .admin-panel.active { display: block; }
     </style>
@@ -248,22 +248,21 @@
 
                     <div id="admin-progress" class="admin-panel">
                         <div class="card" style="margin-top:0;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <h2 style="margin: 0;">Student Progress Tracking</h2>
-                                <button id="exportCsvBtn" class="action-btn" onclick="exportStudentData()">📥 Export CSV</button>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h2 style="margin: 0;">Student Progress & Grading</h2>
+                                <button id="exportCsvBtn" class="action-btn" onclick="exportStudentData()">📥 Export Grid to CSV</button>
                             </div>
-                            <div style="overflow-x: auto;">
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>Assignment</th>
-                                            <th>Student Email</th>
-                                            <th>Status</th>
-                                            <th>Total Listen Time</th>
-                                        </tr>
+                            
+                            <select id="progressAssignmentSelect" onchange="loadAssignmentProgress()" style="max-width: 400px; margin-bottom: 20px;">
+                                <option value="">-- Select an Assignment to View Data --</option>
+                            </select>
+
+                            <div style="overflow-x: auto; max-height: 600px; border: 1px solid #dee2e6; border-radius: 4px;">
+                                <table style="width: 100%; white-space: nowrap; margin-top: 0;">
+                                    <thead id="progressTableHeader">
+                                        <tr><th style="padding: 20px; text-align: center; color: #666;">Please select an assignment above.</th></tr>
                                     </thead>
-                                    <tbody id="teacherProgressTable">
-                                        <tr><td colspan="4" style="text-align:center;">Loading data...</td></tr>
+                                    <tbody id="progressTableBody">
                                     </tbody>
                                 </table>
                             </div>
