@@ -24,7 +24,9 @@
         .google-btn { display: flex; align-items: center; gap: 10px; background: white; color: #333; border: 1px solid #ccc; padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer; }
         .logout-btn { background: #eee; border: 1px solid #ccc; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
         
-        .app-container { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+        /* WIDENED DASHBOARD CONTAINER */
+        .app-container { max-width: 1400px; margin: 40px auto; padding: 0 20px; }
+        
         .view-section { display: none; } 
         .card { background: var(--bg-card); padding: 25px; border-radius: 8px; border: 1px solid #dee2e6; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
         
@@ -51,7 +53,7 @@
         .admin-nav-btn { background: transparent; color: #444; border: none; padding: 12px; border-radius: 4px; cursor: pointer; text-align: left; font-weight: 600; font-size: 1rem; transition: background 0.2s; }
         .admin-nav-btn:hover { background: #f0f2f5; }
         .admin-nav-btn.active { background: #e3f2fd; color: var(--primary); }
-        .admin-content { flex: 1; min-width: 0; /* Ensures the grid container doesn't blow out the page width */ }
+        .admin-content { flex: 1; min-width: 0; }
         .admin-panel { display: none; }
         .admin-panel.active { display: block; }
     </style>
