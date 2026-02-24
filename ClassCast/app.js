@@ -42,8 +42,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         player.addEventListener('seeking', () => { 
             if(player.currentTime > maxReachedTime + 1) player.currentTime = maxReachedTime; 
         });
-        const playSVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
-        const pauseSVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
+        
+        const playSVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+        const pauseSVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
         
         player.addEventListener('play', () => { 
             if(!sessionStartTime) sessionStartTime = new Date(); 
@@ -132,6 +133,10 @@ window.rewindAudio = function() {
     const player = document.getElementById('audioPlayer');
     player.currentTime = Math.max(0, player.currentTime - 10);
     rewindCount++;
+    
+    // Hide the inline question box so they can focus on relistening
+    const qModal = document.getElementById('questionModal');
+    if(qModal) qModal.classList.add('hidden');
 };
 
 const playSpeeds = [1, 1.25, 1.5, 0.75];
@@ -151,6 +156,9 @@ window.scrubAudio = function(e) {
         e.target.value = maxReachedTime;
     }
     player.currentTime = targetTime;
+    
+    const qModal = document.getElementById('questionModal');
+    if(qModal) qModal.classList.add('hidden');
 };
 
 function formatTime(seconds) {
@@ -956,7 +964,9 @@ window.startAssignment = async function() {
     
     document.getElementById('audioScrubber').value = 0;
     document.getElementById('currentTimeDisplay').innerText = "0:00";
-    document.getElementById('playPauseBtn').innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+    
+    // Reset play button to default SVG
+    document.getElementById('playPauseBtn').innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
     
     audioPlayer.load();
 
