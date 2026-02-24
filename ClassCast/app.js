@@ -15,7 +15,7 @@ let editingAssignmentId = null;
 let maxReachedTime = 0; 
 let rewindCount = 0; 
 let studentSessionAnswers = {};
-let currentActiveQuestionId = null; // BUG FIX: Stops text box from being overwritten
+let currentActiveQuestionId = null; 
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
@@ -135,10 +135,9 @@ window.rewindAudio = function() {
     player.currentTime = Math.max(0, player.currentTime - 10);
     rewindCount++;
     
-    // Hide the inline question box so they can focus on relistening
     const qModal = document.getElementById('questionModal');
     if(qModal) qModal.classList.add('hidden');
-    currentActiveQuestionId = null; // Unlocks the question pop-up for when they reach it again
+    currentActiveQuestionId = null; 
 };
 
 const playSpeeds = [1, 1.25, 1.5, 0.75];
@@ -161,7 +160,7 @@ window.scrubAudio = function(e) {
     
     const qModal = document.getElementById('questionModal');
     if(qModal) qModal.classList.add('hidden');
-    currentActiveQuestionId = null; // Unlocks question popup 
+    currentActiveQuestionId = null;  
 };
 
 function formatTime(seconds) {
@@ -261,7 +260,6 @@ window.addQuestionRow = function(type, qData = null) {
 
     let bodyHtml = '';
 
-    // BUG FIX: The try/catch ensures Supabase doesn't crash the loop when loading MC or TF answers
     let parsedOptions = null;
     let parsedCorrectAnswer = null;
     if (qData) {
@@ -397,7 +395,6 @@ window.cancelEdit = function() {
     document.getElementById('newAssignTranscript').value = '';
     document.getElementById('questionsBuilderList').innerHTML = '';
     
-    // Sub-spark Resets
     let existingSpark = document.getElementById('existingSubsparkUrl');
     if (existingSpark) existingSpark.value = '';
     document.getElementById('autoCreateSubspark').checked = false;
@@ -597,35 +594,6 @@ window.deleteAssignment = async function(id) {
     if(!confirm("Delete this assignment?")) return;
     await sb.from('classcast_assignments').delete().eq('id', id);
     loadTeacherAssignments();
-};
-
-// ================= TEACHER PANEL 2: PROGRESS =================
-async function loadTeacherProgress() {
-    const tbody = document.getElementById('teacherProgressTable');
-    const { data: assignments } = await sb.from('classcast_assignments').select('id, title');
-    const { data: progress } = await sb.from('classcast_progress').select('*');
-    
-    if(!assignments || assignments.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No data.</td></tr>'; return; }
-
-    let html = '';
-    assignments.forEach(a => {
-        const studentRows = (progress || []).filter(p => p.assignment_id === a.id);
-        if(studentRows.length > 0) {
-            studentRows.forEach((p, index) => {
-                const statusBadge = p.status === 'completed' ? '<span style="color:green;font-weight:bold;">Completed</span>' : 'In Progress';
-                html += `<tr><td>${index === 0 ? `<strong>${a.title}</strong>` : ''}</td><td>${p.student_email}</td><td>${statusBadge}</td><td>${p.total_session_seconds || 0}s</td></tr>`;
-            });
-        }
-    });
-    tbody.innerHTML = html || '<tr><td colspan="4" style="text-align:center;">No progress logged yet.</td></tr>';
-}
-
-window.exportStudentData = async function() {
-    const { data } = await sb.from('classcast_progress').select(`student_email, furthest_second, total_session_seconds, status, classcast_assignments ( title )`);
-    if (!data) return alert("No data");
-    let csv = "data:text/csv;charset=utf-8,Assignment,Email,Furthest Second,Total Time,Status\n";
-    data.forEach(r => csv += `"${r.classcast_assignments?.title || 'Unknown'}",${r.student_email},${r.furthest_second||0},${r.total_session_seconds||0},${r.status}\n`);
-    const link = document.createElement("a"); link.setAttribute("href", encodeURI(csv)); link.setAttribute("download", "Progress.csv"); document.body.appendChild(link); link.click();
 };
 
 // ================= TEACHER PANEL 3: CLASSES & GOOGLE CLASSROOM =================
@@ -978,12 +946,10 @@ window.startAssignment = async function() {
     document.getElementById('audioScrubber').value = 0;
     document.getElementById('currentTimeDisplay').innerText = "0:00";
     
-    // Reset play button to default SVG
     document.getElementById('playPauseBtn').innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
     
     audioPlayer.load();
 
-    // Generate Question Preview
     let previewHtml = '';
     activeQuestions.sort((a,b) => a.trigger_second - b.trigger_second).forEach((q, index) => {
         let typeLabel = q.question_type === 'mc' ? '[Multiple Choice]' : q.question_type === 'tf' ? '[True/False]' : q.question_type === 'match' ? '[Matching]' : '[Open-Ended]';
@@ -1013,14 +979,11 @@ function handleAudioTimeUpdate() {
     if(scrubber) scrubber.value = Math.floor(player.currentTime);
     if(timeDisplay) timeDisplay.innerText = formatTime(player.currentTime);
 
-    // ==========================================
-    // BUG FIX 1: THE ACTIVE QUESTION LOCK
-    // ==========================================
     const passedQuestion = activeQuestions.find(q => player.currentTime >= q.trigger_second && !answeredCheckpoints.includes(q.id));
     
     if (passedQuestion) {
         if (currentActiveQuestionId !== passedQuestion.id) {
-            currentActiveQuestionId = passedQuestion.id; // Lock it so it doesn't delete the text box!
+            currentActiveQuestionId = passedQuestion.id; 
             player.pause();
             player.currentTime = passedQuestion.trigger_second; 
             
@@ -1030,7 +993,6 @@ function handleAudioTimeUpdate() {
             
             let qType = passedQuestion.question_type || 'open';
             
-            // Safe JSON fallback for reading student questions
             let options = {};
             if (typeof passedQuestion.options === 'object' && passedQuestion.options !== null) {
                 options = passedQuestion.options;
@@ -1110,7 +1072,7 @@ function handleAudioTimeUpdate() {
                     answeredCheckpoints.push(passedQuestion.id); 
                     studentSessionAnswers[passedQuestion.id] = { answer: studentAns, isCorrect: isCorrect, type: qType };
                     
-                    currentActiveQuestionId = null; // Unlocks for the next question
+                    currentActiveQuestionId = null; 
                     player.play(); 
                     
                     logProgress(Math.floor(player.currentTime), 'in_progress');
@@ -1119,7 +1081,6 @@ function handleAudioTimeUpdate() {
                 }
             };
         } else {
-            // Keep the audio paused while they type!
             if (!player.paused) player.pause();
         }
     }
@@ -1147,3 +1108,183 @@ async function logProgress(currentSecond, status) {
         last_updated: new Date().toISOString() 
     }, { onConflict: 'student_email, assignment_id' });
 }
+
+// ================= PHASE 4: FORMATIVE.COM STYLE DASHBOARD =================
+
+let currentProgressData = [];
+let currentProgressQuestions = [];
+
+async function loadTeacherProgress() {
+    const select = document.getElementById('progressAssignmentSelect');
+    const { data } = await sb.from('classcast_assignments').select('id, title').order('created_at', { ascending: false });
+    
+    select.innerHTML = '<option value="">-- Select an Assignment to View Data --</option>';
+    if(data) {
+        data.forEach(a => {
+            select.innerHTML += `<option value="${a.id}">${a.title}</option>`;
+        });
+    }
+    
+    document.getElementById('progressTableHeader').innerHTML = '<tr><th style="padding: 20px; text-align: center; color: #666;">Please select an assignment above.</th></tr>';
+    document.getElementById('progressTableBody').innerHTML = '';
+}
+
+window.loadAssignmentProgress = async function() {
+    const assignId = document.getElementById('progressAssignmentSelect').value;
+    if(!assignId) {
+        document.getElementById('progressTableHeader').innerHTML = '<tr><th style="padding: 20px; text-align: center; color: #666;">Please select an assignment above.</th></tr>';
+        document.getElementById('progressTableBody').innerHTML = '';
+        return;
+    }
+
+    const { data: qData } = await sb.from('classcast_questions').select('*').eq('assignment_id', assignId).order('trigger_second', { ascending: true });
+    currentProgressQuestions = qData || [];
+
+    const { data: pData } = await sb.from('classcast_progress').select('*').eq('assignment_id', assignId);
+    currentProgressData = pData || [];
+
+    renderProgressGrid();
+};
+
+function renderProgressGrid() {
+    const thead = document.getElementById('progressTableHeader');
+    const tbody = document.getElementById('progressTableBody');
+
+    if (currentProgressData.length === 0) {
+        thead.innerHTML = '<tr><th style="padding: 20px; text-align: center; color: #666;">No student data found for this assignment yet.</th></tr>';
+        tbody.innerHTML = '';
+        return;
+    }
+
+    // Build Header
+    let headerHtml = `<tr>
+        <th style="position: sticky; left: 0; background: #f8f9fa; z-index: 2; border-right: 2px solid #ccc;">Student</th>
+        <th>Status</th>
+        <th>Rewinds</th>
+        <th>Score</th>`;
+    
+    currentProgressQuestions.forEach((q, i) => {
+        let typeLabel = q.question_type ? q.question_type.toUpperCase() : 'OPEN';
+        headerHtml += `<th style="min-width: 200px;">Q${i+1} (${typeLabel})<br><span style="font-size:0.75rem; font-weight:normal; color:#666;">@ ${q.trigger_second}s</span></th>`;
+    });
+    headerHtml += `</tr>`;
+    thead.innerHTML = headerHtml;
+
+    // Build Body Rows
+    let bodyHtml = '';
+    currentProgressData.forEach(p => {
+        let answers = typeof p.student_answers === 'string' ? JSON.parse(p.student_answers || '{}') : (p.student_answers || {});
+        
+        let correctCount = 0;
+        let totalGraded = 0;
+        
+        currentProgressQuestions.forEach(q => {
+            let ansData = answers[q.id];
+            if (ansData) {
+                if (ansData.isCorrect === true) correctCount++;
+                if (ansData.isCorrect === true || ansData.isCorrect === false) totalGraded++; 
+            }
+        });
+        
+        let scoreText = totalGraded > 0 ? `${Math.round((correctCount/totalGraded)*100)}% (${correctCount}/${totalGraded})` : 'N/A';
+
+        bodyHtml += `<tr>
+            <td style="position: sticky; left: 0; background: #fff; z-index: 1; border-right: 2px solid #ccc;"><strong>${p.student_email.split('@')[0]}</strong></td>
+            <td>${p.status === 'completed' ? '✅ Complete' : '🔄 In Progress'}</td>
+            <td style="text-align:center;">${p.rewind_count || 0}</td>
+            <td><strong>${scoreText}</strong></td>`;
+        
+        currentProgressQuestions.forEach(q => {
+            let ansData = answers[q.id];
+            if (!ansData) {
+                bodyHtml += `<td style="color:#aaa; font-style:italic; background: #f9f9f9;">No Answer</td>`;
+            } else {
+                let bgColor = '#fff3e0'; // Yellow/Orange for ungraded open-ended
+                if (ansData.isCorrect === true) bgColor = '#e8f5e9'; // Green
+                else if (ansData.isCorrect === false) bgColor = '#ffebee'; // Red
+
+                let ansText = Array.isArray(ansData.answer) ? ansData.answer.join(', ') : escapeHTML(ansData.answer);
+                
+                let gradingButtons = '';
+                if ((q.question_type || 'open') === 'open') {
+                    gradingButtons = `<div style="margin-top: 8px; display:flex; gap: 5px;">
+                        <button onclick="gradeAnswer('${p.student_email}', ${p.assignment_id}, ${q.id}, true)" style="background:#1e8e3e; color:white; border:none; border-radius:3px; cursor:pointer; font-size:0.75rem; padding:4px 8px;">✅ Correct</button>
+                        <button onclick="gradeAnswer('${p.student_email}', ${p.assignment_id}, ${q.id}, false)" style="background:#c62828; color:white; border:none; border-radius:3px; cursor:pointer; font-size:0.75rem; padding:4px 8px;">❌ Incorrect</button>
+                    </div>`;
+                }
+
+                bodyHtml += `<td style="background-color: ${bgColor}; white-space: normal; word-wrap: break-word;">
+                    <div style="font-size: 0.9rem;">${ansText}</div>
+                    ${gradingButtons}
+                </td>`;
+            }
+        });
+        bodyHtml += `</tr>`;
+    });
+    tbody.innerHTML = bodyHtml;
+}
+
+window.gradeAnswer = async function(email, assignId, questionId, isCorrect) {
+    let pRow = currentProgressData.find(p => p.student_email === email && p.assignment_id === assignId);
+    if (!pRow) return;
+    
+    let answers = typeof pRow.student_answers === 'string' ? JSON.parse(pRow.student_answers || '{}') : (pRow.student_answers || {});
+    
+    if (!answers[questionId]) answers[questionId] = {};
+    answers[questionId].isCorrect = isCorrect;
+    
+    pRow.student_answers = answers; // Update local memory
+    
+    await sb.from('classcast_progress').update({ student_answers: answers })
+        .eq('student_email', email).eq('assignment_id', assignId);
+        
+    renderProgressGrid(); // Re-render instantly
+};
+
+window.exportStudentData = async function() {
+    const assignId = document.getElementById('progressAssignmentSelect').value;
+    if (!assignId) return alert("Please select an assignment from the dropdown first to export its detailed data.");
+    
+    const assignDropdown = document.getElementById('progressAssignmentSelect');
+    const assignName = assignDropdown.options[assignDropdown.selectedIndex].text;
+
+    let csv = "Student Email,Status,Rewind Count,Score,Total Listen Time";
+    currentProgressQuestions.forEach((q, i) => {
+        csv += `,Q${i+1} (${q.question_type || 'open'})`;
+    });
+    csv += "\n";
+
+    currentProgressData.forEach(p => {
+        let answers = typeof p.student_answers === 'string' ? JSON.parse(p.student_answers || '{}') : (p.student_answers || {});
+        let correctCount = 0; let totalGraded = 0;
+        
+        currentProgressQuestions.forEach(q => {
+            let ansData = answers[q.id];
+            if (ansData && (ansData.isCorrect === true || ansData.isCorrect === false)) {
+                if (ansData.isCorrect === true) correctCount++;
+                totalGraded++;
+            }
+        });
+        
+        let scoreText = totalGraded > 0 ? `${Math.round((correctCount/totalGraded)*100)}%` : 'N/A';
+
+        csv += `"${p.student_email}","${p.status}","${p.rewind_count || 0}","${scoreText}","${p.total_session_seconds || 0}s"`;
+        
+        currentProgressQuestions.forEach(q => {
+            let ansData = answers[q.id];
+            if (!ansData) {
+                csv += `,"No Answer"`;
+            } else {
+                let ansText = Array.isArray(ansData.answer) ? ansData.answer.join(', ') : escapeHTML(ansData.answer);
+                let gradeStr = ansData.isCorrect === true ? ' [Correct]' : (ansData.isCorrect === false ? ' [Incorrect]' : ' [Ungraded]');
+                csv += `,"${ansText.replace(/"/g, '""')}${gradeStr}"`;
+            }
+        });
+        csv += "\n";
+    });
+
+    const link = document.createElement("a"); 
+    link.setAttribute("href", encodeURI("data:text/csv;charset=utf-8," + csv)); 
+    link.setAttribute("download", `ClassCast_${assignName.replace(/[^a-z0-9]/gi, '_')}.csv`); 
+    document.body.appendChild(link); link.click();
+};
