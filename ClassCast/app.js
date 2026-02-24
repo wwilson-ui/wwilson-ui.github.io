@@ -214,7 +214,6 @@ async function checkUser() {
 }
 
 window.signIn = async function() { 
-    // ADDED NEW GOOGLE SCOPE HERE FOR EXPLICIT EMAIL PERMISSIONS
     await sb.auth.signInWithOAuth({ 
         provider: 'google', 
         options: { 
@@ -715,6 +714,7 @@ window.importSelectedClassroom = async function() {
     }
 };
 
+// ================= REDESIGNED MANAGE CLASSES GRID =================
 async function loadManageClasses() {
     const container = document.getElementById('classesListContainer');
     container.innerHTML = '<p>Loading classes...</p>';
@@ -727,20 +727,50 @@ async function loadManageClasses() {
     let html = '';
     classes.forEach(cls => {
         const students = (rosters || []).filter(r => r.class_id === cls.id);
+        
+        // Build the sleek student table rows
+        let studentRows = students.length === 0 
+            ? '<tr><td colspan="3" style="text-align:center; color:#666; padding: 15px;">No students added yet.</td></tr>'
+            : students.map(s => {
+                const emailParts = s.student_email.split('@');
+                const name = emailParts[0]; // Extracts 'jsmith' from 'jsmith@school.org'
+                const email = s.student_email;
+                return `
+                <tr>
+                    <td style="padding: 10px;"><strong>${name}</strong></td>
+                    <td style="color:#555; padding: 10px;">${email}</td>
+                    <td style="text-align:center; padding: 10px;">
+                        <button class="danger-btn" onclick="removeStudent(${s.id})" style="padding:6px 12px; font-size:0.75rem;">Remove</button>
+                    </td>
+                </tr>`;
+            }).join('');
+
         html += `
-        <div class="card" style="margin-bottom: 15px; padding: 15px;">
+        <div class="card" style="margin-bottom: 25px; padding: 20px; border: 1px solid #dee2e6;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="margin:0; color:var(--primary);">${cls.class_name}</h3>
+                <h3 style="margin:0; color:var(--primary); font-size: 1.3rem;">${cls.class_name}</h3>
                 <button class="danger-btn" onclick="deleteClass(${cls.id})">Delete Class</button>
             </div>
+            
             <div style="margin-top: 15px; display:flex; gap:10px;">
-                <input type="email" id="addStudent_${cls.id}" placeholder="Student Email" style="margin:0;">
+                <input type="email" id="addStudent_${cls.id}" placeholder="Type student email here to add manually..." style="margin:0; flex:1; padding: 10px;">
                 <button class="action-btn" onclick="addStudentToClass(${cls.id})">Add Student</button>
             </div>
-            <ul style="margin-top: 15px; padding-left: 20px;">
-                ${students.length === 0 ? '<li style="color:#666; font-size:0.9rem;">No students added.</li>' : 
-                  students.map(s => `<li>${s.student_email} <button onclick="removeStudent(${s.id})" style="background:none; border:none; color:red; cursor:pointer; font-size:0.8rem; margin-left:10px;">[remove]</button></li>`).join('')}
-            </ul>
+            
+            <div style="margin-top: 20px; border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden;">
+                <table style="margin-top: 0; width: 100%; border-collapse: collapse; white-space: nowrap;">
+                    <thead style="background: #f8f9fa;">
+                        <tr>
+                            <th style="border-bottom: 2px solid #dee2e6; padding: 12px; text-align: left;">Student Name</th>
+                            <th style="border-bottom: 2px solid #dee2e6; padding: 12px; text-align: left;">Student Email</th>
+                            <th style="border-bottom: 2px solid #dee2e6; padding: 12px; text-align: center; width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${studentRows}
+                    </tbody>
+                </table>
+            </div>
         </div>`;
     });
     container.innerHTML = html;
@@ -1319,7 +1349,6 @@ window.exportStudentData = async function() {
     const assignDropdown = document.getElementById('progressAssignmentSelect');
     const assignName = assignDropdown.options[assignDropdown.selectedIndex].text;
 
-    // Added explicit Username and Email columns
     let csv = "Student Username,Student Email,Status,Audio Reached,Total Time Spent,Rewind Count,Score";
     currentProgressQuestions.forEach((q, i) => {
         csv += `,Q${i+1} (${q.question_type || 'open'})`;
@@ -1342,7 +1371,6 @@ window.exportStudentData = async function() {
         let reachedText = formatTime(p.furthest_second || 0);
         let timeSpentText = formatTime(p.total_session_seconds || 0);
 
-        // Separating username and email
         csv += `"${p.student_email.split('@')[0]}","${p.student_email}","${p.status}","${reachedText}","${timeSpentText}","${p.rewind_count || 0}","${scoreText}"`;
         
         currentProgressQuestions.forEach(q => {
@@ -1354,21 +1382,18 @@ window.exportStudentData = async function() {
                 if (q.question_type === 'mc') {
                     let opts = typeof q.options === 'string' ? JSON.parse(q.options || '{}') : (q.options || {});
                     let letter = ansData.answer;
-                    // Resolves "a" to "A: The correct choice text"
                     ansText = letter ? `${letter.toUpperCase()}: ${opts[letter] || ''}` : 'No Answer';
                 } else {
                     ansText = Array.isArray(ansData.answer) ? ansData.answer.join(', ') : (ansData.answer || '');
                 }
                 
                 let gradeStr = ansData.isCorrect === true ? ' [Correct]' : (ansData.isCorrect === false ? ' [Incorrect]' : ' [Ungraded]');
-                // Wraps in quotes and escapes internal quotes for CSV safety
                 csv += `,"${String(ansText).replace(/"/g, '""')}${gradeStr}"`;
             }
         });
         csv += "\n";
     });
 
-    // Uses Blob to safely export without the browser truncating hashtags (#)
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
