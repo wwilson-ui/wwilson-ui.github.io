@@ -715,6 +715,7 @@ window.importSelectedClassroom = async function() {
 };
 
 // ================= REDESIGNED MANAGE CLASSES GRID =================
+// ================= REDESIGNED MANAGE CLASSES GRID =================
 async function loadManageClasses() {
     const container = document.getElementById('classesListContainer');
     container.innerHTML = '<p>Loading classes...</p>';
@@ -728,17 +729,21 @@ async function loadManageClasses() {
     classes.forEach(cls => {
         const students = (rosters || []).filter(r => r.class_id === cls.id);
         
-        // Build the sleek student table rows
         let studentRows = students.length === 0 
             ? '<tr><td colspan="3" style="text-align:center; color:#666; padding: 15px;">No students added yet.</td></tr>'
             : students.map(s => {
-                const emailParts = s.student_email.split('@');
-                const name = emailParts[0]; // Extracts 'jsmith' from 'jsmith@school.org'
-                const email = s.student_email;
+                const isRealEmail = s.student_email.includes('@');
+                const name = isRealEmail ? s.student_email.split('@')[0] : `<strong>${s.student_email}</strong>`;
+                
+                // If Google blocked the email, display a warning so the teacher knows
+                const emailDisplay = isRealEmail 
+                    ? `<span style="color:#555;">${s.student_email}</span>` 
+                    : `<span style="color:#c62828; font-size: 0.8rem; font-weight: bold;">⚠️ Blocked by Google/IT</span>`;
+
                 return `
                 <tr>
-                    <td style="padding: 10px;"><strong>${name}</strong></td>
-                    <td style="color:#555; padding: 10px;">${email}</td>
+                    <td style="padding: 10px;">${name}</td>
+                    <td style="padding: 10px;">${emailDisplay}</td>
                     <td style="text-align:center; padding: 10px;">
                         <button class="danger-btn" onclick="removeStudent(${s.id})" style="padding:6px 12px; font-size:0.75rem;">Remove</button>
                     </td>
