@@ -54,216 +54,6 @@
         .admin-content { flex: 1; }
         .admin-panel { display: none; }
         .admin-panel.active { display: block; }
-
-        /* IMPROVED PLAYER CONTROLS */
-        .player-controls {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            background: #f8f9fa;
-            padding: 15px 20px;
-            border-radius: 50px;
-            border: 1px solid #dee2e6;
-            margin: 20px 0;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-
-        .control-btn {
-            background: transparent;
-            border: 2px solid #888;
-            border-radius: 50%;
-            width: 48px;
-            height: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            outline: none;
-            padding: 0;
-            color: #888;
-            position: relative;
-        }
-
-        .control-btn:hover {
-            color: #000;
-            border-color: #000;
-            transform: scale(1.05);
-        }
-
-        .control-btn svg {
-            pointer-events: none;
-        }
-
-        #playPauseBtn { width: 54px; height: 54px; }
-
-        /* Rewind button with larger, clearer text */
-        #rewindBtn .rewind-text {
-            position: absolute;
-            font-size: 11px;
-            font-weight: 700;
-            font-family: 'IBM Plex Sans', sans-serif;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            margin-top: 1px;
-        }
-
-        .speed-btn {
-            background: transparent;
-            border: 1px solid #dee2e6;
-            color: #888;
-            border-radius: 12px;
-            padding: 6px 12px;
-            font-size: 0.9rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
-            outline: none;
-            min-width: 45px;
-        }
-
-        .speed-btn:hover {
-            color: #000;
-            border-color: #000;
-        }
-
-        /* ENHANCED QUESTION MODAL */
-        .question-modal {
-            margin: 30px 0;
-            border: 4px solid var(--primary);
-            background: linear-gradient(135deg, #f4f9ff 0%, #e8f4ff 100%);
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 8px 25px rgba(0,121,211,0.15);
-            animation: slideDown 0.3s ease-out;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .question-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 3px solid #b3d9ff;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-        }
-
-        .question-badge {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .badge {
-            background: var(--primary);
-            color: white;
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .pause-notice {
-            color: #666;
-            font-size: 0.95rem;
-            font-style: italic;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .pause-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 24px;
-            height: 24px;
-            background: rgba(0,0,0,0.1);
-            border-radius: 50%;
-            font-size: 14px;
-        }
-
-        .rewind-hint {
-            font-size: 0.9rem;
-            color: #555;
-            background: rgba(255,255,255,0.7);
-            padding: 8px 12px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .question-text {
-            margin: 0 0 25px 0;
-            color: #1A1A1B;
-            font-size: 1.3rem;
-            font-weight: 600;
-            line-height: 1.4;
-        }
-
-        .submit-answer-btn {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 15px 25px;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 1.1rem;
-            cursor: pointer;
-            width: 100%;
-            transition: all 0.2s;
-            box-shadow: 0 4px 12px rgba(0,121,211,0.3);
-        }
-
-        .submit-answer-btn:hover {
-            background: #0066b3;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0,121,211,0.4);
-        }
-
-        .submit-answer-btn:disabled {
-            background: #999;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .feedback-message {
-            margin-top: 15px;
-            padding: 12px;
-            border-radius: 6px;
-            font-weight: 600;
-            text-align: center;
-            display: none;
-        }
-
-        .feedback-message.error {
-            background: #ffebee;
-            color: var(--danger);
-            border: 1px solid #ffcdd2;
-            display: block;
-        }
-
-        .feedback-message.success {
-            background: #e8f5e9;
-            color: var(--success);
-            border: 1px solid #a5d6a7;
-            display: block;
-        }
     </style>
 </head>
 <body>
@@ -302,64 +92,45 @@
                     <source id="audioSource" src="" type="audio/mpeg"> 
                 </audio>
                 
-                <!-- IMPROVED PLAYER CONTROLS -->
-                <div class="player-controls">
-                    <!-- Play/Pause Button -->
-                    <button id="playPauseBtn" class="control-btn" onclick="togglePlayPause()" title="Play/Pause">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                        </svg>
+                <div style="display: flex; align-items: center; gap: 15px; background: #f8f9fa; padding: 15px 20px; border-radius: 50px; border: 1px solid #dee2e6; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    
+                    <button id="playPauseBtn" onclick="togglePlayPause()" onmouseover="this.style.color='#000'; this.style.borderColor='#000';" onmouseout="this.style.color='#666'; this.style.borderColor='#666';" style="background: #fff; color: #666; border: 2px solid #666; border-radius: 50%; width: 44px; height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; outline: none; padding: 0; flex-shrink: 0;">
+                        <svg id="playIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                     </button>
                     
-                    <!-- Rewind 10s Button (IMPROVED) -->
-                    <button id="rewindBtn" class="control-btn" onclick="rewindAudio()" title="Rewind 10 Seconds">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <button id="rewindBtn" onclick="rewindAudio()" onmouseover="this.style.color='#000'; this.style.borderColor='#000';" onmouseout="this.style.color='#666'; this.style.borderColor='#666';" style="background: #fff; color: #666; border: 2px solid #666; border-radius: 50%; width: 44px; height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; outline: none; padding: 0; flex-shrink: 0;" title="Rewind 10 Seconds">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M3 11a9 9 0 1 0 9-9 9.05 9.05 0 0 0-8 4"></path>
                             <polyline points="0 2 4 6 8 2"></polyline>
+                            <text x="12" y="16" font-size="8" font-family="sans-serif" font-weight="bold" stroke="none" fill="currentColor" text-anchor="middle">10</text>
                         </svg>
-                        <span class="rewind-text">10</span>
                     </button>
                     
-                    <!-- Current Time -->
-                    <span id="currentTimeDisplay" style="font-size: 0.95rem; color: #555; font-family: monospace; min-width: 45px; text-align: right; font-weight: 600;">0:00</span>
+                    <span id="currentTimeDisplay" style="font-size: 0.9rem; color: #555; font-family: monospace; min-width: 40px; text-align: right;">0:00</span>
                     
-                    <!-- Progress Scrubber -->
-                    <input type="range" id="audioScrubber" value="0" min="0" step="1" style="flex: 1; cursor: pointer; margin: 0 10px; outline: none; height: 6px;" oninput="scrubAudio(event)">
+                    <input type="range" id="audioScrubber" value="0" min="0" step="1" style="flex: 1; cursor: pointer; margin: 0 5px; outline: none;" oninput="scrubAudio(event)">
                     
-                    <!-- Duration -->
-                    <span id="durationDisplay" style="font-size: 0.95rem; color: #555; font-family: monospace; min-width: 45px; font-weight: 600;">0:00</span>
+                    <span id="durationDisplay" style="font-size: 0.9rem; color: #555; font-family: monospace; min-width: 40px;">0:00</span>
 
-                    <!-- Speed Control -->
-                    <button id="speedToggleBtn" class="speed-btn" onclick="cycleSpeed()" title="Playback Speed">1x</button>
+                    <button id="speedToggleBtn" onclick="cycleSpeed()" onmouseover="this.style.color='#000'; this.style.borderColor='#000';" onmouseout="this.style.color='#666'; this.style.borderColor='#dee2e6';" style="background: transparent; border: 1px solid #dee2e6; color: #666; border-radius: 12px; padding: 4px 10px; font-size: 0.85rem; font-weight: bold; cursor: pointer; transition: 0.2s; outline: none;">1x</button>
                 </div>
 
-                <!-- ENHANCED QUESTION MODAL -->
-                <div id="questionModal" class="question-modal hidden">
-                    <div class="question-header">
-                        <div class="question-badge">
-                            <span class="badge">⚠️ Knowledge Check</span>
-                            <div class="pause-notice">
-                                <span class="pause-icon">⏸</span>
-                                <span>Audio paused</span>
-                            </div>
+                <div id="questionModal" class="hidden" style="margin: 25px 0; border: 3px solid var(--primary); background: #f4f9ff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #ddebf7; padding-bottom: 12px; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="background: var(--primary); color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; font-weight: bold; text-transform: uppercase;">Knowledge Check</span>
+                            <span style="color: #666; font-size: 0.9rem; font-style: italic;">Audio is paused.</span>
                         </div>
-                        <div class="rewind-hint">
-                            <span>💡</span>
-                            <span>Need to hear it again? Use the ⏪ button!</span>
-                        </div>
+                        <span style="font-size: 0.85rem; color: #555;">Need to hear it again? Use the Rewind button above! ⏪</span>
                     </div>
                     
-                    <h3 id="questionText" class="question-text"></h3>
+                    <h3 id="questionText" style="margin-top: 0; color: #1A1A1B; font-size: 1.2rem;"></h3>
                     
-                    <div id="questionInteractiveArea" style="margin: 25px 0;">
-                        <!-- Question options will be inserted here -->
-                    </div>
+                    <div id="questionInteractiveArea" style="margin: 20px 0;">
+                        </div>
 
-                    <button id="submitAnswerBtn" class="submit-answer-btn">
-                        Submit Answer & Continue ▶
-                    </button>
-                    
-                    <div id="feedback" class="feedback-message"></div>
+                    <button id="submitAnswerBtn" class="action-btn" style="font-size: 1.05rem; padding: 12px 20px; width: 100%;">Submit Answer & Continue ▶</button>
+                    <p id="feedback" style="color: var(--danger); margin-top: 10px; font-weight: 600; text-align: center;"></p>
                 </div>
 
                 <div id="subsparkLinkContainer" class="hidden" style="margin: 15px 0; padding: 15px; background: #e3f2fd; border-left: 4px solid var(--primary); border-radius: 4px;">
@@ -381,9 +152,167 @@
             </div>
         </section>
 
-        <!-- ADMIN VIEW (keeping existing structure) -->
-        <section id="adminView" class="view-section">
-            <!-- Your existing admin code continues here... -->
+        <section id="teacherView" class="view-section">
+            <div class="admin-layout">
+                
+                <div class="admin-sidebar">
+                    <button class="admin-nav-btn active" onclick="switchAdminPanel('admin-assignments', event)">📝 Assignments</button>
+                    <button class="admin-nav-btn" onclick="switchAdminPanel('admin-progress', event)">📊 Student Progress</button>
+                    <button class="admin-nav-btn" onclick="switchAdminPanel('admin-classes', event)">👥 Manage Classes</button>
+                    <button class="admin-nav-btn" onclick="switchAdminPanel('admin-files', event)">📁 Manage Files</button>
+                </div>
+
+                <div class="admin-content">
+
+                    <div id="admin-assignments" class="admin-panel active">
+                        <div class="card" style="margin-top:0;">
+                            <h2 style="margin-top: 0;">Create New Assignment</h2>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div>
+                                    <label>Assignment Title</label>
+                                    <input type="text" id="newAssignTitle" placeholder="e.g., Chapter 1: The Beginning">
+                                </div>
+                                <div>
+                                    <label>Target Class / Period</label>
+                                    <div id="assignmentTargetsContainer" style="max-height: 250px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 5px; background: #fafafa;">
+                                        </div>
+                                </div>
+                            </div>
+                            
+                            <label>Audio Source</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="audioSourceType" value="upload" checked onclick="toggleAudioSourceUI()"> Upload MP3/WAV File</label>
+                                <label><input type="radio" name="audioSourceType" value="dropbox" onclick="toggleAudioSourceUI()"> Paste Dropbox Link</label>
+                            </div>
+                            
+                            <div id="audioUploadContainer">
+                                <input type="file" id="newAssignAudioFile" accept="audio/mpeg, audio/wav, audio/ogg" style="margin-bottom: 15px;">
+                            </div>
+                            <div id="audioDropboxContainer" class="hidden">
+                                <input type="url" id="newAssignAudioUrl" placeholder="https://www.dropbox.com/s/..." style="margin-bottom: 15px;">
+                            </div>
+                            
+                            <label style="font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 15px 0; background: #f0f2f5; padding: 10px; border-radius: 4px;">
+                                <input type="checkbox" id="newAssignAllowSpeed" checked>
+                                Allow students to adjust playback speed
+                            </label>
+
+                            <label>Sub-Spark Community Link (Optional)</label>
+                            <div style="margin: 15px 0; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: #f9f9f9;">
+                                <input type="hidden" id="existingSubsparkUrl" value="">
+
+                                <label style="font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" id="autoCreateSubspark" onchange="toggleSubsparkOptions()">
+                                    Instantly generate a Sub-spark Community for this assignment
+                                </label>
+
+                                <div id="subsparkInitialPostContainer" class="hidden" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ccc;">
+                                    <p style="margin-top: 0; font-size: 0.9rem; color: #555;">Create the first post to kick off the discussion:</p>
+                                    <textarea id="subsparkFirstPostText" placeholder="Type your first post here..." style="width: 100%; height: 80px; margin-bottom: 10px; font-family: inherit; padding: 8px;"></textarea>
+                                    <input type="text" id="subsparkFirstPostPhoto" placeholder="Photo URL (optional)" style="width: 100%; margin-bottom: 10px; padding: 8px;">
+                                    <input type="text" id="subsparkFirstPostLink" placeholder="External Link URL (optional)" style="width: 100%; margin-bottom: 10px; padding: 8px;">
+                                </div>
+                            </div>                           
+                            
+                            <label>Transcript</label>
+                            <textarea id="newAssignTranscript" rows="4" placeholder="Paste full transcript here..."></textarea>
+
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; border: 1px dashed #ccc;">
+                                <h3 style="margin-top: 0; font-size: 1.1rem;">Interactive Questions</h3>
+                                <p style="font-size: 0.85rem; color: #666;">Audio will pause at the specified timestamp. Select the type of question to add:</p>
+                                
+                                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                                    <button type="button" class="action-btn" style="background: #0079D3; font-size: 0.8rem; padding: 6px 10px;" onclick="addQuestionRow('open')">+ Open-Ended</button>
+                                    <button type="button" class="action-btn" style="background: #1e8e3e; font-size: 0.8rem; padding: 6px 10px;" onclick="addQuestionRow('mc')">+ Multiple Choice</button>
+                                    <button type="button" class="action-btn" style="background: #f4b400; font-size: 0.8rem; padding: 6px 10px; color: black;" onclick="addQuestionRow('tf')">+ True/False</button>
+                                    <button type="button" class="action-btn" style="background: #e53935; font-size: 0.8rem; padding: 6px 10px;" onclick="addQuestionRow('match')">+ Matching</button>
+                                </div>
+
+                                <div id="questionsBuilderList"></div>
+                            </div>
+
+                            <div style="display: flex; gap: 10px;">
+                                <button id="publishBtn" class="action-btn" onclick="saveNewAssignment()">Publish Assignment</button>
+                                <button id="cancelEditBtn" class="danger-btn hidden" onclick="cancelEdit()">Cancel Edit</button>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h2 style="margin-top: 0;">Manage Active Assignments</h2>
+                            <table>
+                                <thead><tr><th>Title</th><th>Class</th><th>Actions</th></tr></thead>
+                                <tbody id="teacherAssignmentsTable"><tr><td colspan="3" style="text-align:center;">Loading...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="admin-progress" class="admin-panel">
+                        <div class="card" style="margin-top:0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <h2 style="margin: 0;">Student Progress Tracking</h2>
+                                <button id="exportCsvBtn" class="action-btn" onclick="exportStudentData()">📥 Export CSV</button>
+                            </div>
+                            <div style="overflow-x: auto;">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Assignment</th>
+                                            <th>Student Email</th>
+                                            <th>Status</th>
+                                            <th>Total Listen Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="teacherProgressTable">
+                                        <tr><td colspan="4" style="text-align:center;">Loading data...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="admin-classes" class="admin-panel">
+                        <div class="card" style="margin-top:0;">
+                            <h2 style="margin-top: 0;">Create a Class</h2>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <input type="text" id="newClassName" placeholder="e.g., Period 1 History" style="margin:0; flex: 1;">
+                                <button class="action-btn" onclick="createNewClass()">Add Class manually</button>
+                                <button class="action-btn" style="background: #1e8e3e; display: flex; align-items: center; gap: 8px;" onclick="openClassroomImport()">
+                                    <img src="https://fonts.gstatic.com/s/i/productlogos/classroom/v7/24px.svg" style="width: 18px;">
+                                    Import Google Classroom
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card hidden" id="classroomImportCard" style="border: 2px solid #1e8e3e; background: #e8f5e9;">
+                            <h3 style="margin-top:0; color: #1e8e3e;">Select a Google Classroom</h3>
+                            <div style="display: flex; gap: 10px;">
+                                <select id="classroomCourseSelect" style="flex: 1;">
+                                    <option value="">Loading your courses...</option>
+                                </select>
+                                <button id="importRosterBtn" class="action-btn" style="background: #1e8e3e;" onclick="importSelectedClassroom()">Import Roster</button>
+                                <button class="danger-btn" style="background: #666;" onclick="document.getElementById('classroomImportCard').classList.add('hidden')">Cancel</button>
+                            </div>
+                            <p id="classroomStatus" style="font-size: 0.85rem; color: #555; margin-bottom: 0;"></p>
+                        </div>
+                        
+                        <div id="classesListContainer"></div>
+                    </div>
+
+                    <div id="admin-files" class="admin-panel">
+                        <div class="card" style="margin-top:0;">
+                            <h2 style="margin-top: 0;">Supabase Storage (audio-files)</h2>
+                            <p style="color:#666; font-size:0.9rem;">View and delete audio files physically hosted on your database server to save space.</p>
+                            <table>
+                                <thead><tr><th>File Name</th><th>Size</th><th>Actions</th></tr></thead>
+                                <tbody id="teacherFilesTable">
+                                    <tr><td colspan="3" style="text-align:center;">Loading files...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
         </section>
 
     </main>
