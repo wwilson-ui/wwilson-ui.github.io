@@ -16,7 +16,7 @@ let maxReachedTime = 0;
 let rewindCount = 0; 
 let studentSessionAnswers = {};
 let currentActiveQuestionId = null; 
-let previousTotalTime = 0; // Accumulates active time accurately across sessions
+let previousTotalTime = 0; 
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
@@ -136,7 +136,6 @@ window.rewindAudio = function() {
     player.currentTime = Math.max(0, player.currentTime - 10);
     rewindCount++;
     
-    // Hide the inline question box so they can focus on relistening
     const qModal = document.getElementById('questionModal');
     if(qModal) qModal.classList.add('hidden');
     currentActiveQuestionId = null; 
@@ -835,70 +834,111 @@ window.deleteFile = async function(fileName) {
     if(confirm(`Delete ${fileName} from database?`)) { await sb.storage.from('audio-files').remove([fileName]); loadManageFiles(); }
 };
 
-// ================= STUDENT: ASSIGNMENTS & TRACKING =================
+
+// ================= NEW REDESIGNED STUDENT PORTAL =================
+
 async function loadStudentClasses() {
     populateClassDropdown('studentClassFilter'); 
 }
+
+window.showStudentDashboard = function() {
+    const player = document.getElementById('audioPlayer');
+    if (player && !player.paused) {
+        player.pause();
+        logProgress(Math.floor(player.currentTime), 'in_progress');
+    }
+    document.getElementById('activeAssignmentCard').classList.add('hidden');
+    document.getElementById('studentDashboard').classList.remove('hidden');
+    loadStudentAssignments();
+};
 
 window.loadStudentAssignments = async function() {
     const classSelect = document.getElementById('studentClassFilter');
     const classId = classSelect.value;
     const selectedOption = classSelect.options[classSelect.selectedIndex];
     const classText = selectedOption ? selectedOption.text.trim() : ''; 
-    const assignSelect = document.getElementById('studentAssignmentSelect');
+    
+    const dashboard = document.getElementById('studentDashboard');
+    const playerCard = document.getElementById('activeAssignmentCard');
+    
+    playerCard.classList.add('hidden');
+    dashboard.classList.remove('hidden');
 
     if(!classId) { 
-        assignSelect.classList.add('hidden'); 
+        dashboard.innerHTML = '<h2 style="margin-top:0;">My Dashboard</h2><p style="color:#666;">Please select your class from the menu on the left to view your assignments.</p>';
         return; 
     }
 
-    const { data, error } = await sb.from('classcast_assignments').select('*');
+    dashboard.innerHTML = '<h2 style="margin-top:0;">My Dashboard</h2><p style="color:#666;">Loading your assignments...</p>';
+
+    const { data: assignments, error } = await sb.from('classcast_assignments').select('*');
     if (error) { 
         console.error("Error loading assignments:", error); 
         return; 
     }
 
-    assignSelect.innerHTML = '<option value="">-- Choose Assignment --</option>';
+    // Pull the student's progress to sort assignments into columns
+    const { data: progressData } = await sb.from('classcast_progress').select('*').eq('student_email', currentUser.email);
 
-    if(data) {
-        data.forEach(d => {
-            let isTargetedClass = false;
-            let isTargetedStudent = false;
+    let assignedHtml = '';
+    let inProgressHtml = '';
+    let completedHtml = '';
+
+    if(assignments) {
+        assignments.forEach(d => {
+            let isTargeted = false;
 
             try {
                 const targetClassesArray = JSON.parse(d.target_class || '[]');
-                if (targetClassesArray.includes(classText)) {
-                    isTargetedClass = true;
-                }
+                if (targetClassesArray.includes(classText)) isTargeted = true;
             } catch (e) {
-                if (d.target_class === classText) {
-                    isTargetedClass = true;
-                }
+                if (d.target_class === classText) isTargeted = true;
             }
 
             try {
                 const targetStudentsArray = JSON.parse(d.target_students || '[]');
-                
-                if (targetStudentsArray.length === 0) {
-                    isTargetedStudent = true; 
-                } else if (currentUser && targetStudentsArray.includes(currentUser.email)) {
-                    isTargetedStudent = true; 
+                if (targetStudentsArray.length > 0 && currentUser && !targetStudentsArray.includes(currentUser.email)) {
+                    isTargeted = false; // Override if student specifically isn't on the list
                 }
-            } catch (e) {
-                isTargetedStudent = true;
-            }
+            } catch (e) {}
 
-            if (isTargetedClass && isTargetedStudent) {
-                assignSelect.innerHTML += `<option value="${d.id}">${d.title}</option>`;
+            if (isTargeted) {
+                const prog = progressData ? progressData.find(p => p.assignment_id === d.id) : null;
+                
+                let btnText = 'Start Listening';
+                let btnColor = 'var(--primary)';
+                if (prog && prog.status === 'completed') { btnText = 'Review Assignment'; btnColor = 'var(--success)'; }
+                else if (prog) { btnText = 'Continue Listening'; btnColor = '#f4b400'; }
+
+                const cardHtml = `
+                    <div style="border: 1px solid #dee2e6; padding: 15px; border-radius: 6px; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                        <strong style="font-size: 1.1rem; color: #333;">${d.title}</strong>
+                        <button class="action-btn" style="background: ${btnColor}; ${btnColor === '#f4b400' ? 'color: #000;' : ''}" onclick="startAssignment(${d.id})">${btnText}</button>
+                    </div>
+                `;
+
+                if (!prog) assignedHtml += cardHtml;
+                else if (prog.status === 'in_progress') inProgressHtml += cardHtml;
+                else if (prog.status === 'completed') completedHtml += cardHtml;
             }
         });
     }
-    
-    assignSelect.classList.remove('hidden');
+
+    dashboard.innerHTML = `
+        <h2 style="margin-top:0;">My Dashboard</h2>
+        
+        <h3 style="color: #444; border-bottom: 2px solid #eee; padding-bottom: 5px; margin-top: 20px;">🔴 Not Started</h3>
+        ${assignedHtml || '<p style="color:#888; font-size: 0.9rem; font-style: italic;">You have no new assignments.</p>'}
+        
+        <h3 style="color: #f4b400; border-bottom: 2px solid #eee; padding-bottom: 5px; margin-top: 25px;">🟡 In Progress</h3>
+        ${inProgressHtml || '<p style="color:#888; font-size: 0.9rem; font-style: italic;">No assignments currently in progress.</p>'}
+        
+        <h3 style="color: var(--success); border-bottom: 2px solid #eee; padding-bottom: 5px; margin-top: 25px;">🟢 Completed</h3>
+        ${completedHtml || '<p style="color:#888; font-size: 0.9rem; font-style: italic;">No completed assignments yet.</p>'}
+    `;
 };
 
-window.startAssignment = async function() {
-    const assignId = document.getElementById('studentAssignmentSelect').value;
+window.startAssignment = async function(assignId) {
     if(!assignId) return;
 
     currentAssignmentId = assignId; 
@@ -908,8 +948,11 @@ window.startAssignment = async function() {
     rewindCount = 0;
     studentSessionAnswers = {};
     currentActiveQuestionId = null; 
-    previousTotalTime = 0; // Reset accumulated time tracker
+    previousTotalTime = 0; 
     
+    document.getElementById('studentDashboard').classList.add('hidden');
+    document.getElementById('activeAssignmentCard').classList.remove('hidden');
+
     const subsparkContainer = document.getElementById('subsparkLinkContainer'); 
     if(subsparkContainer) subsparkContainer.classList.add('hidden');
 
@@ -921,7 +964,7 @@ window.startAssignment = async function() {
         if (progData) {
             maxReachedTime = progData.furthest_second || 0;
             rewindCount = progData.rewind_count || 0;
-            previousTotalTime = progData.total_session_seconds || 0; // Retrieve their historical time spent
+            previousTotalTime = progData.total_session_seconds || 0; 
             studentSessionAnswers = progData.student_answers || {};
             if (qData) {
                 qData.forEach(q => {
@@ -969,7 +1012,6 @@ window.startAssignment = async function() {
     document.getElementById('questionPreviewList').innerHTML = previewHtml || '<em>No interactive questions for this assignment.</em>';
 
     if(assignData.subspark_url) document.getElementById('activeSubsparkLink').href = assignData.subspark_url;
-    document.getElementById('activeAssignmentCard').classList.remove('hidden');
 };
 
 function handleAudioTimeUpdate() {
@@ -1093,7 +1135,6 @@ function handleAudioTimeUpdate() {
         }
     }
     
-    // Log progress every 10 seconds normally
     const currentTime = Math.floor(player.currentTime);
     if(currentTime > 0 && currentTime % 10 === 0) logProgress(currentTime, 'in_progress');
 }
@@ -1106,7 +1147,6 @@ function handleAudioComplete() {
 async function logProgress(currentSecond, status) {
     if(!currentUser || !currentAssignmentId) return;
     
-    // Calculate total time accurately by accumulating historical time + this specific session's run time
     let currentSessionTime = sessionStartTime ? Math.floor((new Date() - sessionStartTime) / 1000) : 0;
     let totalListenSeconds = previousTotalTime + currentSessionTime;
     
@@ -1151,11 +1191,9 @@ window.loadAssignmentProgress = async function() {
         return;
     }
 
-    // Fetch the specific questions for this assignment, sorted chronologically
     const { data: qData } = await sb.from('classcast_questions').select('*').eq('assignment_id', assignId).order('trigger_second', { ascending: true });
     currentProgressQuestions = qData || [];
 
-    // Fetch the progress data for all students on this assignment
     const { data: pData } = await sb.from('classcast_progress').select('*').eq('assignment_id', assignId);
     currentProgressData = pData || [];
 
@@ -1172,7 +1210,6 @@ function renderProgressGrid() {
         return;
     }
 
-    // Build the dynamic Grid Header
     let headerHtml = `<tr>
         <th style="position: sticky; left: 0; background: #f8f9fa; z-index: 2; border-right: 2px solid #ccc;">Student</th>
         <th>Status</th>
@@ -1188,7 +1225,6 @@ function renderProgressGrid() {
     headerHtml += `</tr>`;
     thead.innerHTML = headerHtml;
 
-    // Build the dynamic Grid Rows
     let bodyHtml = '';
     currentProgressData.forEach(p => {
         let answers = typeof p.student_answers === 'string' ? JSON.parse(p.student_answers || '{}') : (p.student_answers || {});
@@ -1206,7 +1242,6 @@ function renderProgressGrid() {
         
         let scoreText = totalGraded > 0 ? `${Math.round((correctCount/totalGraded)*100)}% (${correctCount}/${totalGraded})` : 'N/A';
         
-        // Format their time stats beautifully
         let reachedText = formatTime(p.furthest_second || 0);
         let timeSpentText = formatTime(p.total_session_seconds || 0);
 
@@ -1223,11 +1258,18 @@ function renderProgressGrid() {
             if (!ansData) {
                 bodyHtml += `<td style="color:#aaa; font-style:italic; background: #f9f9f9;">No Answer</td>`;
             } else {
-                let bgColor = '#fff3e0'; // Yellow for ungraded open-ended
-                if (ansData.isCorrect === true) bgColor = '#e8f5e9'; // Green for correct
-                else if (ansData.isCorrect === false) bgColor = '#ffebee'; // Red for incorrect
+                let bgColor = '#fff3e0'; 
+                if (ansData.isCorrect === true) bgColor = '#e8f5e9'; 
+                else if (ansData.isCorrect === false) bgColor = '#ffebee'; 
 
-                let ansText = Array.isArray(ansData.answer) ? ansData.answer.join(', ') : escapeHTML(ansData.answer);
+                let ansText = '';
+                if (q.question_type === 'mc') {
+                    let opts = typeof q.options === 'string' ? JSON.parse(q.options || '{}') : (q.options || {});
+                    let letter = ansData.answer; 
+                    ansText = letter ? `${letter.toUpperCase()}: ${opts[letter] || ''}` : 'No Answer';
+                } else {
+                    ansText = Array.isArray(ansData.answer) ? ansData.answer.join(', ') : escapeHTML(ansData.answer);
+                }
                 
                 let gradingButtons = '';
                 if ((q.question_type || 'open') === 'open') {
@@ -1257,15 +1299,15 @@ window.gradeAnswer = async function(email, assignId, questionId, isCorrect) {
     if (!answers[questionId]) answers[questionId] = {};
     answers[questionId].isCorrect = isCorrect;
     
-    pRow.student_answers = answers; // Update the local UI memory
+    pRow.student_answers = answers; 
     
-    // Save to database instantly
     await sb.from('classcast_progress').update({ student_answers: answers })
         .eq('student_email', email).eq('assignment_id', assignId);
         
-    renderProgressGrid(); // Re-render the grid so the color instantly changes!
+    renderProgressGrid(); 
 };
 
+// FULLY BULLETPROOFED CSV EXPORT (FIXES THE '#' HASHTAG BUG AND ADDS MC SUPPORT)
 window.exportStudentData = async function() {
     const assignId = document.getElementById('progressAssignmentSelect').value;
     if (!assignId) return alert("Please select an assignment from the dropdown first to export its detailed data.");
@@ -1302,16 +1344,30 @@ window.exportStudentData = async function() {
             if (!ansData) {
                 csv += `,"No Answer"`;
             } else {
-                let ansText = Array.isArray(ansData.answer) ? ansData.answer.join(', ') : escapeHTML(ansData.answer);
+                let ansText = '';
+                if (q.question_type === 'mc') {
+                    let opts = typeof q.options === 'string' ? JSON.parse(q.options || '{}') : (q.options || {});
+                    let letter = ansData.answer;
+                    ansText = letter ? `${letter.toUpperCase()}: ${opts[letter] || ''}` : 'No Answer';
+                } else {
+                    ansText = Array.isArray(ansData.answer) ? ansData.answer.join(', ') : (ansData.answer || '');
+                }
+                
                 let gradeStr = ansData.isCorrect === true ? ' [Correct]' : (ansData.isCorrect === false ? ' [Incorrect]' : ' [Ungraded]');
-                csv += `,"${ansText.replace(/"/g, '""')}${gradeStr}"`;
+                // Escape quotes inside the text for CSV compatibility
+                csv += `,"${String(ansText).replace(/"/g, '""')}${gradeStr}"`;
             }
         });
         csv += "\n";
     });
 
-    const link = document.createElement("a"); 
-    link.setAttribute("href", encodeURI("data:text/csv;charset=utf-8," + csv)); 
-    link.setAttribute("download", `ClassCast_${assignName.replace(/[^a-z0-9]/gi, '_')}.csv`); 
-    document.body.appendChild(link); link.click();
+    // Uses Blob to safely export without the browser truncating hashtags (#)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `ClassCast_${assignName.replace(/[^a-z0-9]/gi, '_')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 };
