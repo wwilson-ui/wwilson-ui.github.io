@@ -237,7 +237,7 @@ window.addQuestionRow = function(type, qData = null) {
     const id = Date.now() + Math.random().toString().slice(2, 6);
     const div = document.createElement('div');
     div.className = 'question-row-item';
-    div.dataset.type = type; 
+    div.setAttribute('data-type', type); 
     div.style.border = "1px solid #ccc";
     div.style.padding = "10px";
     div.style.marginBottom = "10px";
@@ -509,7 +509,7 @@ window.saveNewAssignment = async function() {
         const questionRows = document.querySelectorAll('.question-row-item');
         const questionsToInsert = [];
         questionRows.forEach(row => {
-            const type = row.dataset.type;
+            const type = row.getAttribute('data-type') || 'open';
             const time = row.querySelector('.q-time').value;
             const text = row.querySelector('.q-text').value;
 
@@ -1001,17 +1001,21 @@ function handleAudioTimeUpdate() {
     if(scrubber) scrubber.value = Math.floor(player.currentTime);
     if(timeDisplay) timeDisplay.innerText = formatTime(player.currentTime);
 
-    const currentTime = Math.floor(player.currentTime);
-    const question = activeQuestions.find(q => q.trigger_second === currentTime);
+    // ==========================================
+    // THE NEW ROBUST AUDIO TRIGGER NET
+    // ==========================================
+    const passedQuestion = activeQuestions.find(q => player.currentTime >= q.trigger_second && !answeredCheckpoints.includes(q.id));
     
-    if (question && !answeredCheckpoints.includes(question.id)) {
+    if (passedQuestion) {
         player.pause();
+        player.currentTime = passedQuestion.trigger_second; // Instantly snap back to the exact second so nothing is skipped
+        
         document.getElementById('questionModal').classList.remove('hidden');
-        document.getElementById('questionText').innerText = question.question_text;
+        document.getElementById('questionText').innerText = passedQuestion.question_text;
         document.getElementById('feedback').innerText = "";
         
-        let qType = question.question_type || 'open';
-        let options = typeof question.options === 'string' ? JSON.parse(question.options || '{}') : (question.options || {});
+        let qType = passedQuestion.question_type || 'open';
+        let options = typeof passedQuestion.options === 'string' ? JSON.parse(passedQuestion.options || '{}') : (passedQuestion.options || {});
         let interactiveHtml = '';
 
         if (qType === 'mc') {
@@ -1055,7 +1059,7 @@ function handleAudioTimeUpdate() {
                 if (checked) { 
                     studentAns = checked.value; 
                     valid = true; 
-                    isCorrect = (studentAns === String(question.correct_answer)); 
+                    isCorrect = (studentAns === String(passedQuestion.correct_answer)); 
                 }
             } else if (qType === 'match') {
                 const selects = document.querySelectorAll('.student_match_select');
@@ -1077,15 +1081,19 @@ function handleAudioTimeUpdate() {
 
             if(valid) {
                 document.getElementById('questionModal').classList.add('hidden');
-                answeredCheckpoints.push(question.id); 
-                studentSessionAnswers[question.id] = { answer: studentAns, isCorrect: isCorrect, type: qType };
+                answeredCheckpoints.push(passedQuestion.id); 
+                studentSessionAnswers[passedQuestion.id] = { answer: studentAns, isCorrect: isCorrect, type: qType };
                 player.play(); 
-                logProgress(currentTime, 'in_progress');
+                
+                // Immediately log the newly saved progress
+                logProgress(Math.floor(player.currentTime), 'in_progress');
             } else {
                 document.getElementById('feedback').innerText = "Please complete the question to continue.";
             }
         };
     }
+    
+    // Log progress every 10 seconds normally
     if(currentTime > 0 && currentTime % 10 === 0) logProgress(currentTime, 'in_progress');
 }
 
