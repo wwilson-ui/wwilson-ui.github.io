@@ -214,10 +214,11 @@ async function checkUser() {
 }
 
 window.signIn = async function() { 
+    // ADDED NEW GOOGLE SCOPE HERE FOR EXPLICIT EMAIL PERMISSIONS
     await sb.auth.signInWithOAuth({ 
         provider: 'google', 
         options: { 
-            scopes: 'https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.rosters.readonly',
+            scopes: 'https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.rosters.readonly https://www.googleapis.com/auth/classroom.profile.emails',
             redirectTo: window.location.origin + window.location.pathname, 
             queryParams: { 
                 prompt: 'consent',
@@ -684,7 +685,9 @@ window.importSelectedClassroom = async function() {
         }
 
         const rosterInserts = students.map(s => {
-            const identifier = s.profile.emailAddress || s.profile.name?.fullName || `Unknown Student (${s.profile.id})`;
+            const email = s.profile.emailAddress;
+            const name = s.profile.name?.fullName || `Unknown Student (${s.profile.id})`;
+            const identifier = email || name; // Secures the email address into the DB
             return {
                 class_id: classRecordId,
                 student_email: identifier
@@ -877,7 +880,6 @@ window.loadStudentAssignments = async function() {
         return; 
     }
 
-    // Pull the student's progress to sort assignments into columns
     const { data: progressData } = await sb.from('classcast_progress').select('*').eq('student_email', currentUser.email);
 
     let assignedHtml = '';
@@ -898,7 +900,7 @@ window.loadStudentAssignments = async function() {
             try {
                 const targetStudentsArray = JSON.parse(d.target_students || '[]');
                 if (targetStudentsArray.length > 0 && currentUser && !targetStudentsArray.includes(currentUser.email)) {
-                    isTargeted = false; // Override if student specifically isn't on the list
+                    isTargeted = false; 
                 }
             } catch (e) {}
 
@@ -1246,7 +1248,10 @@ function renderProgressGrid() {
         let timeSpentText = formatTime(p.total_session_seconds || 0);
 
         bodyHtml += `<tr>
-            <td style="position: sticky; left: 0; background: #fff; z-index: 1; border-right: 2px solid #ccc;"><strong>${p.student_email.split('@')[0]}</strong></td>
+            <td style="position: sticky; left: 0; background: #fff; z-index: 1; border-right: 2px solid #ccc;">
+                <strong>${p.student_email.split('@')[0]}</strong>
+                <div style="font-size: 0.75rem; color: #888;">${p.student_email}</div>
+            </td>
             <td>${p.status === 'completed' ? '✅ Complete' : '🔄 In Progress'}</td>
             <td style="font-family: monospace;">${reachedText}</td>
             <td style="font-family: monospace;">${timeSpentText}</td>
@@ -1307,7 +1312,6 @@ window.gradeAnswer = async function(email, assignId, questionId, isCorrect) {
     renderProgressGrid(); 
 };
 
-// FULLY BULLETPROOFED CSV EXPORT (FIXES THE '#' HASHTAG BUG AND ADDS MC SUPPORT)
 window.exportStudentData = async function() {
     const assignId = document.getElementById('progressAssignmentSelect').value;
     if (!assignId) return alert("Please select an assignment from the dropdown first to export its detailed data.");
@@ -1315,7 +1319,8 @@ window.exportStudentData = async function() {
     const assignDropdown = document.getElementById('progressAssignmentSelect');
     const assignName = assignDropdown.options[assignDropdown.selectedIndex].text;
 
-    let csv = "Student Email,Status,Audio Reached,Total Time Spent,Rewind Count,Score";
+    // Added explicit Username and Email columns
+    let csv = "Student Username,Student Email,Status,Audio Reached,Total Time Spent,Rewind Count,Score";
     currentProgressQuestions.forEach((q, i) => {
         csv += `,Q${i+1} (${q.question_type || 'open'})`;
     });
@@ -1337,7 +1342,8 @@ window.exportStudentData = async function() {
         let reachedText = formatTime(p.furthest_second || 0);
         let timeSpentText = formatTime(p.total_session_seconds || 0);
 
-        csv += `"${p.student_email}","${p.status}","${reachedText}","${timeSpentText}","${p.rewind_count || 0}","${scoreText}"`;
+        // Separating username and email
+        csv += `"${p.student_email.split('@')[0]}","${p.student_email}","${p.status}","${reachedText}","${timeSpentText}","${p.rewind_count || 0}","${scoreText}"`;
         
         currentProgressQuestions.forEach(q => {
             let ansData = answers[q.id];
@@ -1348,13 +1354,14 @@ window.exportStudentData = async function() {
                 if (q.question_type === 'mc') {
                     let opts = typeof q.options === 'string' ? JSON.parse(q.options || '{}') : (q.options || {});
                     let letter = ansData.answer;
+                    // Resolves "a" to "A: The correct choice text"
                     ansText = letter ? `${letter.toUpperCase()}: ${opts[letter] || ''}` : 'No Answer';
                 } else {
                     ansText = Array.isArray(ansData.answer) ? ansData.answer.join(', ') : (ansData.answer || '');
                 }
                 
                 let gradeStr = ansData.isCorrect === true ? ' [Correct]' : (ansData.isCorrect === false ? ' [Incorrect]' : ' [Ungraded]');
-                // Escape quotes inside the text for CSV compatibility
+                // Wraps in quotes and escapes internal quotes for CSV safety
                 csv += `,"${String(ansText).replace(/"/g, '""')}${gradeStr}"`;
             }
         });
