@@ -5,7 +5,11 @@
 let sb = null;
 let currentUser = null;
 let googleProviderToken = sessionStorage.getItem('googleClassroomToken') || null; 
-const TEACHER_EMAIL = 'wwilson@mtps.us'; 
+const TEACHER_EMAILS = [
+    'wwilson@mtps.us',
+    'cfiore@mtps.us',
+    'mstuart@mtps.us'
+    ];
 
 let currentAssignmentId = null;
 let activeQuestions = [];
@@ -185,7 +189,7 @@ async function checkUser() {
         if (session) {
             currentUser = session.user;
             
-            const isTeacher = currentUser.email.toLowerCase() === TEACHER_EMAIL.toLowerCase();
+            const isTeacher = currentUser.email.toLowerCase() === TEACHER_EMAILS.toLowerCase();
             
             if (adminToggle) adminToggle.style.display = isTeacher ? 'block' : 'none';
             if (authSection) {
