@@ -15,6 +15,7 @@ let editingAssignmentId = null;
 let maxReachedTime = 0; 
 let rewindCount = 0; 
 let studentSessionAnswers = {};
+let currentActiveQuestionId = null; // BUG FIX: Stops text box from being overwritten
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
@@ -43,8 +44,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if(player.currentTime > maxReachedTime + 1) player.currentTime = maxReachedTime; 
         });
         
-        const playSVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
-        const pauseSVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
+        const playSVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+        const pauseSVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
         
         player.addEventListener('play', () => { 
             if(!sessionStartTime) sessionStartTime = new Date(); 
@@ -137,6 +138,7 @@ window.rewindAudio = function() {
     // Hide the inline question box so they can focus on relistening
     const qModal = document.getElementById('questionModal');
     if(qModal) qModal.classList.add('hidden');
+    currentActiveQuestionId = null; // Unlocks the question pop-up for when they reach it again
 };
 
 const playSpeeds = [1, 1.25, 1.5, 0.75];
@@ -159,6 +161,7 @@ window.scrubAudio = function(e) {
     
     const qModal = document.getElementById('questionModal');
     if(qModal) qModal.classList.add('hidden');
+    currentActiveQuestionId = null; // Unlocks question popup 
 };
 
 function formatTime(seconds) {
@@ -258,11 +261,21 @@ window.addQuestionRow = function(type, qData = null) {
 
     let bodyHtml = '';
 
+    // BUG FIX: The try/catch ensures Supabase doesn't crash the loop when loading MC or TF answers
     let parsedOptions = null;
     let parsedCorrectAnswer = null;
     if (qData) {
-        parsedOptions = typeof qData.options === 'string' ? JSON.parse(qData.options || '{}') : qData.options;
-        parsedCorrectAnswer = typeof qData.correct_answer === 'string' ? JSON.parse(qData.correct_answer || 'null') : qData.correct_answer;
+        if (typeof qData.options === 'object') {
+            parsedOptions = qData.options;
+        } else if (typeof qData.options === 'string') {
+            try { parsedOptions = JSON.parse(qData.options); } catch(e) { parsedOptions = null; }
+        }
+        
+        if (typeof qData.correct_answer === 'object') {
+            parsedCorrectAnswer = qData.correct_answer;
+        } else if (typeof qData.correct_answer === 'string') {
+            try { parsedCorrectAnswer = JSON.parse(qData.correct_answer); } catch(e) { parsedCorrectAnswer = qData.correct_answer; } 
+        }
     }
 
     if (type === 'mc') {
@@ -920,6 +933,7 @@ window.startAssignment = async function() {
     maxReachedTime = 0; 
     rewindCount = 0;
     studentSessionAnswers = {};
+    currentActiveQuestionId = null; 
     
     const subsparkContainer = document.getElementById('subsparkLinkContainer'); 
     if(subsparkContainer) subsparkContainer.classList.add('hidden');
@@ -950,7 +964,6 @@ window.startAssignment = async function() {
     const audioPlayer = document.getElementById('audioPlayer');
     document.getElementById('audioSource').src = assignData.audio_url; 
     
-    // Configure sleek custom speed button based on Teacher preference
     const speedBtn = document.getElementById('speedToggleBtn');
     if (assignData.allow_speed === false) {
         speedBtn.classList.add('hidden');
@@ -966,11 +979,11 @@ window.startAssignment = async function() {
     document.getElementById('currentTimeDisplay').innerText = "0:00";
     
     // Reset play button to default SVG
-    document.getElementById('playPauseBtn').innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+    document.getElementById('playPauseBtn').innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
     
     audioPlayer.load();
 
-    // Generate Question Preview (Text Only, No Answers)
+    // Generate Question Preview
     let previewHtml = '';
     activeQuestions.sort((a,b) => a.trigger_second - b.trigger_second).forEach((q, index) => {
         let typeLabel = q.question_type === 'mc' ? '[Multiple Choice]' : q.question_type === 'tf' ? '[True/False]' : q.question_type === 'match' ? '[Matching]' : '[Open-Ended]';
@@ -995,105 +1008,122 @@ function handleAudioTimeUpdate() {
         maxReachedTime = Math.max(maxReachedTime, player.currentTime);
     }
 
-    // Update Custom UI Scrubber
     const scrubber = document.getElementById('audioScrubber');
     const timeDisplay = document.getElementById('currentTimeDisplay');
     if(scrubber) scrubber.value = Math.floor(player.currentTime);
     if(timeDisplay) timeDisplay.innerText = formatTime(player.currentTime);
 
     // ==========================================
-    // THE NEW ROBUST AUDIO TRIGGER NET
+    // BUG FIX 1: THE ACTIVE QUESTION LOCK
     // ==========================================
     const passedQuestion = activeQuestions.find(q => player.currentTime >= q.trigger_second && !answeredCheckpoints.includes(q.id));
     
     if (passedQuestion) {
-        player.pause();
-        player.currentTime = passedQuestion.trigger_second; // Instantly snap back to the exact second so nothing is skipped
-        
-        document.getElementById('questionModal').classList.remove('hidden');
-        document.getElementById('questionText').innerText = passedQuestion.question_text;
-        document.getElementById('feedback').innerText = "";
-        
-        let qType = passedQuestion.question_type || 'open';
-        let options = typeof passedQuestion.options === 'string' ? JSON.parse(passedQuestion.options || '{}') : (passedQuestion.options || {});
-        let interactiveHtml = '';
+        if (currentActiveQuestionId !== passedQuestion.id) {
+            currentActiveQuestionId = passedQuestion.id; // Lock it so it doesn't delete the text box!
+            player.pause();
+            player.currentTime = passedQuestion.trigger_second; 
+            
+            document.getElementById('questionModal').classList.remove('hidden');
+            document.getElementById('questionText').innerText = passedQuestion.question_text;
+            document.getElementById('feedback').innerText = "";
+            
+            let qType = passedQuestion.question_type || 'open';
+            
+            // Safe JSON fallback for reading student questions
+            let options = {};
+            if (typeof passedQuestion.options === 'object' && passedQuestion.options !== null) {
+                options = passedQuestion.options;
+            } else if (typeof passedQuestion.options === 'string') {
+                try { options = JSON.parse(passedQuestion.options); } catch(e) {}
+            }
+            
+            let interactiveHtml = '';
 
-        if (qType === 'mc') {
-            interactiveHtml = `
-                <div style="display:flex; flex-direction:column; gap:8px;">
-                    <label style="cursor:pointer;"><input type="radio" name="student_ans" value="a"> ${escapeHTML(options.a)}</label>
-                    <label style="cursor:pointer;"><input type="radio" name="student_ans" value="b"> ${escapeHTML(options.b)}</label>
-                    <label style="cursor:pointer;"><input type="radio" name="student_ans" value="c"> ${escapeHTML(options.c)}</label>
-                    <label style="cursor:pointer;"><input type="radio" name="student_ans" value="d"> ${escapeHTML(options.d)}</label>
-                </div>`;
-        } else if (qType === 'tf') {
-            interactiveHtml = `
-                <div style="display:flex; gap:15px;">
-                    <label style="cursor:pointer;"><input type="radio" name="student_ans" value="true"> True</label>
-                    <label style="cursor:pointer;"><input type="radio" name="student_ans" value="false"> False</label>
-                </div>`;
-        } else if (qType === 'match') {
-            let pairs = options.pairs || [];
-            let shuffledMatches = pairs.map(p => p.m).sort(() => Math.random() - 0.5);
-            interactiveHtml = pairs.map((p, i) => `
-                <div style="margin-bottom:8px; display:flex; align-items:center; gap: 10px;">
-                    <strong style="width: 40%; text-align:right;">${escapeHTML(p.t)} = </strong> 
-                    <select class="student_match_select" data-index="${i}" style="width: 50%; padding: 4px;">
-                        <option value="">-- Select Match --</option>
-                        ${shuffledMatches.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('')}
-                    </select>
-                </div>`).join('');
-        } else {
-            interactiveHtml = `<textarea id="studentAnswerText" rows="3" style="width:100%; font-family:inherit; padding:8px;" placeholder="Type your answer here..."></textarea>`;
-        }
-        
-        document.getElementById('questionInteractiveArea').innerHTML = interactiveHtml;
-        
-        document.getElementById('submitAnswerBtn').onclick = () => {
-            let studentAns = null;
-            let isCorrect = false;
-            let valid = false;
-
-            if (qType === 'mc' || qType === 'tf') {
-                const checked = document.querySelector('input[name="student_ans"]:checked');
-                if (checked) { 
-                    studentAns = checked.value; 
-                    valid = true; 
-                    isCorrect = (studentAns === String(passedQuestion.correct_answer)); 
-                }
+            if (qType === 'mc') {
+                interactiveHtml = `
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="a"> ${escapeHTML(options.a)}</label>
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="b"> ${escapeHTML(options.b)}</label>
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="c"> ${escapeHTML(options.c)}</label>
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="d"> ${escapeHTML(options.d)}</label>
+                    </div>`;
+            } else if (qType === 'tf') {
+                interactiveHtml = `
+                    <div style="display:flex; gap:15px;">
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="true"> True</label>
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="false"> False</label>
+                    </div>`;
             } else if (qType === 'match') {
-                const selects = document.querySelectorAll('.student_match_select');
-                studentAns = [];
-                let allFilled = true;
-                let allCorrect = true;
-                
-                selects.forEach(s => {
-                    if (!s.value) allFilled = false;
-                    let idx = s.getAttribute('data-index');
-                    if (s.value !== options.pairs[idx].m) allCorrect = false;
-                    studentAns.push(s.value);
-                });
-                if (allFilled) { valid = true; isCorrect = allCorrect; }
+                let pairs = options.pairs || [];
+                let shuffledMatches = pairs.map(p => p.m).sort(() => Math.random() - 0.5);
+                interactiveHtml = pairs.map((p, i) => `
+                    <div style="margin-bottom:8px; display:flex; align-items:center; gap: 10px;">
+                        <strong style="width: 40%; text-align:right;">${escapeHTML(p.t)} = </strong> 
+                        <select class="student_match_select" data-index="${i}" style="width: 50%; padding: 4px;">
+                            <option value="">-- Select Match --</option>
+                            ${shuffledMatches.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('')}
+                        </select>
+                    </div>`).join('');
             } else {
-                studentAns = document.getElementById('studentAnswerText').value.trim();
-                if (studentAns.length >= 3) { valid = true; isCorrect = null; }
+                interactiveHtml = `<textarea id="studentAnswerText" rows="3" style="width:100%; font-family:inherit; padding:8px;" placeholder="Type your answer here..."></textarea>`;
             }
+            
+            document.getElementById('questionInteractiveArea').innerHTML = interactiveHtml;
+            
+            document.getElementById('submitAnswerBtn').onclick = () => {
+                let studentAns = null;
+                let isCorrect = false;
+                let valid = false;
 
-            if(valid) {
-                document.getElementById('questionModal').classList.add('hidden');
-                answeredCheckpoints.push(passedQuestion.id); 
-                studentSessionAnswers[passedQuestion.id] = { answer: studentAns, isCorrect: isCorrect, type: qType };
-                player.play(); 
-                
-                // Immediately log the newly saved progress
-                logProgress(Math.floor(player.currentTime), 'in_progress');
-            } else {
-                document.getElementById('feedback').innerText = "Please complete the question to continue.";
-            }
-        };
+                if (qType === 'mc' || qType === 'tf') {
+                    const checked = document.querySelector('input[name="student_ans"]:checked');
+                    if (checked) { 
+                        studentAns = checked.value; 
+                        valid = true; 
+                        let correctVal = passedQuestion.correct_answer;
+                        if (typeof correctVal === 'string') {
+                            try { correctVal = JSON.parse(correctVal); } catch(e) {}
+                        }
+                        isCorrect = (studentAns === String(correctVal)); 
+                    }
+                } else if (qType === 'match') {
+                    const selects = document.querySelectorAll('.student_match_select');
+                    studentAns = [];
+                    let allFilled = true;
+                    let allCorrect = true;
+                    
+                    selects.forEach(s => {
+                        if (!s.value) allFilled = false;
+                        let idx = s.getAttribute('data-index');
+                        if (s.value !== options.pairs[idx].m) allCorrect = false;
+                        studentAns.push(s.value);
+                    });
+                    if (allFilled) { valid = true; isCorrect = allCorrect; }
+                } else {
+                    studentAns = document.getElementById('studentAnswerText').value.trim();
+                    if (studentAns.length >= 3) { valid = true; isCorrect = null; }
+                }
+
+                if(valid) {
+                    document.getElementById('questionModal').classList.add('hidden');
+                    answeredCheckpoints.push(passedQuestion.id); 
+                    studentSessionAnswers[passedQuestion.id] = { answer: studentAns, isCorrect: isCorrect, type: qType };
+                    
+                    currentActiveQuestionId = null; // Unlocks for the next question
+                    player.play(); 
+                    
+                    logProgress(Math.floor(player.currentTime), 'in_progress');
+                } else {
+                    document.getElementById('feedback').innerText = "Please complete the question to continue.";
+                }
+            };
+        } else {
+            // Keep the audio paused while they type!
+            if (!player.paused) player.pause();
+        }
     }
     
-    // Log progress every 10 seconds normally
     if(currentTime > 0 && currentTime % 10 === 0) logProgress(currentTime, 'in_progress');
 }
 
