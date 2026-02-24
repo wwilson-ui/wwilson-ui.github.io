@@ -714,7 +714,6 @@ window.importSelectedClassroom = async function() {
     }
 };
 
-// --- NEW CSV BULK IMPORT ENGINE ---
 window.importFromCSV = async function() {
     const fileInput = document.getElementById('csvFileInput');
     const statusTxt = document.getElementById('csvImportStatus');
@@ -738,7 +737,6 @@ window.importFromCSV = async function() {
             
             if (rows.length < 2) throw new Error("CSV file seems empty or is missing data rows.");
 
-            // Smart robust CSV line splitter that handles internal quotes and commas
             const splitCSV = (str) => {
                 const result = [];
                 let cur = '';
@@ -784,14 +782,12 @@ window.importFromCSV = async function() {
             const uniqueClasses = [...new Set(parsedData.map(d => d.className))];
             statusTxt.innerText = `Building ${uniqueClasses.length} classes and finding ${parsedData.length} students. Syncing with database...`;
 
-            // Step 1: Find existing classes in the database
             const { data: existingClasses, error: fetchErr } = await sb.from('classcast_classes').select('*');
             if (fetchErr) throw fetchErr;
 
             let classMap = {};
             existingClasses.forEach(c => classMap[c.class_name] = c.id);
 
-            // Step 2: Build any classes that do not exist yet
             for (const className of uniqueClasses) {
                 if (!classMap[className]) {
                     const { data: newClass, error: insertErr } = await sb.from('classcast_classes').insert([{ class_name: className }]).select();
@@ -800,20 +796,17 @@ window.importFromCSV = async function() {
                 }
             }
 
-            // Step 3: Organize the students into the correct classes
             const rosterInserts = parsedData.map(d => ({
                 class_id: classMap[d.className],
                 student_email: d.email
             }));
 
-            // Step 4: Protect against duplicating existing students
             const { data: existingRosters, error: rosterFetchErr } = await sb.from('classcast_roster').select('*');
             if (rosterFetchErr) throw rosterFetchErr;
 
             const existingSet = new Set(existingRosters.map(r => `${r.class_id}_${r.student_email}`));
             const newInserts = rosterInserts.filter(r => !existingSet.has(`${r.class_id}_${r.student_email}`));
 
-            // Step 5: Protect against duplicate lines inside the CSV itself
             const uniqueNewInserts = [];
             const seenNew = new Set();
             newInserts.forEach(r => {
@@ -824,7 +817,6 @@ window.importFromCSV = async function() {
                 }
             });
 
-            // Step 6: Push the final clean list to the database
             if (uniqueNewInserts.length > 0) {
                 const { error: rosterInsertErr } = await sb.from('classcast_roster').insert(uniqueNewInserts);
                 if (rosterInsertErr) throw rosterInsertErr;
@@ -851,7 +843,6 @@ window.importFromCSV = async function() {
 
     reader.readAsText(file);
 };
-
 
 async function loadManageClasses() {
     const container = document.getElementById('classesListContainer');
@@ -936,14 +927,6 @@ window.addStudentToClass = async function(classId) {
 };
 window.removeStudent = async function(id) { await sb.from('classcast_roster').delete().eq('id', id); loadManageClasses(); };
 
-async function populateClassDropdown(dropdownId) {
-    const select = document.getElementById(dropdownId);
-    if(!select) return;
-    const { data } = await sb.from('classcast_classes').select('*').order('class_name');
-    select.innerHTML = '<option value="">-- Choose Class --</option>';
-    if(data) data.forEach(c => select.innerHTML += `<option value="${c.id}">${c.class_name}</option>`);
-}
-
 window.populateClassCheckboxes = async function() {
     const container = document.getElementById('assignmentTargetsContainer');
     if(!container) return;
@@ -1011,8 +994,31 @@ window.deleteFile = async function(fileName) {
 
 // ================= NEW REDESIGNED STUDENT PORTAL =================
 
+// NEW HELPER: Fetch ONLY the class names the logged-in student belongs to
+async function getStudentClassNames() {
+    if (!currentUser || !currentUser.email) return [];
+    
+    const { data: rosterData } = await sb.from('classcast_roster').select('class_id').eq('student_email', currentUser.email);
+    if (!rosterData || rosterData.length === 0) return [];
+    
+    const classIds = rosterData.map(r => r.class_id);
+    const { data: classData } = await sb.from('classcast_classes').select('class_name').in('id', classIds);
+    
+    return classData ? classData.map(c => c.class_name) : [];
+}
+
 async function loadStudentClasses() {
-    populateClassDropdown('studentClassFilter'); 
+    const classNames = await getStudentClassNames();
+    const select = document.getElementById('studentClassFilter');
+    if (!select) return;
+    
+    // Clear dropdown and inject "All Classes" hub + specific enrolled classes
+    select.innerHTML = '<option value="all">My Assignments (All Classes)</option>';
+    classNames.forEach(name => {
+        select.innerHTML += `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`;
+    });
+    
+    showStudentDashboard();
 }
 
 window.showStudentDashboard = function() {
@@ -1028,9 +1034,7 @@ window.showStudentDashboard = function() {
 
 window.loadStudentAssignments = async function() {
     const classSelect = document.getElementById('studentClassFilter');
-    const classId = classSelect.value;
-    const selectedOption = classSelect.options[classSelect.selectedIndex];
-    const classText = selectedOption ? selectedOption.text.trim() : ''; 
+    const selectedValue = classSelect.value || 'all'; 
     
     const dashboard = document.getElementById('studentDashboard');
     const playerCard = document.getElementById('activeAssignmentCard');
@@ -1038,14 +1042,16 @@ window.loadStudentAssignments = async function() {
     playerCard.classList.add('hidden');
     dashboard.classList.remove('hidden');
 
-    if(!classId) { 
-        dashboard.innerHTML = '<h2 style="margin-top:0;">My Dashboard</h2><p style="color:#666;">Please select your class from the menu on the left to view your assignments.</p>';
-        return; 
+    const studentClassNames = await getStudentClassNames();
+    
+    if (studentClassNames.length === 0) {
+        dashboard.innerHTML = '<h2 style="margin-top:0;">My Dashboard</h2><p style="color:#666;">You are not currently enrolled in any classes.</p>';
+        return;
     }
 
     dashboard.innerHTML = '<h2 style="margin-top:0;">My Dashboard</h2><p style="color:#666;">Loading your assignments...</p>';
 
-    const { data: assignments, error } = await sb.from('classcast_assignments').select('*');
+    const { data: assignments, error } = await sb.from('classcast_assignments').select('*').order('created_at', { ascending: false });
     if (error) { 
         console.error("Error loading assignments:", error); 
         return; 
@@ -1060,14 +1066,22 @@ window.loadStudentAssignments = async function() {
     if(assignments) {
         assignments.forEach(d => {
             let isTargeted = false;
+            let assignmentClasses = [];
 
             try {
-                const targetClassesArray = JSON.parse(d.target_class || '[]');
-                if (targetClassesArray.includes(classText)) isTargeted = true;
+                assignmentClasses = JSON.parse(d.target_class || '[]');
             } catch (e) {
-                if (d.target_class === classText) isTargeted = true;
+                assignmentClasses = [d.target_class];
             }
 
+            // FILTER: If Hub View ("all"), show if it matches ANY enrolled class. Otherwise, match the SPECIFIC dropdown class.
+            if (selectedValue === 'all') {
+                isTargeted = assignmentClasses.some(className => studentClassNames.includes(className));
+            } else {
+                isTargeted = assignmentClasses.includes(selectedValue);
+            }
+
+            // Exclude if student is specifically left off a targeted list
             try {
                 const targetStudentsArray = JSON.parse(d.target_students || '[]');
                 if (targetStudentsArray.length > 0 && currentUser && !targetStudentsArray.includes(currentUser.email)) {
@@ -1083,9 +1097,17 @@ window.loadStudentAssignments = async function() {
                 if (prog && prog.status === 'completed') { btnText = 'Review Assignment'; btnColor = 'var(--success)'; }
                 else if (prog) { btnText = 'Continue Listening'; btnColor = '#f4b400'; }
 
+                // Inject a badge showing the Class Name if we are on the "All Classes" Hub view
+                let classBadge = selectedValue === 'all' 
+                    ? `<span style="background: #eee; color: #555; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin-right: 10px;">${assignmentClasses.filter(c => studentClassNames.includes(c)).join(', ')}</span>` 
+                    : '';
+
                 const cardHtml = `
                     <div style="border: 1px solid #dee2e6; padding: 15px; border-radius: 6px; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                        <strong style="font-size: 1.1rem; color: #333;">${d.title}</strong>
+                        <div>
+                            ${classBadge}
+                            <strong style="font-size: 1.1rem; color: #333;">${d.title}</strong>
+                        </div>
                         <button class="action-btn" style="background: ${btnColor}; ${btnColor === '#f4b400' ? 'color: #000;' : ''}" onclick="startAssignment(${d.id})">${btnText}</button>
                     </div>
                 `;
@@ -1097,11 +1119,13 @@ window.loadStudentAssignments = async function() {
         });
     }
 
+    let titleText = selectedValue === 'all' ? "My Assignments (All Classes)" : `Assignments: ${escapeHTML(selectedValue)}`;
+
     dashboard.innerHTML = `
-        <h2 style="margin-top:0;">My Dashboard</h2>
+        <h2 style="margin-top:0;">${titleText}</h2>
         
         <h3 style="color: #444; border-bottom: 2px solid #eee; padding-bottom: 5px; margin-top: 20px;">🔴 Not Started</h3>
-        ${assignedHtml || '<p style="color:#888; font-size: 0.9rem; font-style: italic;">You have no new assignments.</p>'}
+        ${assignedHtml || '<p style="color:#888; font-size: 0.9rem; font-style: italic;">You have no new assignments here.</p>'}
         
         <h3 style="color: #f4b400; border-bottom: 2px solid #eee; padding-bottom: 5px; margin-top: 25px;">🟡 In Progress</h3>
         ${inProgressHtml || '<p style="color:#888; font-size: 0.9rem; font-style: italic;">No assignments currently in progress.</p>'}
