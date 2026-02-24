@@ -601,7 +601,7 @@ window.deleteAssignment = async function(id) {
     loadTeacherAssignments();
 };
 
-// ================= TEACHER PANEL 3: CLASSES & GOOGLE CLASSROOM =================
+// ================= TEACHER PANEL 3: CLASSES (GOOGLE CLASSROOM + CSV IMPORT) =================
 window.openClassroomImport = async function() {
     if (!googleProviderToken) {
         alert("We don't have permission to view your Classroom yet. Please Sign Out, sign back in, and ensure you check all the boxes!");
@@ -714,8 +714,145 @@ window.importSelectedClassroom = async function() {
     }
 };
 
-// ================= REDESIGNED MANAGE CLASSES GRID =================
-// ================= REDESIGNED MANAGE CLASSES GRID =================
+// --- NEW CSV BULK IMPORT ENGINE ---
+window.importFromCSV = async function() {
+    const fileInput = document.getElementById('csvFileInput');
+    const statusTxt = document.getElementById('csvImportStatus');
+
+    if (!fileInput.files || fileInput.files.length === 0) {
+        statusTxt.innerText = "Please select a CSV file first.";
+        statusTxt.style.color = "red";
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    statusTxt.innerText = "Reading file...";
+    statusTxt.style.color = "#555";
+
+    reader.onload = async function(e) {
+        try {
+            const text = e.target.result;
+            const rows = text.split('\n').map(row => row.trim()).filter(row => row.length > 0);
+            
+            if (rows.length < 2) throw new Error("CSV file seems empty or is missing data rows.");
+
+            // Smart robust CSV line splitter that handles internal quotes and commas
+            const splitCSV = (str) => {
+                const result = [];
+                let cur = '';
+                let inQuotes = false;
+                for (let i = 0; i < str.length; i++) {
+                    if (str[i] === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (str[i] === ',' && !inQuotes) {
+                        result.push(cur.trim().replace(/^"|"$/g, ''));
+                        cur = '';
+                    } else {
+                        cur += str[i];
+                    }
+                }
+                result.push(cur.trim().replace(/^"|"$/g, ''));
+                return result;
+            };
+
+            const headers = splitCSV(rows[0]).map(h => h.toLowerCase());
+            
+            let emailIdx = headers.findIndex(h => h.includes('email'));
+            let classIdx = headers.findIndex(h => h.includes('class'));
+
+            if (emailIdx === -1 || classIdx === -1) {
+                throw new Error("CSV must contain columns explicitly named 'Email' and 'Class'.");
+            }
+
+            statusTxt.innerText = "Processing data...";
+
+            let parsedData = [];
+            for (let i = 1; i < rows.length; i++) {
+                const cols = splitCSV(rows[i]);
+                let rowEmail = cols[emailIdx];
+                let rowClass = cols[classIdx];
+                
+                if (rowEmail && rowClass) {
+                    parsedData.push({ email: rowEmail, className: rowClass });
+                }
+            }
+
+            if (parsedData.length === 0) throw new Error("No valid student records found in CSV.");
+
+            const uniqueClasses = [...new Set(parsedData.map(d => d.className))];
+            statusTxt.innerText = `Building ${uniqueClasses.length} classes and finding ${parsedData.length} students. Syncing with database...`;
+
+            // Step 1: Find existing classes in the database
+            const { data: existingClasses, error: fetchErr } = await sb.from('classcast_classes').select('*');
+            if (fetchErr) throw fetchErr;
+
+            let classMap = {};
+            existingClasses.forEach(c => classMap[c.class_name] = c.id);
+
+            // Step 2: Build any classes that do not exist yet
+            for (const className of uniqueClasses) {
+                if (!classMap[className]) {
+                    const { data: newClass, error: insertErr } = await sb.from('classcast_classes').insert([{ class_name: className }]).select();
+                    if (insertErr) throw insertErr;
+                    classMap[className] = newClass[0].id;
+                }
+            }
+
+            // Step 3: Organize the students into the correct classes
+            const rosterInserts = parsedData.map(d => ({
+                class_id: classMap[d.className],
+                student_email: d.email
+            }));
+
+            // Step 4: Protect against duplicating existing students
+            const { data: existingRosters, error: rosterFetchErr } = await sb.from('classcast_roster').select('*');
+            if (rosterFetchErr) throw rosterFetchErr;
+
+            const existingSet = new Set(existingRosters.map(r => `${r.class_id}_${r.student_email}`));
+            const newInserts = rosterInserts.filter(r => !existingSet.has(`${r.class_id}_${r.student_email}`));
+
+            // Step 5: Protect against duplicate lines inside the CSV itself
+            const uniqueNewInserts = [];
+            const seenNew = new Set();
+            newInserts.forEach(r => {
+                const key = `${r.class_id}_${r.student_email}`;
+                if(!seenNew.has(key)) {
+                    seenNew.add(key);
+                    uniqueNewInserts.push(r);
+                }
+            });
+
+            // Step 6: Push the final clean list to the database
+            if (uniqueNewInserts.length > 0) {
+                const { error: rosterInsertErr } = await sb.from('classcast_roster').insert(uniqueNewInserts);
+                if (rosterInsertErr) throw rosterInsertErr;
+            }
+
+            statusTxt.innerText = `Success! Added ${uniqueNewInserts.length} new students across ${uniqueClasses.length} classes.`;
+            statusTxt.style.color = "#1e8e3e";
+            
+            fileInput.value = ''; 
+            setTimeout(() => { statusTxt.innerText = ''; }, 6000);
+            loadManageClasses(); 
+
+        } catch (err) {
+            console.error(err);
+            statusTxt.innerText = "Error: " + err.message;
+            statusTxt.style.color = "red";
+        }
+    };
+
+    reader.onerror = function() {
+        statusTxt.innerText = "Failed to read file.";
+        statusTxt.style.color = "red";
+    };
+
+    reader.readAsText(file);
+};
+
+
 async function loadManageClasses() {
     const container = document.getElementById('classesListContainer');
     container.innerHTML = '<p>Loading classes...</p>';
@@ -735,7 +872,6 @@ async function loadManageClasses() {
                 const isRealEmail = s.student_email.includes('@');
                 const name = isRealEmail ? s.student_email.split('@')[0] : `<strong>${s.student_email}</strong>`;
                 
-                // If Google blocked the email, display a warning so the teacher knows
                 const emailDisplay = isRealEmail 
                     ? `<span style="color:#555;">${s.student_email}</span>` 
                     : `<span style="color:#c62828; font-size: 0.8rem; font-weight: bold;">⚠️ Blocked by Google/IT</span>`;
