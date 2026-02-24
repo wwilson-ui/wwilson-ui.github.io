@@ -5,11 +5,12 @@
 let sb = null;
 let currentUser = null;
 let googleProviderToken = sessionStorage.getItem('googleClassroomToken') || null; 
+
+// THE VIP LIST FOR TEACHERS/CO-TEACHERS
 const TEACHER_EMAILS = [
     'wwilson@mtps.us',
-    'cfiore@mtps.us',
-    'mstuart@mtps.us'
-    ];
+    'coteacher@mtps.us' // Add any co-teachers here!
+]; 
 
 let currentAssignmentId = null;
 let activeQuestions = [];
@@ -41,7 +42,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await checkUser();
     
-    // Setup Custom Audio Player Listeners
     const player = document.getElementById('audioPlayer');
     if(player) {
         player.addEventListener('timeupdate', handleAudioTimeUpdate);
@@ -71,7 +71,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// ================= VIEW MANAGER =================
 function switchView(viewId) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
     const view = document.getElementById(viewId);
@@ -128,7 +127,6 @@ window.toggleSubsparkOptions = function() {
     }
 };
 
-// ================= CUSTOM PLAYER CONTROLS =================
 window.togglePlayPause = function() {
     const player = document.getElementById('audioPlayer');
     if (player.paused) player.play();
@@ -179,7 +177,6 @@ function formatTime(seconds) {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
-// ================= AUTHENTICATION =================
 async function checkUser() {
     try {
         const { data: { session } } = await sb.auth.getSession();
@@ -188,18 +185,25 @@ async function checkUser() {
         
         if (session) {
             currentUser = session.user;
+            const safeEmail = currentUser?.email || ''; // Safety fallback
             
-            const isTeacher = currentUser.email.toLowerCase() === TEACHER_EMAILS.toLowerCase();
+            const isTeacher = TEACHER_EMAILS.some(email => email.toLowerCase() === safeEmail.toLowerCase());
             
             if (adminToggle) adminToggle.style.display = isTeacher ? 'block' : 'none';
             if (authSection) {
                 authSection.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-weight: 600; font-size: 0.9rem;">${currentUser.email.split('@')[0]}</span>
+                        <span style="font-weight: 600; font-size: 0.9rem;">${safeEmail.split('@')[0] || 'User'}</span>
                         <button onclick="signOut()" class="logout-btn">Log Out</button>
                     </div>`;
             }
-            switchView('studentView');
+            
+            // UX FIX: Instantly route teachers to the Admin panel to prevent the blank Student Dashboard bug!
+            if (isTeacher) {
+                switchView('teacherView');
+            } else {
+                switchView('studentView');
+            }
         } else {
             currentUser = null;
             googleProviderToken = null;
@@ -687,13 +691,13 @@ window.importSelectedClassroom = async function() {
             classRecordId = newClass[0].id;
         }
 
-        // CAPTURES BOTH NAME AND EMAIL
         const rosterInserts = students.map(s => {
             const email = s.profile.emailAddress || '';
             const name = s.profile.name?.fullName || `Unknown Student (${s.profile.id})`;
+            const identifier = email || name; 
             return {
                 class_id: classRecordId,
-                student_email: email,
+                student_email: identifier,
                 student_name: name
             };
         });
@@ -803,7 +807,6 @@ window.importFromCSV = async function() {
                 }
             }
 
-            // CAPTURES BOTH NAME AND EMAIL FROM CSV
             const rosterInserts = parsedData.map(d => ({
                 class_id: classMap[d.className],
                 student_email: d.email,
@@ -869,13 +872,13 @@ async function loadManageClasses() {
         let studentRows = students.length === 0 
             ? '<tr><td colspan="3" style="text-align:center; color:#666; padding: 15px;">No students added yet.</td></tr>'
             : students.map(s => {
-                const isRealEmail = s.student_email && s.student_email.includes('@');
+                const safeEmail = s.student_email || '';
+                const isRealEmail = safeEmail.includes('@');
                 
-                // DISPLAYS THE NEW DB NAME IF AVAILABLE, OTHERWISE FALLS BACK TO EMAIL PREFIX
-                let name = s.student_name ? s.student_name : (isRealEmail ? s.student_email.split('@')[0] : `<strong>${s.student_email}</strong>`);
+                let name = s.student_name ? s.student_name : (isRealEmail ? safeEmail.split('@')[0] : `<strong>${safeEmail}</strong>`);
                 
                 const emailDisplay = isRealEmail 
-                    ? `<span style="color:#555;">${s.student_email}</span>` 
+                    ? `<span style="color:#555;">${safeEmail}</span>` 
                     : `<span style="color:#c62828; font-size: 0.8rem; font-weight: bold;">⚠️ Blocked by Google/IT</span>`;
 
                 return `
@@ -1069,7 +1072,8 @@ window.loadStudentAssignments = async function() {
         return; 
     }
 
-    const { data: progressData } = await sb.from('classcast_progress').select('*').eq('student_email', currentUser.email);
+    const safeUserEmail = currentUser?.email || '';
+    const { data: progressData } = await sb.from('classcast_progress').select('*').eq('student_email', safeUserEmail);
 
     let assignedHtml = '';
     let inProgressHtml = '';
@@ -1094,7 +1098,7 @@ window.loadStudentAssignments = async function() {
 
             try {
                 const targetStudentsArray = JSON.parse(d.target_students || '[]');
-                if (targetStudentsArray.length > 0 && currentUser && !targetStudentsArray.includes(currentUser.email)) {
+                if (targetStudentsArray.length > 0 && safeUserEmail && !targetStudentsArray.includes(safeUserEmail)) {
                     isTargeted = false; 
                 }
             } catch (e) {}
@@ -1165,8 +1169,9 @@ window.startAssignment = async function(assignId) {
     const { data: assignData } = await sb.from('classcast_assignments').select('*').eq('id', assignId).single();
     const { data: qData } = await sb.from('classcast_questions').select('*').eq('assignment_id', assignId);
     
-    if (currentUser) {
-        const { data: progData } = await sb.from('classcast_progress').select('*').eq('assignment_id', assignId).eq('student_email', currentUser.email).single();
+    const safeUserEmail = currentUser?.email || '';
+    if (safeUserEmail) {
+        const { data: progData } = await sb.from('classcast_progress').select('*').eq('assignment_id', assignId).eq('student_email', safeUserEmail).single();
         if (progData) {
             maxReachedTime = progData.furthest_second || 0;
             rewindCount = progData.rewind_count || 0;
@@ -1351,13 +1356,14 @@ function handleAudioComplete() {
 }
 
 async function logProgress(currentSecond, status) {
-    if(!currentUser || !currentAssignmentId) return;
+    const safeUserEmail = currentUser?.email || '';
+    if(!safeUserEmail || !currentAssignmentId) return;
     
     let currentSessionTime = sessionStartTime ? Math.floor((new Date() - sessionStartTime) / 1000) : 0;
     let totalListenSeconds = previousTotalTime + currentSessionTime;
     
     await sb.from('classcast_progress').upsert({ 
-        student_email: currentUser.email, 
+        student_email: safeUserEmail, 
         assignment_id: currentAssignmentId, 
         furthest_second: currentSecond, 
         total_session_seconds: totalListenSeconds, 
@@ -1403,12 +1409,11 @@ window.loadAssignmentProgress = async function() {
     const { data: pData } = await sb.from('classcast_progress').select('*').eq('assignment_id', assignId);
     currentProgressData = pData || [];
 
-    // GRAB THE NAMES MAP FOR THE DASHBOARD
     const { data: rosterData } = await sb.from('classcast_roster').select('student_email, student_name');
     window.currentRosterMap = {};
     if (rosterData) {
         rosterData.forEach(r => { 
-            if (r.student_name) window.currentRosterMap[r.student_email] = r.student_name; 
+            if (r.student_name && r.student_email) window.currentRosterMap[r.student_email] = r.student_name; 
         });
     }
 
@@ -1460,13 +1465,13 @@ function renderProgressGrid() {
         let reachedText = formatTime(p.furthest_second || 0);
         let timeSpentText = formatTime(p.total_session_seconds || 0);
 
-        // USES THE FULL NAME IF AVAILABLE
-        let displayName = window.currentRosterMap[p.student_email] || p.student_email.split('@')[0];
+        let safeEmail = p.student_email || '';
+        let displayName = window.currentRosterMap[safeEmail] || safeEmail.split('@')[0] || 'Unknown Student';
 
         bodyHtml += `<tr>
             <td style="position: sticky; left: 0; background: #fff; z-index: 1; border-right: 2px solid #ccc;">
                 <strong>${displayName}</strong>
-                <div style="font-size: 0.75rem; color: #888;">${p.student_email}</div>
+                <div style="font-size: 0.75rem; color: #888;">${safeEmail}</div>
             </td>
             <td>${p.status === 'completed' ? '✅ Complete' : '🔄 In Progress'}</td>
             <td style="font-family: monospace;">${reachedText}</td>
@@ -1495,8 +1500,8 @@ function renderProgressGrid() {
                 let gradingButtons = '';
                 if ((q.question_type || 'open') === 'open') {
                     gradingButtons = `<div style="margin-top: 8px; display:flex; gap: 5px;">
-                        <button onclick="gradeAnswer('${p.student_email}', ${p.assignment_id}, ${q.id}, true)" style="background:#1e8e3e; color:white; border:none; border-radius:3px; cursor:pointer; font-size:0.75rem; padding:4px 8px;">✅ Correct</button>
-                        <button onclick="gradeAnswer('${p.student_email}', ${p.assignment_id}, ${q.id}, false)" style="background:#c62828; color:white; border:none; border-radius:3px; cursor:pointer; font-size:0.75rem; padding:4px 8px;">❌ Incorrect</button>
+                        <button onclick="gradeAnswer('${safeEmail}', ${p.assignment_id}, ${q.id}, true)" style="background:#1e8e3e; color:white; border:none; border-radius:3px; cursor:pointer; font-size:0.75rem; padding:4px 8px;">✅ Correct</button>
+                        <button onclick="gradeAnswer('${safeEmail}', ${p.assignment_id}, ${q.id}, false)" style="background:#c62828; color:white; border:none; border-radius:3px; cursor:pointer; font-size:0.75rem; padding:4px 8px;">❌ Incorrect</button>
                     </div>`;
                 }
 
@@ -1557,9 +1562,10 @@ window.exportStudentData = async function() {
         let reachedText = formatTime(p.furthest_second || 0);
         let timeSpentText = formatTime(p.total_session_seconds || 0);
 
-        let displayName = window.currentRosterMap[p.student_email] || p.student_email.split('@')[0];
+        let safeEmail = p.student_email || '';
+        let displayName = window.currentRosterMap[safeEmail] || safeEmail.split('@')[0] || 'Unknown';
 
-        csv += `"${displayName}","${p.student_email}","${p.status}","${reachedText}","${timeSpentText}","${p.rewind_count || 0}","${scoreText}"`;
+        csv += `"${displayName}","${safeEmail}","${p.status}","${reachedText}","${timeSpentText}","${p.rewind_count || 0}","${scoreText}"`;
         
         currentProgressQuestions.forEach(q => {
             let ansData = answers[q.id];
