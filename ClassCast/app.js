@@ -190,6 +190,16 @@ async function checkUser() {
             const safeEmail = (currentUser?.email || '').toLowerCase();
             userPerms.email = safeEmail;
             
+            // [NEW] SELF-HEALING PROFILE SYNC:
+            // This guarantees the Teacher has a profile in Spark's shared database
+            // so that "Create First Post" doesn't fail a foreign-key database constraint.
+            const { error: profError } = await sb.from('profiles').upsert({
+                id: session.user.id,
+                email: safeEmail,
+                username: safeEmail.split('@')[0]
+            }, { onConflict: 'id' });
+            if (profError) console.error("Profile Sync Error (Spark):", profError);
+
             const { data: teacherRecord } = await sb.from('classcast_teachers').select('*').eq('email', safeEmail).single();
             
             userPerms.isSuperAdmin = (safeEmail === MAIN_ADMIN);
@@ -197,7 +207,7 @@ async function checkUser() {
             
             if (superAdminBtn) {
                 if (userPerms.isSuperAdmin) {
-                    superAdminBtn.classList.remove('hidden'); // Fixes HTML override
+                    superAdminBtn.classList.remove('hidden'); 
                     superAdminBtn.style.display = 'block';
                 } else {
                     superAdminBtn.classList.add('hidden');
@@ -439,12 +449,28 @@ window.saveNewAssignment = async function() {
 
         let existingSpark = document.getElementById('existingSubsparkUrl');
         let finalSubSparkUrl = existingSpark ? existingSpark.value : ''; 
+        
+        // --- UPDATED SUB-SPARK CREATION WITH ERROR CAPTURING ---
         if (document.getElementById('autoCreateSubspark').checked && !editingAssignmentId) {
             const { data: newSub, error: subError } = await sb.from('subreddits').insert([{ name: title, created_by: currentUser.id }]).select().single();
-            if (subError) throw subError;
+            if (subError) throw new Error("Subreddit Creation Error: " + subError.message);
             
             const postText = document.getElementById('subsparkFirstPostText').value;
-            if (postText) await sb.from('posts').insert([{ title: `Discussion: ${title}`, content: postText, subreddit_id: newSub.id, user_id: currentUser.id }]);
+            if (postText) {
+                const imgVal = document.getElementById('subsparkFirstPostPhoto').value;
+                const linkVal = document.getElementById('subsparkFirstPostLink').value;
+                
+                const { error: postError } = await sb.from('posts').insert([{ 
+                    title: `Discussion: ${title}`, 
+                    content: postText, 
+                    image_url: imgVal || null,
+                    url: linkVal || null,
+                    subreddit_id: newSub.id, 
+                    user_id: currentUser.id 
+                }]);
+                
+                if (postError) throw new Error("Spark First Post Error: " + postError.message);
+            }
             finalSubSparkUrl = `https://wwilson-ui.github.io/r/Spark/?sub=${newSub.id}`;
         }
 
@@ -900,6 +926,12 @@ window.startAssignment = async function(assignId) {
     
     audioPlayer.load();
 
+    // HIDES OR ATTACHES THE SPARK LINK FOR THE MODAL POPUP LATER
+    const sparkLinkEl = document.getElementById('activeSubsparkLink');
+    if(sparkLinkEl) {
+        sparkLinkEl.href = assignData.subspark_url || '#';
+    }
+
     // SHOW ADDITIONAL LINKS TO STUDENT
     let links = [];
     try { links = JSON.parse(assignData.additional_links || '[]'); } catch(e) {}
@@ -915,7 +947,6 @@ window.startAssignment = async function(assignId) {
         previewHtml += `<div style="margin-bottom: 12px; border-bottom: 1px dashed #ccc; padding-bottom: 8px;"><strong>Q${index + 1}:</strong> ${q.question_text} <span style="color:#888; font-size: 0.8rem;">${t}</span></div>`;
     });
     document.getElementById('questionPreviewList').innerHTML = previewHtml || '<em>No interactive questions for this assignment.</em>';
-    if(assignData.subspark_url) document.getElementById('activeSubsparkLink').href = assignData.subspark_url;
 };
 
 function handleAudioTimeUpdate() {
@@ -930,7 +961,10 @@ function handleAudioTimeUpdate() {
         if (currentActiveQuestionId !== passedQuestion.id) {
             currentActiveQuestionId = passedQuestion.id; player.pause(); player.currentTime = passedQuestion.trigger_second; 
             
-            document.getElementById('questionModal').classList.remove('hidden'); document.getElementById('questionText').innerText = passedQuestion.question_text; document.getElementById('feedback').innerText = "";
+            document.getElementById('questionModal').classList.remove('hidden'); 
+            document.getElementById('submitAnswerBtn').style.display = 'block'; // Ensure button is visible for regular questions
+            document.getElementById('questionText').innerText = passedQuestion.question_text; 
+            document.getElementById('feedback').innerText = "";
             let qType = passedQuestion.question_type || 'open';
             let options = {};
             if (typeof passedQuestion.options === 'object' && passedQuestion.options !== null) options = passedQuestion.options;
@@ -992,7 +1026,34 @@ function handleAudioTimeUpdate() {
 
 function handleAudioComplete() {
     logProgress(Math.floor(document.getElementById('audioPlayer').currentTime), 'completed');
-    if(document.getElementById('activeSubsparkLink').getAttribute('href') !== '#') document.getElementById('subsparkLinkContainer').classList.remove('hidden');
+    
+    // THE NEW SPARK END-OF-AUDIO POPUP!
+    const sparkUrl = document.getElementById('activeSubsparkLink').getAttribute('href');
+    const modal = document.getElementById('questionModal');
+    
+    document.getElementById('submitAnswerBtn').style.display = 'none'; // Hide submit button so they don't get confused
+    document.getElementById('feedback').innerText = "";
+    
+    if (sparkUrl && sparkUrl !== '#') {
+        document.getElementById('questionText').innerHTML = "🎉 Assignment Complete!";
+        document.getElementById('questionInteractiveArea').innerHTML = `
+            <div style="text-align: center; margin: 20px 0; animation: slideDown 0.5s ease-out;">
+                <p style="font-size: 1.1rem; color: #555; margin-bottom: 25px;">Great job! You have finished the audio. Head over to the community forum to discuss this episode with your class.</p>
+                <a href="${sparkUrl}" target="_blank" class="action-btn" style="background: #FF4500; color: white; text-decoration: none; font-size: 1.2rem; padding: 15px 30px; display: inline-block; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 10px rgba(255,69,0,0.3); transition: transform 0.2s;">
+                    ⚡ Join the Discussion on r/Spark
+                </a>
+            </div>
+        `;
+        modal.classList.remove('hidden');
+    } else {
+        document.getElementById('questionText').innerHTML = "🎉 Assignment Complete!";
+        document.getElementById('questionInteractiveArea').innerHTML = `
+            <div style="text-align: center; margin: 20px 0;">
+                <p style="font-size: 1.1rem; color: #555;">You have successfully completed this audio assignment. You can now close this and return to your dashboard.</p>
+            </div>
+        `;
+        modal.classList.remove('hidden');
+    }
 }
 
 async function logProgress(currentSecond, status) {
@@ -1021,7 +1082,7 @@ window.toggleFullScreenProgress = function() {
     const btn = document.getElementById('fullScreenBtn');
     if (panel.classList.contains('fullscreen-mode')) {
         btn.innerText = "⛶ Exit Full Screen";
-        document.body.style.overflow = "hidden"; // Prevent double scrolling
+        document.body.style.overflow = "hidden"; 
     } else {
         btn.innerText = "⛶ Full Screen";
         document.body.style.overflow = "auto";
@@ -1118,7 +1179,6 @@ function renderProgressGrid() {
         return;
     }
 
-    // APPLY GRADING FILTER IF ACTIVE
     let displayData = currentProgressData;
     if (filterNeedsGrading) {
         displayData = currentProgressData.filter(p => {
@@ -1225,7 +1285,6 @@ window.gradeAnswer = async function(email, assignId, questionId, isCorrect) {
     answers[questionId].isCorrect = isCorrect;
     pRow.student_answers = answers; 
     await sb.from('classcast_progress').update({ student_answers: answers }).eq('student_email', email).eq('assignment_id', assignId);
-    // Instant UI refresh, Realtime will silently catch up
     renderProgressGrid(); 
 };
 
