@@ -1,5 +1,5 @@
 // ==========================================
-// ClassCast - Unified Logic with Super Admin & Realtime
+// ClassCast - Unified Logic with Super Admin, Filters & Full Screen
 // ==========================================
 
 let sb = null;
@@ -21,7 +21,12 @@ let rewindCount = 0;
 let studentSessionAnswers = {};
 let currentActiveQuestionId = null; 
 let previousTotalTime = 0; 
-let realtimeSubscription = null; // For Live Progress Updates
+let realtimeSubscription = null; 
+
+// Progress View State
+let filterNeedsGrading = false;
+let currentProgressData = [];
+let currentProgressQuestions = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
@@ -104,7 +109,6 @@ window.switchAdminPanel = function(panelId, event = null) {
     if (panelId === 'admin-files') loadManageFiles();
     if (panelId === 'admin-super') loadSuperAdminTeachers();
     
-    // Stop Realtime if leaving progress tab
     if (panelId !== 'admin-progress' && realtimeSubscription) {
         sb.removeChannel(realtimeSubscription);
         document.getElementById('liveUpdateBadge').classList.add('hidden');
@@ -186,13 +190,20 @@ async function checkUser() {
             const safeEmail = (currentUser?.email || '').toLowerCase();
             userPerms.email = safeEmail;
             
-            // Check Database for Teacher Authorization
             const { data: teacherRecord } = await sb.from('classcast_teachers').select('*').eq('email', safeEmail).single();
             
             userPerms.isSuperAdmin = (safeEmail === MAIN_ADMIN);
             userPerms.isTeacher = !!teacherRecord || userPerms.isSuperAdmin;
             
-            if (superAdminBtn) superAdminBtn.style.display = userPerms.isSuperAdmin ? 'block' : 'none';
+            if (superAdminBtn) {
+                if (userPerms.isSuperAdmin) {
+                    superAdminBtn.classList.remove('hidden'); // Fixes HTML override
+                    superAdminBtn.style.display = 'block';
+                } else {
+                    superAdminBtn.classList.add('hidden');
+                    superAdminBtn.style.display = 'none';
+                }
+            }
             if (adminToggle) adminToggle.style.display = userPerms.isTeacher ? 'block' : 'none';
             
             if (authSection) {
@@ -347,13 +358,11 @@ window.editAssignment = async function(id) {
     document.getElementById('autoCreateSubspark').checked = false;
     toggleSubsparkOptions();
 
-    // Load Links
     document.getElementById('linksBuilderList').innerHTML = '';
     let links = [];
     try { links = JSON.parse(assignData.additional_links || '[]'); } catch(e) {}
     links.forEach(l => addLinkRow(l));
 
-    // Load Questions
     document.getElementById('questionsBuilderList').innerHTML = '';
     if (qData) qData.forEach(q => addQuestionRow(q.question_type || 'open', q));
 
@@ -399,7 +408,6 @@ window.saveNewAssignment = async function() {
     
     if(!title || selectedClasses.length === 0) return alert("Title and at least one Target Class are required.");
 
-    // Parse Links
     const linkRows = document.querySelectorAll('.link-row-item');
     const finalLinks = [];
     linkRows.forEach(row => {
@@ -495,7 +503,6 @@ async function loadTeacherAssignments() {
     let { data } = await sb.from('classcast_assignments').select('*').order('created_at', { ascending: false });
     if(!data) return;
 
-    // RBAC: Show only their classes unless SuperAdmin
     if (!userPerms.isSuperAdmin) {
         const { data: myClasses } = await sb.from('classcast_classes').select('class_name').contains('teacher_emails', `["${userPerms.email}"]`);
         const myClassNames = myClasses ? myClasses.map(c => c.class_name) : [];
@@ -555,7 +562,6 @@ window.toggleStudentList = function(classId) {
     if (!isChecked) document.querySelectorAll(`.class-${classId}-student`).forEach(cb => cb.checked = false);
 };
 
-// ROSTER SYNC: UPGRADED TO NEVER DELETE EXISTING ROWS TO PROTECT PROGRESS
 window.openClassroomImport = async function() {
     if (!googleProviderToken) return alert("Please Sign Out, sign back in, and ensure you check the box to view Classroom Emails!");
     document.getElementById('classroomImportCard').classList.remove('hidden');
@@ -594,7 +600,6 @@ window.importSelectedClassroom = async function() {
             classRecordId = newClass[0].id;
         }
 
-        // Safe Merge Logic
         const incoming = students.map(s => ({ email: s.profile.emailAddress || '', name: s.profile.name?.fullName || 'Unknown' }));
         const { data: existingRoster } = await sb.from('classcast_roster').select('*').eq('class_id', classRecordId);
         
@@ -642,7 +647,6 @@ window.importFromCSV = async function() {
                 }
             }
 
-            // Simple safe merge per class to prevent duplicates without destroying data
             statusTxt.innerText = "Merging roster data safely...";
             let addedCount = 0;
             for (const cName of uniqueClasses) {
@@ -762,7 +766,7 @@ async function loadSuperAdminTeachers() {
         <tr>
             <td><strong>${t.email}</strong> ${t.email === MAIN_ADMIN ? '<span style="color:red; font-size:0.8rem;">(Super Admin)</span>' : ''}</td>
             <td style="text-align:center;">
-                ${t.email !== MAIN_ADMIN ? `<button class="danger-btn" onclick="removeTeacher('${t.email}')">Revoke Access</button>` : 'System Linked'}
+                ${t.email !== MAIN_ADMIN ? `<button class="danger-btn" onclick="removeTeacher('${t.email}')">Revoke Access</button>` : '<span style="color:#666; font-size: 0.8rem;">System Linked</span>'}
             </td>
         </tr>
     `).join('');
@@ -1011,14 +1015,38 @@ async function logProgress(currentSecond, status) {
 
 // ================= PHASE 4: FORMATIVE.COM STYLE DASHBOARD & REALTIME =================
 
-let currentProgressData = [];
-let currentProgressQuestions = [];
+window.toggleFullScreenProgress = function() {
+    const panel = document.getElementById('admin-progress');
+    panel.classList.toggle('fullscreen-mode');
+    const btn = document.getElementById('fullScreenBtn');
+    if (panel.classList.contains('fullscreen-mode')) {
+        btn.innerText = "⛶ Exit Full Screen";
+        document.body.style.overflow = "hidden"; // Prevent double scrolling
+    } else {
+        btn.innerText = "⛶ Full Screen";
+        document.body.style.overflow = "auto";
+    }
+};
+
+window.toggleGradingFilter = function() {
+    filterNeedsGrading = !filterNeedsGrading;
+    const btn = document.getElementById('filterGradingBtn');
+    if (filterNeedsGrading) {
+        btn.innerText = "👀 Showing Needs Grading";
+        btn.style.background = "#1e8e3e";
+        btn.style.color = "white";
+    } else {
+        btn.innerText = "🔎 Show Needs Grading";
+        btn.style.background = "#f4b400";
+        btn.style.color = "black";
+    }
+    renderProgressGrid();
+};
 
 async function loadTeacherProgress() {
     const select = document.getElementById('progressAssignmentSelect');
     let { data } = await sb.from('classcast_assignments').select('id, title, target_class').order('created_at', { ascending: false });
     
-    // RBAC: Show only their classes unless SuperAdmin
     if (!userPerms.isSuperAdmin) {
         const { data: myClasses } = await sb.from('classcast_classes').select('class_name').contains('teacher_emails', `["${userPerms.email}"]`);
         const myClassNames = myClasses ? myClasses.map(c => c.class_name) : [];
@@ -1034,14 +1062,12 @@ async function loadTeacherProgress() {
     document.getElementById('progressTableBody').innerHTML = '';
 }
 
-// SETUP LIVE UPDATES
 function setupRealtimeProgress(assignId) {
     if (realtimeSubscription) sb.removeChannel(realtimeSubscription);
     document.getElementById('liveUpdateBadge').classList.remove('hidden');
     
     realtimeSubscription = sb.channel('progress-updates')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'classcast_progress', filter: `assignment_id=eq.${assignId}` }, payload => {
-            // Silently reload the data without resetting the dropdown
             loadAssignmentProgress(true);
         }).subscribe();
 }
@@ -1062,7 +1088,6 @@ window.loadAssignmentProgress = async function(isSilentRefresh = false) {
 
     const { data: pData } = await sb.from('classcast_progress').select('*').eq('assignment_id', assignId);
     
-    // Gather all students currently active in the classes this assignment targets
     const { data: assignData } = await sb.from('classcast_assignments').select('target_class').eq('id', assignId).single();
     let targetClassNames = []; try { targetClassNames = JSON.parse(assignData.target_class || '[]'); } catch(e) { targetClassNames = [assignData.target_class]; }
     
@@ -1079,9 +1104,7 @@ window.loadAssignmentProgress = async function(isSilentRefresh = false) {
         });
     }
 
-    // Only show students currently in the roster for those classes
     currentProgressData = (pData || []).filter(p => validRosterEmails.has(p.student_email));
-
     renderProgressGrid();
 };
 
@@ -1093,6 +1116,18 @@ function renderProgressGrid() {
         thead.innerHTML = '<tr><th style="padding: 20px; text-align: center; color: #666;">No student data found for this assignment yet.</th></tr>';
         tbody.innerHTML = '';
         return;
+    }
+
+    // APPLY GRADING FILTER IF ACTIVE
+    let displayData = currentProgressData;
+    if (filterNeedsGrading) {
+        displayData = currentProgressData.filter(p => {
+            let answers = typeof p.student_answers === 'string' ? JSON.parse(p.student_answers || '{}') : (p.student_answers || {});
+            return currentProgressQuestions.some(q => {
+                let ansData = answers[q.id];
+                return ansData && (q.question_type === 'open' || !q.question_type) && (ansData.isCorrect === null || ansData.isCorrect === undefined);
+            });
+        });
     }
 
     let headerHtml = `<tr>
@@ -1110,12 +1145,17 @@ function renderProgressGrid() {
     headerHtml += `</tr>`;
     thead.innerHTML = headerHtml;
 
+    if (displayData.length === 0 && filterNeedsGrading) {
+        tbody.innerHTML = '<tr><td colspan="100%" style="padding: 20px; text-align: center; color: #1e8e3e; font-weight: bold;">🎉 All caught up! No grading needed.</td></tr>';
+        return;
+    }
+
     let bodyHtml = '';
-    currentProgressData.forEach(p => {
+    displayData.forEach(p => {
         let answers = typeof p.student_answers === 'string' ? JSON.parse(p.student_answers || '{}') : (p.student_answers || {});
         
         let correctCount = 0;
-        let totalQuestions = currentProgressQuestions.length; // FIX: Denominator is now ALL questions
+        let totalQuestions = currentProgressQuestions.length; 
         
         currentProgressQuestions.forEach(q => {
             let ansData = answers[q.id];
@@ -1185,6 +1225,7 @@ window.gradeAnswer = async function(email, assignId, questionId, isCorrect) {
     answers[questionId].isCorrect = isCorrect;
     pRow.student_answers = answers; 
     await sb.from('classcast_progress').update({ student_answers: answers }).eq('student_email', email).eq('assignment_id', assignId);
+    // Instant UI refresh, Realtime will silently catch up
     renderProgressGrid(); 
 };
 
@@ -1201,7 +1242,7 @@ window.exportStudentData = async function() {
 
     currentProgressData.forEach(p => {
         let answers = typeof p.student_answers === 'string' ? JSON.parse(p.student_answers || '{}') : (p.student_answers || {});
-        let correctCount = 0; let totalQuestions = currentProgressQuestions.length; // FIX: Denominator uses total questions
+        let correctCount = 0; let totalQuestions = currentProgressQuestions.length; 
         
         currentProgressQuestions.forEach(q => {
             let ansData = answers[q.id];
