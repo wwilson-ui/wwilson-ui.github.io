@@ -132,7 +132,7 @@
             font-size: 1rem;
         }
 
-        /* Super Admin UI Styles */
+        /* Added purely for Super Admin Panel */
         .hidden { display: none !important; }
         .danger-btn { background: #c62828; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; }
         .danger-btn:hover { background: #b71c1c; }
@@ -169,7 +169,7 @@
             </a>
         </div>
 
-        <div class="card hidden" id="superAdminCard" style="border: 2px solid #0079D3; margin-top: 40px; cursor: default; transform: none; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+        <div class="card hidden" id="superAdminCard" style="border: 2px solid #0079D3; margin-top: 40px; cursor: default; transform: none; box-shadow: 0 4px 10px rgba(0,0,0,0.05); width: 100%; max-width: 100%;">
             <h2 style="margin-top: 0; color: #0079D3;">👑 Super Admin Control</h2>
             <p style="color: #666; font-size: 0.95rem; text-align: left; margin-bottom: 10px;">Authorize teachers to use ClassCast and Spark. Authorized teachers can manage their own classes and assignments independently.</p>
             
@@ -198,36 +198,36 @@
 
     <script>
         const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-        const MAIN_ADMIN = 'wwilson@mtps.us';
+        const MAIN_ADMIN = 'wwilson@mtps.us'; // Added your admin email
 
         async function checkSession() {
             const { data: { session } } = await sb.auth.getSession();
             const authSection = document.getElementById('authSection');
-            const superAdminCard = document.getElementById('superAdminCard');
+            const superAdminCard = document.getElementById('superAdminCard'); // Get admin card
 
             if (session) {
                 // Logged In: Show Email and Sign Out button
-                const email = session.user.email;
-                const emailPrefix = email.split('@')[0];
-                
+                const emailPrefix = session.user.email.split('@')[0];
                 authSection.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <span style="font-weight: 600; color: #444;">${emailPrefix}</span>
-                        <button onclick="signOut()" class="auth-btn" style="padding: 6px 10px; font-size: 0.8rem; border-radius: 4px;">Sign Out</button>
+                        <button onclick="signOut()" class="auth-btn" style="padding: 6px 10px; font-size: 0.8rem;">Sign Out</button>
                     </div>
                 `;
 
                 // SHOW SUPER ADMIN PANEL IF IT'S YOU
-                if (email.toLowerCase() === MAIN_ADMIN.toLowerCase()) {
+                if (session.user.email.toLowerCase() === MAIN_ADMIN.toLowerCase()) {
                     superAdminCard.classList.remove('hidden');
                     loadTeachers();
+                } else {
+                    superAdminCard.classList.add('hidden');
                 }
 
             } else {
                 // Logged Out: Show Google Sign In
                 authSection.innerHTML = `
                     <button onclick="signIn()" class="auth-btn">
-                        <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" width=\"18\" height=\"18\" alt=\"G\">
+                        <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" width="18" height="18" alt="G">
                         Sign in
                     </button>
                 `;
@@ -235,13 +235,13 @@
             }
         }
 
-        // --- AUTH FUNCTIONS ---
+        // 3. Auth Functions
         async function signIn() {
             await sb.auth.signInWithOAuth({
                 provider: 'google',
                 options: { 
-                    redirectTo: window.location.href, 
-                    queryParams: { hd: 'mtps.us' } 
+                    redirectTo: window.location.href, // Reloads this portal page after login
+                    queryParams: { hd: 'mtps.us' }    // Restricts to your school domain
                 }
             });
         }
@@ -251,7 +251,7 @@
             window.location.reload();
         }
 
-        // --- SUPER ADMIN FUNCTIONS ---
+        // --- NEW: SUPER ADMIN FUNCTIONS ---
         async function loadTeachers() {
             const tbody = document.getElementById('teachersTable');
             const { data, error } = await sb.from('classcast_teachers').select('*').order('email');
