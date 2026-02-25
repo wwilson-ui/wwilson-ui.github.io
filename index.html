@@ -151,8 +151,16 @@
         /* --- SUPER ADMIN MODAL STYLES --- */
         .admin-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
         .admin-modal-overlay.active { display: flex; }
-        .admin-modal { background: white; padding: 30px; border-radius: 8px; width: 90%; max-width: 600px; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-        .close-admin { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666; }
+        
+        /* Updated Modal Size */
+        .admin-modal { background: white; padding: 40px; border-radius: 8px; width: 95%; max-width: 1200px; height: 85vh; overflow-y: auto; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        
+        .close-admin { position: absolute; top: 20px; right: 20px; background: none; border: none; font-size: 2rem; cursor: pointer; color: #666; }
+        
+        /* Updated Navbar Admin Link Style */
+        .admin-nav-link { background: none; border: none; color: #0079D3; font-weight: 600; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 5px; padding: 0; font-family: inherit; }
+        .admin-nav-link:hover { text-decoration: underline; }
+        
         .admin-panel-btn { background: #0079D3; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
         .danger-btn { background: #c62828; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; }
     </style>
@@ -200,23 +208,23 @@
     <div class="admin-modal-overlay" id="adminModalOverlay">
         <div class="admin-modal">
             <button class="close-admin" onclick="toggleAdminModal()">&times;</button>
-            <h2 style="margin-top: 0; color: #0079D3;">👑 Super Admin Control</h2>
-            <p style="color: #666; font-size: 0.95rem; text-align: left; margin-bottom: 20px;">Authorize teachers to use ClassCast and Spark.</p>
+            <h2 style="margin-top: 0; color: #0079D3; font-size: 1.8rem;">👑 Super Admin Control</h2>
+            <p style="color: #666; font-size: 1.1rem; text-align: left; margin-bottom: 30px;">Authorize teachers to use ClassCast and Spark.</p>
             
-            <div style="display: flex; gap: 10px; width: 100%;">
-                <input type="email" id="newTeacherEmail" placeholder="teacher@mtps.us" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit;">
+            <div style="display: flex; gap: 10px; width: 100%; max-width: 600px;">
+                <input type="email" id="newTeacherEmail" placeholder="teacher@mtps.us" style="flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; font-size: 1rem;">
                 <button class="admin-panel-btn" style="font-size: 1rem; padding: 10px 20px;" onclick="addTeacher()">Authorize</button>
             </div>
             
-            <table style="width: 100%; border-collapse: collapse; margin-top: 25px; text-align: left;">
+            <table style="width: 100%; border-collapse: collapse; margin-top: 40px; text-align: left; font-size: 1.1rem;">
                 <thead>
                     <tr style="border-bottom: 2px solid #eee;">
-                        <th style="padding: 10px;">Authorized Teacher Emails</th>
-                        <th style="text-align: right; padding: 10px;">Action</th>
+                        <th style="padding: 15px 10px;">Authorized Teacher Emails</th>
+                        <th style="text-align: right; padding: 15px 10px;">Action</th>
                     </tr>
                 </thead>
                 <tbody id="teachersTable">
-                    <tr><td colspan="2" style="text-align: center; padding: 15px; color: #666;">Loading...</td></tr>
+                    <tr><td colspan="2" style="text-align: center; padding: 20px; color: #666;">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -229,38 +237,34 @@
     <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // 1. Initialize Supabase (Using keys from your original config)
         const SUPABASE_URL = 'https://mvxuubwbtkhdbhuadxtu.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHV1YndidGtoZGJodWFkeHR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQyMDgsImV4cCI6MjA4Njc2MDIwOH0.FzsVt0bmWnrc3pYUWfJyS-9PE9oJY1ZzoGbax3q_LGk';
         const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
         const MAIN_ADMIN = 'wwilson@mtps.us';
 
-        // 2. Check Session on Load
         async function checkSession() {
             const authSection = document.getElementById('authSection');
             const { data: { session } } = await sb.auth.getSession();
 
             if (session) {
-                // Logged In: Show Email and Sign Out button
                 const email = session.user.email;
                 const emailPrefix = email.split('@')[0];
                 let adminButtonHtml = '';
 
-                // If it's the Super Admin, add the control button
                 if (email.toLowerCase() === MAIN_ADMIN.toLowerCase()) {
-                    adminButtonHtml = `<button onclick="toggleAdminModal()" class="admin-panel-btn">Admin Panel</button>`;
+                    // Changed button styling to match Spark/ClassCast nav link
+                    adminButtonHtml = `<button onclick="toggleAdminModal()" class="admin-nav-link">🛡️ Admin</button>`;
                 }
 
                 authSection.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <span style="font-weight: 600; color: #444;">${emailPrefix}</span>
+                    <div style="display: flex; align-items: center; gap: 20px;">
                         ${adminButtonHtml}
+                        <span style="font-weight: 600; color: #444;">${emailPrefix}</span>
                         <button onclick="signOut()" class="auth-btn" style="padding: 6px 10px; font-size: 0.8rem;">Sign Out</button>
                     </div>
                 `;
             } else {
-                // Logged Out: Show Google Sign In
                 authSection.innerHTML = `
                     <button onclick="signIn()" class="auth-btn">
                         <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" width="18" height="18" alt="G">
@@ -270,14 +274,10 @@
             }
         }
 
-        // 3. Auth Functions
         async function signIn() {
             await sb.auth.signInWithOAuth({
                 provider: 'google',
-                options: { 
-                    redirectTo: window.location.href, // Reloads this portal page after login
-                    queryParams: { hd: 'mtps.us' }    // Restricts to your school domain
-                }
+                options: { redirectTo: window.location.href, queryParams: { hd: 'mtps.us' } }
             });
         }
 
@@ -286,7 +286,6 @@
             window.location.reload();
         }
 
-        // --- SUPER ADMIN MODAL LOGIC ---
         function toggleAdminModal() {
             const modal = document.getElementById('adminModalOverlay');
             modal.classList.toggle('active');
@@ -300,18 +299,18 @@
             const { data, error } = await sb.from('classcast_teachers').select('*').order('email');
             
             if (error || !data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 15px; color: #666;">No authorized teachers found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 20px; color: #666;">No authorized teachers found.</td></tr>';
                 return;
             }
 
             tbody.innerHTML = data.map(t => `
                 <tr>
-                    <td style="padding: 10px; border-bottom: 1px solid #eee;">
+                    <td style="padding: 15px 10px; border-bottom: 1px solid #eee;">
                         <strong>${t.email}</strong> 
-                        ${t.email.toLowerCase() === MAIN_ADMIN.toLowerCase() ? '<span style="color:#0079D3; font-size:0.8rem; margin-left: 5px;">(Super Admin)</span>' : ''}
+                        ${t.email.toLowerCase() === MAIN_ADMIN.toLowerCase() ? '<span style="color:#0079D3; font-size:0.85rem; margin-left: 8px;">(Super Admin)</span>' : ''}
                     </td>
-                    <td style="text-align:right; padding: 10px; border-bottom: 1px solid #eee;">
-                        ${t.email.toLowerCase() !== MAIN_ADMIN.toLowerCase() ? `<button class="danger-btn" onclick="removeTeacher('${t.email}')">Revoke</button>` : '<span style="color:#888; font-size: 0.85rem;">Required</span>'}
+                    <td style="text-align:right; padding: 15px 10px; border-bottom: 1px solid #eee;">
+                        ${t.email.toLowerCase() !== MAIN_ADMIN.toLowerCase() ? `<button class="danger-btn" onclick="removeTeacher('${t.email}')">Revoke</button>` : '<span style="color:#888; font-size: 0.9rem;">Required</span>'}
                     </td>
                 </tr>
             `).join('');
@@ -338,7 +337,6 @@
             }
         }
 
-        // Run on page load
         document.addEventListener('DOMContentLoaded', checkSession);
     </script>
 </body>
