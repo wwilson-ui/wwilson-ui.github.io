@@ -13,7 +13,7 @@
         .logo { font-weight: 700; font-size: 1.2rem; text-decoration: none; color: inherit; display: flex; align-items: center; gap: 8px; }
         .google-btn { display: flex; align-items: center; gap: 10px; background: white; color: #333; border: 1px solid #ccc; padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer; }
         .logout-btn { background: #eee; border: 1px solid #ccc; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
-        .app-container { max-width: 1400px; margin: 40px auto; padding: 0 20px; }
+        .app-container { max-width: 1400px; margin: 40px auto; padding: 0 20px; transition: all 0.3s ease; }
         .view-section { display: none; } 
         .card { background: var(--bg-card); padding: 25px; border-radius: 8px; border: 1px solid #dee2e6; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .action-btn { background: var(--primary); color: white; border: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
@@ -59,6 +59,11 @@
         .feedback-message { margin-top: 15px; padding: 12px; border-radius: 6px; font-weight: 600; text-align: center; display: none; }
         .feedback-message.error { background: #ffebee; color: var(--danger); border: 1px solid #ffcdd2; display: block; }
         .feedback-message.success { background: #e8f5e9; color: var(--success); border: 1px solid #a5d6a7; display: block; }
+        
+        /* NEW: FULL SCREEN GRID STYLES */
+        .fullscreen-mode { position: fixed !important; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; z-index: 9999; background: #f0f2f5; padding: 25px; box-sizing: border-box; overflow-y: auto; max-height: none !important; }
+        .fullscreen-mode .card { height: 100%; display: flex; flex-direction: column; margin: 0; }
+        .fullscreen-mode .grid-wrapper { flex: 1; min-height: 0; overflow: auto; }
     </style>
 </head>
 <body>
@@ -247,19 +252,24 @@
 
                     <div id="admin-progress" class="admin-panel">
                         <div class="card" style="margin-top:0;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                                 <div>
                                     <h2 style="margin: 0; display: inline-block;">Student Progress & Grading</h2>
                                     <span id="liveUpdateBadge" class="hidden" style="margin-left: 10px; font-size: 0.8rem; background: #e8f5e9; color: #1e8e3e; padding: 3px 8px; border-radius: 12px; font-weight: bold; animation: pulse 2s infinite;">🔴 LIVE Updates ON</span>
                                 </div>
-                                <button id="exportCsvBtn" class="action-btn" onclick="exportStudentData()">📥 Export Grid</button>
+                                <div style="display: flex; gap: 10px;">
+                                    <button id="filterGradingBtn" class="action-btn" style="background: #f4b400; color: black;" onclick="toggleGradingFilter()">🔎 Show Needs Grading</button>
+                                    <button id="fullScreenBtn" class="action-btn" style="background: #555;" onclick="toggleFullScreenProgress()">⛶ Full Screen</button>
+                                    <button id="exportCsvBtn" class="action-btn" onclick="exportStudentData()">📥 Export Grid</button>
+                                </div>
                             </div>
                             
                             <select id="progressAssignmentSelect" onchange="loadAssignmentProgress()" style="max-width: 400px; margin-bottom: 20px;">
                                 <option value="">-- Select an Assignment to View Data --</option>
                             </select>
 
-                            <div style="overflow-x: auto; max-height: 600px; border: 1px solid #dee2e6; border-radius: 4px;">
+                            <div class="grid-wrapper" style="overflow-x: auto; max-height: 600px; border: 1px solid #dee2e6; border-radius: 4px;">
                                 <table style="width: 100%; white-space: nowrap; margin-top: 0;">
                                     <thead id="progressTableHeader"><tr><th style="padding: 20px; text-align: center; color: #666;">Please select an assignment above.</th></tr></thead>
                                     <tbody id="progressTableBody"></tbody>
