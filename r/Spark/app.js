@@ -32,13 +32,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     await checkUser();
-    await loadTeacherSettings(); // Load teacher settings
-    await fetchNameMaskingSettings(); // Load name masking settings
-    pollingInterval = setInterval(checkForNameChanges, 5000); // Poll for changes
+    await loadTeacherSettings(); 
+    await fetchNameMaskingSettings(); 
+    pollingInterval = setInterval(checkForNameChanges, 5000); 
+
+    // --- NEW: CATCH DYNAMIC LINKS FROM CLASSCAST ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const subId = urlParams.get('sub');
+    if (subId) {
+        currentSubFilter = subId; // Instantly filter to this specific Sub-Spark
+    }
+    // -----------------------------------------------
+
     loadSubreddits();
     loadPosts(); 
     setupFormListeners();
 });
+
 
 // ================= NAVIGATION =================
 function showFeed() {
@@ -992,7 +1002,22 @@ async function loadSubreddits() {
     });
 }
 
-window.selectSub = function(id) { currentSubFilter = id; showFeed(); loadSubreddits(); loadPosts(); };
+window.selectSub = function(id) { 
+    currentSubFilter = id; 
+    
+    // Clean up the URL so it matches what they are looking at
+    const url = new URL(window.location);
+    if (id === 'all') {
+        url.searchParams.delete('sub');
+    } else {
+        url.searchParams.set('sub', id);
+    }
+    window.history.pushState({}, '', url);
+
+    showFeed(); 
+    loadSubreddits(); 
+    loadPosts(); 
+};
 
 window.editPost = async function(id) {
     // Fetch the post
