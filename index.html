@@ -37,173 +37,174 @@
         .logo {
             font-weight: 700;
             font-size: 1.2rem;
+            color: var(--text-primary);
             text-decoration: none;
-            color: inherit;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
         .auth-btn {
-            background: white;
-            color: #333;
-            border: 1px solid #ccc;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
+            background: white; color: #444; border: 1px solid #ddd; padding: 8px 15px; 
+            border-radius: 4px; font-weight: 600; cursor: pointer; display: flex; 
+            align-items: center; gap: 8px; font-size: 0.9rem; transition: background 0.2s;
         }
-        .auth-btn:hover { background: #f8f9fa; }
+        .auth-btn:hover { background: #f8f8f8; }
 
-        /* Main Container */
-        .container {
-            max-width: 900px;
-            margin: 40px auto;
-            padding: 0 20px;
+        /* Main Content */
+        .main-container {
             flex: 1;
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 20px;
             width: 100%;
         }
-
-        .hero {
+        .page-title {
             text-align: center;
             margin-bottom: 40px;
-        }
-        .hero h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
-        .hero p {
-            font-size: 1.1rem;
-            color: #555;
+            font-size: 2.2rem;
+            color: var(--text-primary);
         }
 
-        /* Grid */
-        .portal-grid {
+        /* Grid Layout */
+        .app-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 25px;
         }
 
-        .card {
+        /* App Cards */
+        .app-card {
             background: var(--card-bg);
             border-radius: 8px;
-            padding: 30px;
+            padding: 30px 20px;
             text-align: center;
+            text-decoration: none;
+            color: var(--text-primary);
             border: 1px solid #ccc;
             transition: transform 0.2s, box-shadow 0.2s;
-            text-decoration: none;
-            color: inherit;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
+            min-height: 200px;
+            position: relative;
+            overflow: hidden;
         }
-        .card:hover {
+        .app-card:hover:not(.disabled) {
             transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
             border-color: var(--primary);
         }
 
-        .card-icon {
-            font-size: 4rem;
+        /* Specific Card Logos */
+        .spark-logo {
+            background: var(--primary); color: white; width: 50px; height: 50px; 
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+            font-size: 1.8rem; margin-bottom: 15px; font-weight: bold;
+        }
+        .icon-logo {
+            font-size: 3rem;
             margin-bottom: 15px;
         }
-        .card h2 {
-            margin-bottom: 10px;
-        }
-        .card p {
-            color: #666;
-            margin-bottom: 20px;
-            line-height: 1.5;
-            flex: 1;
-        }
-
-        .portal-btn {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
+        .card-title {
+            font-size: 1.3rem;
             font-weight: 700;
-            width: 100%;
-            cursor: pointer;
-            font-size: 1rem;
         }
 
-        /* Added purely for Super Admin Panel */
-        .hidden { display: none !important; }
-        .danger-btn { background: #c62828; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; }
-        .danger-btn:hover { background: #b71c1c; }
+        /* Disabled / Pending State */
+        .app-card.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            pointer-events: none;
+            background: #f5f5f5;
+        }
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-25deg);
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: rgba(0, 0, 0, 0.15);
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            pointer-events: none;
+        }
+
+        /* Footer */
+        .site-footer {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #ccc;
+            font-size: 0.9rem;
+        }
+        .site-footer a {
+            color: #0079D3;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .site-footer a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
 
     <nav class="navbar">
-        <div class="logo">👨‍🏫 Mr. Wilson's Class</div>
+        <a href="#" class="logo">
+            🏫 Class Portal
+        </a>
         <div id="authSection">
-            <button class="auth-btn">Loading...</button>
-        </div>
+            </div>
     </nav>
 
-    <div class="container">
-        <div class="hero">
-            <h1>Welcome to Class</h1>
-            <p>Select an application below to get started.</p>
-        </div>
-
-        <div class="portal-grid">
-            <a href="ClassCast/index.html" class="card">
-                <div class="card-icon">🎧</div>
-                <h2>ClassCast</h2>
-                <p>Listen to your interactive audio assignments, answer questions, and track your progress.</p>
-                <div class="portal-btn" style="background: #0079D3;">Open ClassCast</div>
+    <div class="main-container">
+        <h1 class="page-title">Welcome to Class</h1>
+        
+        <div class="app-grid">
+            <a href="https://wwilson-ui.github.io/r/Spark/" class="app-card">
+                <div class="spark-logo">⚡</div>
+                <div class="card-title">r/Spark</div>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #666;">Classroom Forum</p>
             </a>
 
-            <a href="Spark/index.html" class="card">
-                <div class="card-icon">⚡</div>
-                <h2>r/Spark</h2>
-                <p>Join the classroom forum to discuss assignments, share ideas, and earn Aura points.</p>
-                <div class="portal-btn">Open r/Spark</div>
+            <a href="https://wwilson-ui.github.io/MootCourt/" class="app-card">
+                <div class="icon-logo">⚖️</div>
+                <div class="card-title">SCOTUS Brief Pro</div>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #666;">Moot Court Generator</p>
+            </a>
+
+            <a href="https://wwilson-ui.github.io/ClassCast/" class="app-card">
+                <div class="icon-logo">🎙️</div>
+                <div class="card-title">ClassCast</div>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #666;">Podcast Platform</p>
+            </a>
+
+            <a href="#" class="app-card disabled">
+                <div class="watermark">Pending</div>
+                <div class="icon-logo">📖</div>
+                <div class="card-title">Class Ebook</div>
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #666;">Coming Soon</p>
             </a>
         </div>
-
-        <div class="card hidden" id="superAdminCard" style="border: 2px solid #0079D3; margin-top: 40px; cursor: default; transform: none; box-shadow: 0 4px 10px rgba(0,0,0,0.05); width: 100%; max-width: 100%;">
-            <h2 style="margin-top: 0; color: #0079D3;">👑 Super Admin Control</h2>
-            <p style="color: #666; font-size: 0.95rem; text-align: left; margin-bottom: 10px;">Authorize teachers to use ClassCast and Spark. Authorized teachers can manage their own classes and assignments independently.</p>
-            
-            <div style="display: flex; gap: 10px; margin-top: 20px; width: 100%;">
-                <input type="email" id="newTeacherEmail" placeholder="teacher@mtps.us" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit;">
-                <button class="portal-btn" style="background: #0079D3; width: auto; margin-top: 0; border-radius: 4px;" onclick="addTeacher()">Authorize</button>
-            </div>
-            
-            <table style="width: 100%; border-collapse: collapse; margin-top: 25px; text-align: left;">
-                <thead>
-                    <tr style="border-bottom: 2px solid #eee;">
-                        <th style="padding: 10px;">Authorized Teacher Emails</th>
-                        <th style="text-align: right; padding: 10px;">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="teachersTable">
-                    <tr><td colspan="2" style="text-align: center; padding: 15px; color: #666;">Loading...</td></tr>
-                </tbody>
-            </table>
-        </div>
-
     </div>
 
+    <footer class="site-footer">
+        <p>&copy; 2024 Mr. Wilson's Class | <a href="https://wwilson-ui.github.io/MootCourt/terms.html" target="_blank">Terms of Service</a></p>
+    </footer>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js"></script>
-
     <script>
-        const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-        const MAIN_ADMIN = 'wwilson@mtps.us'; // Added your admin email
+        // 1. Initialize Supabase (Using keys from your config)
+        const SUPABASE_URL = 'https://mvxuubwbtkhdbhuadxtu.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHV1YndidGtoZGJodWFkeHR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQyMDgsImV4cCI6MjA4Njc2MDIwOH0.FzsVt0bmWnrc3pYUWfJyS-9PE9oJY1ZzoGbax3q_LGk';
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+        // 2. Check Session on Load
         async function checkSession() {
-            const { data: { session } } = await sb.auth.getSession();
             const authSection = document.getElementById('authSection');
-            const superAdminCard = document.getElementById('superAdminCard'); // Get admin card
+            const { data: { session } } = await sb.auth.getSession();
 
             if (session) {
                 // Logged In: Show Email and Sign Out button
@@ -214,15 +215,6 @@
                         <button onclick="signOut()" class="auth-btn" style="padding: 6px 10px; font-size: 0.8rem;">Sign Out</button>
                     </div>
                 `;
-
-                // SHOW SUPER ADMIN PANEL IF IT'S YOU
-                if (session.user.email.toLowerCase() === MAIN_ADMIN.toLowerCase()) {
-                    superAdminCard.classList.remove('hidden');
-                    loadTeachers();
-                } else {
-                    superAdminCard.classList.add('hidden');
-                }
-
             } else {
                 // Logged Out: Show Google Sign In
                 authSection.innerHTML = `
@@ -231,7 +223,6 @@
                         Sign in
                     </button>
                 `;
-                superAdminCard.classList.add('hidden');
             }
         }
 
@@ -249,50 +240,6 @@
         async function signOut() {
             await sb.auth.signOut();
             window.location.reload();
-        }
-
-        // --- NEW: SUPER ADMIN FUNCTIONS ---
-        async function loadTeachers() {
-            const tbody = document.getElementById('teachersTable');
-            const { data, error } = await sb.from('classcast_teachers').select('*').order('email');
-            
-            if (error || !data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 15px; color: #666;">No authorized teachers found.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.map(t => `
-                <tr>
-                    <td style="padding: 10px; border-bottom: 1px solid #eee;">
-                        <strong>${t.email}</strong> 
-                        ${t.email === MAIN_ADMIN ? '<span style="color:#0079D3; font-size:0.8rem; margin-left: 5px;">(Super Admin)</span>' : ''}
-                    </td>
-                    <td style="text-align:right; padding: 10px; border-bottom: 1px solid #eee;">
-                        ${t.email !== MAIN_ADMIN ? `<button class="danger-btn" onclick="removeTeacher('${t.email}')">Revoke Access</button>` : '<span style="color:#888; font-size: 0.85rem;">System Required</span>'}
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        async function addTeacher() {
-            const emailInput = document.getElementById('newTeacherEmail');
-            const email = emailInput.value.trim().toLowerCase();
-            if (!email) return;
-
-            const { error } = await sb.from('classcast_teachers').insert([{ email: email }]);
-            if (error) {
-                alert("Error adding teacher: " + error.message);
-            } else {
-                emailInput.value = '';
-                loadTeachers();
-            }
-        }
-
-        async function removeTeacher(email) {
-            if (confirm(`Are you sure you want to revoke all suite access for ${email}?`)) {
-                await sb.from('classcast_teachers').delete().eq('email', email);
-                loadTeachers();
-            }
         }
 
         // Run on page load
