@@ -507,17 +507,7 @@ window.toggleSubredditNames = async function(subredditId, showReal) {
 // ================= SUB-SPARKS MANAGEMENT =================
 
 async function loadSubsparks() {
-    // Fetch global override setting
-    const { data: globalData } = await sb.from('teacher_settings').select('setting_value').eq('setting_key', 'mask_all_names').single();
-    const globalMaskAll = globalData ? globalData.setting_value : false;
     
-    const globalToggle = document.getElementById('globalNameToggle');
-    if (globalToggle) {
-        globalToggle.checked = globalMaskAll;
-        const statusText = document.getElementById('globalOverrideStatus');
-        statusText.innerText = globalMaskAll ? 'Override ON (All Names Masked)' : 'Override OFF (Deferring to Sub-Sparks)';
-        statusText.style.color = globalMaskAll ? '#c62828' : '#666';
-    }
     
     const container = document.getElementById('subsparksList');
     container.innerHTML = '<div style="text-align:center; padding: 20px; color: #666;">Loading communities...</div>';
