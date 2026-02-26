@@ -1071,12 +1071,18 @@ async function loadSubreddits() {
         
         let html = `<span onclick="selectSub('${sub.id}')">r/${sub.name}</span>`;
         if (isTeacher) html += `<span class="delete-sub-x" onclick="deleteSub('${sub.id}', '${sub.name}')">✕</span>`;
+        
+        // Show a little padlock icon in the sidebar if it's locked!
+        if (sub.is_locked) html += ` <span style="font-size: 0.8rem; opacity: 0.6;" title="Closed to new posts">🔒</span>`;
+        
         li.innerHTML = html;
         list.appendChild(li);
 
-        if(postSelect) {
+        // ONLY add it to the posting dropdown if it is NOT locked (or if you are the teacher!)
+        if (postSelect && (!sub.is_locked || isTeacher)) {
             const opt = document.createElement('option');
-            opt.value = sub.id; opt.textContent = sub.name;
+            opt.value = sub.id; 
+            opt.textContent = sub.name;
             postSelect.appendChild(opt);
         }
     });
