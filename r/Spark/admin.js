@@ -513,15 +513,27 @@ window.toggleSubredditLock = async function(subId, isOpen) {
 // ================= SUB-SPARKS MANAGEMENT =================
 
 async function loadSubsparks() {
-    
-    
     const container = document.getElementById('subsparksList');
     container.innerHTML = '<div style="text-align:center; padding: 20px; color: #666;">Loading communities...</div>';
     
-    // Fetch global name setting
-    const { data: globalData } = await sb.from('teacher_settings').select('setting_value').eq('setting_key', 'show_real_names').single();
-    const globalSetting = globalData ? globalData.setting_value : false;
+    // Fetch Global Override
+    const { data: globalData } = await sb.from('teacher_settings')
+        .select('setting_value')
+        .eq('setting_key', 'mask_all_names')
+        .single();
     
+    const globalMaskAll = globalData ? (globalData.setting_value === 'true' || globalData.setting_value === true) : false;
+    
+    const globalToggle = document.getElementById('globalNameToggle');
+    if (globalToggle) {
+        globalToggle.checked = globalMaskAll;
+        const statusText = document.getElementById('globalOverrideStatus');
+        if (statusText) {
+            statusText.innerText = globalMaskAll ? 'Override ON (All Names Masked)' : 'Override OFF (Deferring to Sub-Sparks)';
+            statusText.style.color = globalMaskAll ? '#c62828' : '#666';
+        }
+    }
+
     // Fetch all sub-sparks
     const { data: subs, error } = await sb.from('subreddits').select('*').order('name');
     if (error) {
@@ -534,7 +546,6 @@ async function loadSubsparks() {
         return;
     }
     
-    // Build the Grid Header
     let html = `
         <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; background: #f0f7ff; padding: 15px 20px; border-radius: 8px 8px 0 0; border: 1px solid #ccc; border-bottom: none; font-weight: 700; color: #333; align-items: center;">
             <div>Community Name</div>
@@ -544,10 +555,9 @@ async function loadSubsparks() {
         <div style="border: 1px solid #ccc; border-radius: 0 0 8px 8px; background: white; overflow: hidden;">
     `;
     
-    // Build the Rows
     subs.forEach((sub, index) => {
-        // Evaluate toggles
-        const effectiveSetting = sub.show_real_names !== null ? sub.show_real_names : globalSetting;
+        // Individual toggle logic
+        const effectiveSetting = sub.show_real_names !== null ? sub.show_real_names : false;
         const isLocked = sub.is_locked || false; 
         const borderBottom = index < subs.length - 1 ? 'border-bottom: 1px solid #eee;' : '';
         
