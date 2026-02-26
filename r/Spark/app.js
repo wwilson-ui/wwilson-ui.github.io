@@ -15,8 +15,6 @@ let unreadNotifications = 0; // Count of posts with new comments
 let nameMaskingCache = {};
 let lastPollTime = null;
 let pollingInterval = null;
-let globalMaskAll = false; // Required for the global override
-
 
 const ADJECTIVES = ['Happy', 'Brave', 'Calm', 'Swift', 'Wise', 'Bright', 'Clever', 'Kind', 'Bold'];
 const ANIMALS = ['Badger', 'Fox', 'Owl', 'Eagle', 'Bear', 'Dolphin', 'Wolf', 'Hawk', 'Tiger'];
@@ -761,33 +759,26 @@ window.signOut = async function() {
 };
 
 // ================= POSTS & FEED =================
-
 async function loadPosts() {
     const feed = document.getElementById('postsFeed');
     feed.innerHTML = '<div style="padding:20px; text-align:center;">Loading...</div>';
     
-    // 1. Fetch Global Name Masking Override
-    try {
-        const { data: gData } = await sb.from('teacher_settings').select('setting_value').eq('setting_key', 'mask_all_names').single();
-        if (gData) globalMaskAll = (gData.setting_value === 'true' || gData.setting_value === true);
-    } catch(e) { console.error("Global setting fetch error:", e); }
-
-    // 2. Fetch Posts (Using * ensures comment_count is pulled correctly!)
-    let query = sb.from('posts').select(`*, subreddits(name, show_real_names), profiles(email)`);
+    let query = sb.from('posts').select(`*, subreddits(name), profiles(email)`);
     
+    // Filter by user if in "My Posts" view
     if (currentView === 'mine' && currentUser) {
         query = query.eq('user_id', currentUser.id);
     }
     
-    // 3. Apply sorting (Pinned posts ALWAYS sort to the top)
+    // Apply sorting
     if (currentSort === 'new') {
-        query = query.order('is_pinned', { ascending: false }).order('created_at', { ascending: false });
+        query = query.order('created_at', { ascending: false });
     } else if (currentSort === 'top') {
-        query = query.order('is_pinned', { ascending: false }).order('vote_count', { ascending: false });
+        query = query.order('vote_count', { ascending: false });
     } else if (currentSort === 'controversial') {
-        query = query.order('is_pinned', { ascending: false }).order('created_at', { ascending: false });
+        query = query.order('created_at', { ascending: false });
     } else { // hot (default)
-        query = query.order('is_pinned', { ascending: false }).order('vote_count', { ascending: false }).order('created_at', { ascending: false });
+        query = query.order('vote_count', { ascending: false }).order('created_at', { ascending: false });
     }
     
     if (currentSubFilter !== 'all') query = query.eq('subreddit_id', currentSubFilter);
@@ -798,20 +789,25 @@ async function loadPosts() {
     // Client-side sort for controversial
     if (currentSort === 'controversial' && posts) {
         posts.sort((a, b) => {
+            // Controversial = lots of comments but low/divided vote score
+            // Formula: comment_count / (abs(vote_count) + 1)
+            // Higher = more controversial (many comments, low score)
+            
             const aControversy = (a.comment_count || 0) / (Math.abs(a.vote_count || 0) + 1);
             const bControversy = (b.comment_count || 0) / (Math.abs(b.vote_count || 0) + 1);
+            
             return bControversy - aControversy;
         });
-        // Re-sort to force pins to the top
-        posts.sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0));
     }
 
     feed.innerHTML = '';
     if (posts.length === 0) {
-        feed.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">No posts yet. Be the first!</div>';
+        const message = currentView === 'mine' ? 
+            'You haven\'t created any posts yet!' : 
+            'No posts yet. Be the first!';
+        feed.innerHTML = `<div style="padding:40px; text-align:center; color:#777;">${message}</div>`;
         return;
     }
-
     posts.forEach(post => feed.appendChild(createPostElement(post)));
 }
 
@@ -824,14 +820,8 @@ function createPostElement(post) {
     const authorName = getAnonName(post.user_id);
     const authorEmail = post.profiles?.email || '';
     
-    // BULLETPROOF MASKING LOGIC
-    let showReal = false;
-    if (globalMaskAll === true) {
-        showReal = false; // Global Mask ON = Hide All
-    } else {
-        // Global Mask OFF = Check the specific sub-spark's setting
-        showReal = post.subreddits?.show_real_names || false;
-    }
+    // Use per-subreddit name setting
+    const showReal = getEffectiveNameSetting(post.subreddit_id);
     
     let displayName;
     if (showReal) {
@@ -843,34 +833,32 @@ function createPostElement(post) {
         else if (isTeacher) displayName += ` <span style="color:#999; font-size:0.75em;">(${authorEmail})</span>`;
     }
 
-    const pinnedBadge = post.is_pinned ? `<span style="background: #e8f5e9; color: #2e7d32; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; margin-left: 10px; font-weight: bold;">📌 Pinned</span>` : '';
-
-    div.onclick = (e) => {
+div.onclick = (e) => {
         if (e.target.closest('button')) return;
         openPostPage(post, authorName, authorEmail);
     };
-    
+    // Action buttons
     const deleteBtn = (isTeacher || isAuthor) ? `<button class="delete-icon" onclick="deletePost('${post.id}')" title="Delete post">🗑️</button>` : '';
     const editBtn = isAuthor ? `<button class="delete-icon" onclick="editPost('${post.id}')" title="Edit post" style="color:#0079D3;">✏️</button>` : '';
     const flagBtn = currentUser && !isAuthor ? `<button class="delete-icon" onclick="flagContent('${post.id}', 'post')" title="Flag for teacher" style="color:#ff8800;">🚩</button>` : '';
     
-    // PIN BUTTON (TEACHER ONLY)
-    const pinBtn = isTeacher ? `<button class="delete-icon" onclick="togglePin('${post.id}', ${post.is_pinned})" title="${post.is_pinned ? 'Unpin' : 'Pin to Top'}" style="color: ${post.is_pinned ? '#2e7d32' : '#999'}; font-size: 1.1rem; margin-right: 10px;">📌</button>` : '';
-    
+    // Get current user's vote for this post
     const userVote = myVotes.posts[post.id] || 0;
     const upActive = userVote === 1 ? 'active' : '';
     const downActive = userVote === -1 ? 'active' : '';
+    
+    // Format timestamp
     const timestamp = formatTimestamp(post.created_at);
 
     div.innerHTML = `
         <div class="post-header">
             <strong>r/${post.subreddits ? post.subreddits.name : 'Unknown'}</strong>
             <span>•</span>
-            <span>Posted by ${displayName}${pinnedBadge}</span>
+            <span>Posted by ${displayName}</span>
             <span>•</span>
             <span style="color: #999; font-size: 0.85em;">${timestamp}</span>
             <span style="flex-grow:1"></span>
-            ${pinBtn}${editBtn}${flagBtn}${deleteBtn}
+            ${editBtn}${flagBtn}${deleteBtn}
         </div>
         <div class="post-title" style="font-size: 1.1rem; margin-bottom: 5px;">${escapeHtml(post.title)}</div>
         
@@ -1400,39 +1388,3 @@ window.openLeaderboard = async function() {
         list.innerHTML = '<div style="color: red; padding: 20px; text-align: center; font-size: 1.1rem;">Failed to load leaderboard.</div>';
     }
 };
-
-// ========================================
-// PIN/UNPIN POSTS (TEACHER ONLY)
-// ========================================
-
-window.togglePin = async function(postId, currentState) {
-    if (!isTeacher) {
-        alert('Only teachers can pin posts.');
-        return;
-    }
-    const newState = !currentState;
-    const { error } = await sb.from('posts').update({ is_pinned: newState }).eq('id', postId);
-    
-    if (error) {
-        alert("Error pinning post: " + error.message);
-    } else {
-        loadPosts(); // Instantly re-sorts feed with the post pinned to the top
-    }
-};
-
-
-window.logAuraPoints = async function(userId, actionType, pointsAwarded, notes = '') {
-    if (!pointsAwarded || pointsAwarded === 0) return; // Don't log if no points are given
-    
-    try {
-        await sb.from('aura_log').insert({
-            user_id: userId,
-            action_type: actionType,
-            points_awarded: pointsAwarded,
-            notes: notes
-        });
-    } catch (error) {
-        console.error("Failed to log aura points:", error);
-    }
-};
-

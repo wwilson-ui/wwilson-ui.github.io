@@ -137,7 +137,6 @@
                 <button class="admin-tab" onclick="switchAdminTab('assignments')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; cursor: pointer;">📋 Review Assignments</button>
                 <button class="admin-tab" onclick="switchAdminTab('subsparks')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; cursor: pointer;">⚙️ Sub-Sparks</button>
                 <button class="admin-tab" onclick="switchAdminTab('aura')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; cursor: pointer;">✨ Aura Settings</button>
-                <button class="admin-tab" onclick="switchAdminTab('auralog')" style="padding: 10px 20px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 600; cursor: pointer; white-space: nowrap;">📊 Aura History</button>
             </div>
                 
                 
@@ -287,15 +286,17 @@
                 
                 
                 <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ccc;">
-                    <h3 style="margin-bottom: 10px; color: #c62828;">🛡️ Global Override: Mask ALL Names</h3>
-                    <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">If this is ON, all student names are hidden everywhere, ignoring individual sub-spark settings. If OFF, the system defers to your individual Sub-Spark switches below.</p>
+                    <h3 style="margin-bottom: 15px;">🎭 Global Name Display</h3>
+                    <p style="color: #666; margin-bottom: 15px;">This setting applies to ALL your sub-sparks by default. Individual sub-sparks can override this.</p>
                     
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <label class="toggle-switch" title="Toggle Global Mask">
-                            <input type="checkbox" id="globalNameToggle" onchange="toggleGlobalNames(this.checked)">
-                            <span class="toggle-slider"></span>
-                        </label>
-                        <span id="globalOverrideStatus" style="font-weight: 600; color: #666;">Override OFF (Deferring to Sub-Sparks)</span>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="globalNameToggle" onchange="toggleGlobalNames(this.checked)" style="width: 20px; height: 20px; cursor: pointer;">
+                        <span style="font-weight: 600;">Show real names in ALL my communities</span>
+                    </label>
+                    
+                    <div style="margin-top: 15px; padding: 12px; background: #f0f7ff; border-radius: 4px; font-size: 0.9rem;">
+                        <strong>Current setting:</strong> 
+                        <span id="globalNameStatusText" style="color: #0079D3; font-weight: 600;">Loading...</span>
                     </div>
                 </div>
                 
@@ -407,36 +408,6 @@
 
         </main>
     </div>
-
-
-
-<!-- Aura Log Section -->
-<div id="auralogSection" style="display: none;">
-    <h1 style="margin-bottom: 20px;">📊 Aura Point History</h1>
-    
-    <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 20px;">
-        <h3 style="margin-top: 0;">Select Student</h3>
-        <select id="auraLogStudentSelect" onchange="loadStudentAuraLog()" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem;">
-            <option value="">-- Select a Student --</option>
-        </select>
-    </div>
-    
-    <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ccc;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 15px;">
-            <h3 style="margin: 0;">Action Log</h3>
-            <div style="font-size: 1.5rem; font-weight: 700;">
-                Total: <span id="auraTotalPoints" style="color: #FFD700;">0</span> points
-            </div>
-        </div>
-        <div id="auraLogList" style="max-height: 600px; overflow-y: auto; padding-right: 10px;">
-            <p style="text-align: center; color: #666; padding: 40px;">Select a student to view their aura history</p>
-        </div>
-    </div>
-</div>
-
-
-
-    
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
