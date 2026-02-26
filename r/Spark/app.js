@@ -1391,3 +1391,15 @@ window.openLeaderboard = async function() {
         list.innerHTML = '<div style="color: red; padding: 20px; text-align: center; font-size: 1.1rem;">Failed to load leaderboard.</div>';
     }
 };
+
+
+window.togglePin = async function(postId, currentState) {
+    if (!isTeacher) return;
+    const newState = !currentState;
+    const { error } = await sb.from('posts').update({ is_pinned: newState }).eq('id', postId);
+    if (error) {
+        alert("Error pinning post: " + error.message);
+    } else {
+        loadPosts(); // Reload instantly to sort the feed!
+    }
+};
