@@ -10,6 +10,7 @@ let showRealNames = false; // DEPRECATED - now using per-subreddit system
 let currentSort = 'hot'; // hot, new, or top
 let currentView = 'all'; // 'all' or 'mine'
 let unreadNotifications = 0; // Count of posts with new comments
+let globalMaskAll = false; // Add this near the top of your file with your other variables
 
 // Name masking state
 let nameMaskingCache = {};
@@ -763,51 +764,47 @@ async function loadPosts() {
     const feed = document.getElementById('postsFeed');
     feed.innerHTML = '<div style="padding:20px; text-align:center;">Loading...</div>';
     
+    // Fetch Global Override BEFORE rendering posts
+    try {
+        const { data: globalData } = await sb.from('teacher_settings')
+            .select('setting_value')
+            .eq('setting_key', 'mask_all_names')
+            .single();
+        if (globalData) {
+            globalMaskAll = (globalData.setting_value === 'true' || globalData.setting_value === true);
+        }
+    } catch (e) {
+        console.error("Failed to load global mask setting:", e);
+    }
+
     let query = sb.from('posts').select(`*, subreddits(name), profiles(email)`);
     
-    // Filter by user if in "My Posts" view
     if (currentView === 'mine' && currentUser) {
         query = query.eq('user_id', currentUser.id);
     }
     
-    // Apply sorting
+    // Sort Pinned posts to the very top!
     if (currentSort === 'new') {
-        query = query.order('created_at', { ascending: false });
+        query = query.order('is_pinned', { ascending: false }).order('created_at', { ascending: false });
     } else if (currentSort === 'top') {
-        query = query.order('vote_count', { ascending: false });
+        query = query.order('is_pinned', { ascending: false }).order('vote_count', { ascending: false });
     } else if (currentSort === 'controversial') {
-        query = query.order('created_at', { ascending: false });
-    } else { // hot (default)
-        query = query.order('vote_count', { ascending: false }).order('created_at', { ascending: false });
+        query = query.order('is_pinned', { ascending: false }).order('created_at', { ascending: false });
+    } else { 
+        query = query.order('is_pinned', { ascending: false }).order('vote_count', { ascending: false }).order('created_at', { ascending: false });
     }
     
     if (currentSubFilter !== 'all') query = query.eq('subreddit_id', currentSubFilter);
 
     const { data: posts, error } = await query;
-    if (error) { feed.innerHTML = 'Error loading posts'; return; }
-
-    // Client-side sort for controversial
-    if (currentSort === 'controversial' && posts) {
-        posts.sort((a, b) => {
-            // Controversial = lots of comments but low/divided vote score
-            // Formula: comment_count / (abs(vote_count) + 1)
-            // Higher = more controversial (many comments, low score)
-            
-            const aControversy = (a.comment_count || 0) / (Math.abs(a.vote_count || 0) + 1);
-            const bControversy = (b.comment_count || 0) / (Math.abs(b.vote_count || 0) + 1);
-            
-            return bControversy - aControversy;
-        });
-    }
-
+    if (error) return console.error(error);
+    
     feed.innerHTML = '';
     if (posts.length === 0) {
-        const message = currentView === 'mine' ? 
-            'You haven\'t created any posts yet!' : 
-            'No posts yet. Be the first!';
-        feed.innerHTML = `<div style="padding:40px; text-align:center; color:#777;">${message}</div>`;
+        feed.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">No posts yet. Be the first!</div>';
         return;
     }
+    
     posts.forEach(post => feed.appendChild(createPostElement(post)));
 }
 
@@ -833,14 +830,21 @@ function createPostElement(post) {
         else if (isTeacher) displayName += ` <span style="color:#999; font-size:0.75em;">(${authorEmail})</span>`;
     }
 
-div.onclick = (e) => {
+    // NEW: Pinned badge to display next to the author's name
+    const pinnedBadge = post.is_pinned ? `<span style="background: #e8f5e9; color: #2e7d32; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; margin-left: 10px; font-weight: bold;">📌 Pinned</span>` : '';
+
+    div.onclick = (e) => {
         if (e.target.closest('button')) return;
         openPostPage(post, authorName, authorEmail);
     };
+    
     // Action buttons
     const deleteBtn = (isTeacher || isAuthor) ? `<button class="delete-icon" onclick="deletePost('${post.id}')" title="Delete post">🗑️</button>` : '';
     const editBtn = isAuthor ? `<button class="delete-icon" onclick="editPost('${post.id}')" title="Edit post" style="color:#0079D3;">✏️</button>` : '';
     const flagBtn = currentUser && !isAuthor ? `<button class="delete-icon" onclick="flagContent('${post.id}', 'post')" title="Flag for teacher" style="color:#ff8800;">🚩</button>` : '';
+    
+    // NEW: Pin button for teachers
+    const pinBtn = isTeacher ? `<button class="delete-icon" onclick="togglePin('${post.id}', ${post.is_pinned})" title="${post.is_pinned ? 'Unpin' : 'Pin to Top'}" style="color: ${post.is_pinned ? '#2e7d32' : '#999'}; font-size: 1.1rem; margin-right: 10px;">📌</button>` : '';
     
     // Get current user's vote for this post
     const userVote = myVotes.posts[post.id] || 0;
@@ -854,11 +858,11 @@ div.onclick = (e) => {
         <div class="post-header">
             <strong>r/${post.subreddits ? post.subreddits.name : 'Unknown'}</strong>
             <span>•</span>
-            <span>Posted by ${displayName}</span>
+            <span>Posted by ${displayName}${pinnedBadge}</span>
             <span>•</span>
             <span style="color: #999; font-size: 0.85em;">${timestamp}</span>
             <span style="flex-grow:1"></span>
-            ${editBtn}${flagBtn}${deleteBtn}
+            ${pinBtn}${editBtn}${flagBtn}${deleteBtn}
         </div>
         <div class="post-title" style="font-size: 1.1rem; margin-bottom: 5px;">${escapeHtml(post.title)}</div>
         
@@ -1269,17 +1273,16 @@ async function checkForNameChanges() {
 }
 
 function getEffectiveNameSetting(subredditId) {
-    // Override: If the teacher checked the global 'Show Real Names' box, reveal everyone.
-    if (typeof showRealNames !== 'undefined' && showRealNames === true) {
-        return true;
+    if (globalMaskAll === true) {
+        return false; // Global Override is ON: Force Masking (false = mask)
     }
 
     const cached = nameMaskingCache[subredditId];
     if (!cached) return false;
     if (cached.subreddit_setting !== null && cached.subreddit_setting !== undefined) {
-        return cached.subreddit_setting;
+        return cached.subreddit_setting; 
     }
-    return cached.teacher_global_setting || false;
+    return false;
 }
 
 document.addEventListener('visibilitychange', () => {
