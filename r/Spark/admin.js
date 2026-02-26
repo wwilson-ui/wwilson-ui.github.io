@@ -504,56 +504,90 @@ window.toggleSubredditNames = async function(subredditId, showReal) {
     loadSubsparks();
 };
 
+// ================= SUB-SPARKS MANAGEMENT =================
+
 async function loadSubsparks() {
     const container = document.getElementById('subsparksList');
-    if (!container) return;
+    container.innerHTML = '<div style="text-align:center; padding: 20px; color: #666;">Loading communities...</div>';
     
-    container.innerHTML = '<div style="text-align:center; padding:40px;">Loading...</div>';
+    // Fetch global name setting
+    const { data: globalData } = await sb.from('teacher_settings').select('setting_value').eq('setting_key', 'show_real_names').single();
+    const globalSetting = globalData ? globalData.setting_value : false;
     
-    const { data: config } = await sb.from('teacher_scoring_config').select('global_show_real_names').eq('teacher_id', currentUser.id).single();
-    const globalSetting = config?.global_show_real_names || false;
-    
-    const globalToggle = document.getElementById('globalNameToggle');
-    if (globalToggle) globalToggle.checked = globalSetting;
-    const statusText = document.getElementById('globalNameStatusText');
-    if (statusText) statusText.textContent = globalSetting ? 'Real names visible' : 'Anonymous names';
-    
-    const { data: subs, error } = await sb.from('subreddits').select('*').eq('teacher_id', currentUser.id).order('name');
-    
+    // Fetch all sub-sparks
+    const { data: subs, error } = await sb.from('subreddits').select('*').order('name');
     if (error) {
-        container.innerHTML = '<div style="color:red;">Error loading</div>';
+        container.innerHTML = `<div style="color:red; padding: 20px;">Error: ${error.message}</div>`;
         return;
     }
     
     if (!subs || subs.length === 0) {
-        container.innerHTML = '<div style="color:#999; padding:40px; text-align:center;">No sub-sparks yet</div>';
+        container.innerHTML = '<div style="text-align:center; padding: 20px; border: 1px solid #eee; border-radius: 8px; background: white;">No sub-sparks created yet.</div>';
         return;
     }
     
-    container.innerHTML = '';
-    subs.forEach(sub => {
-        const card = document.createElement('div');
-        card.style.cssText = 'background: white; padding: 20px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ccc;';
+    // Build the Grid Header
+    let html = `
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; background: #f0f7ff; padding: 15px 20px; border-radius: 8px 8px 0 0; border: 1px solid #ccc; border-bottom: none; font-weight: 700; color: #333; align-items: center;">
+            <div>Community Name</div>
+            <div style="text-align: center;">Allow New Posts</div>
+            <div style="text-align: center;">Name Display</div>
+        </div>
+        <div style="border: 1px solid #ccc; border-radius: 0 0 8px 8px; background: white; overflow: hidden;">
+    `;
+    
+    // Build the Rows
+    subs.forEach((sub, index) => {
+        // Evaluate toggles
+        const effectiveSetting = sub.show_real_names !== null ? sub.show_real_names : globalSetting;
+        const isLocked = sub.is_locked || false; 
+        const borderBottom = index < subs.length - 1 ? 'border-bottom: 1px solid #eee;' : '';
         
-        const subSetting = sub.show_real_names;
-        const effectiveSetting = subSetting !== null ? subSetting : globalSetting;
-        const isOverridden = subSetting !== null;
-        
-        card.innerHTML = `
-            <h3 style="margin-bottom: 10px;">r/${sub.name}</h3>
-            <div style="border-top: 1px solid #eee; padding-top: 15px; margin-top: 15px;">
-                <h4 style="font-size: 0.95rem; margin-bottom: 10px;">🎭 Name Display</h4>
-                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                    <input type="checkbox" ${effectiveSetting ? 'checked' : ''} onchange="toggleSubredditNames('${sub.id}', this.checked)" style="width: 18px; height: 18px; cursor: pointer;">
-                    <span>Show real names</span>
-                </label>
-                <div style="margin-top: 8px; font-size: 0.85em; color: #666;">
-                    ${isOverridden ? '<span style="color: #ff8800; font-weight: 600;">⚠️ Overriding global</span>' : `<span>Using global (${globalSetting ? 'real' : 'anon'})</span>`}
+        html += `
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; padding: 15px 20px; align-items: center; ${borderBottom} transition: background 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
+                <div style="font-weight: 600; font-size: 1.1rem; color: #0079D3;">r/${escapeHtml(sub.name)}</div>
+                
+                <div style="display: flex; justify-content: center; align-items: center; gap: 12px;">
+                    <label class="toggle-switch" title="Toggle posting permissions">
+                        <input type="checkbox" ${!isLocked ? 'checked' : ''} onchange="toggleSubredditLock('${sub.id}', this.checked)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span style="font-size: 0.9rem; font-weight: 600; width: 50px; color: ${!isLocked ? '#2e7d32' : '#c62828'};">${!isLocked ? 'Open' : 'Closed'}</span>
+                </div>
+                
+                <div style="display: flex; justify-content: center; align-items: center; gap: 12px;">
+                    <label class="toggle-switch" title="Toggle real names vs pseudonyms">
+                        <input type="checkbox" ${effectiveSetting ? 'checked' : ''} onchange="toggleSubredditNames('${sub.id}', this.checked)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span style="font-size: 0.9rem; font-weight: 600; width: 50px; color: ${effectiveSetting ? '#2e7d32' : '#666'};">${effectiveSetting ? 'Real' : 'Anon'}</span>
                 </div>
             </div>
         `;
-        container.appendChild(card);
     });
+    
+    html += `</div>`;
+    container.innerHTML = html;
+}
+
+// Function to handle "Open/Closed" toggle
+window.toggleSubredditLock = async function(subId, isOpen) {
+    const isLocked = !isOpen; // If switch is ON (isOpen), locked is false.
+    const { error } = await sb.from('subreddits').update({ is_locked: isLocked }).eq('id', subId);
+    if (error) alert("Error updating lock status: " + error.message);
+    loadSubsparks(); // Refresh UI instantly
+}
+
+// Function to handle "Real/Anon" toggle
+window.toggleSubredditNames = async function(subId, showReal) {
+    const { error } = await sb.from('subreddits').update({ show_real_names: showReal }).eq('id', subId);
+    if (error) alert("Error updating name settings: " + error.message);
+    loadSubsparks(); // Refresh UI instantly
+}
+
+// Helper for escaping HTML safely
+function escapeHtml(unsafe) {
+    return (unsafe || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 
