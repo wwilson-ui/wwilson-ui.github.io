@@ -17,9 +17,9 @@
         </a>
         <div style="display: flex; align-items: center; gap: 15px;">
 
-            <div id="auraDisplay" style="display: none;">
+            <div id="auraDisplay" style="display: none; cursor: pointer; transition: transform 0.2s;" onclick="openLeaderboard()" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="View Leaderboard">
                 <span style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">✨ <span id="auraScoreValue">0</span> Aura</span>
-            </div>
+            </div> 
             
             <a id="adminLink" href="admin.html" style="display: none; color: #0079D3; font-weight: 600; text-decoration: none;">🛡️ Admin</a>
             <div id="authSection"></div>
@@ -167,6 +167,22 @@
         </div>
     </div>
 
+
+    <div id="leaderboardModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2 style="display: flex; align-items: center; gap: 10px;">🏆 Aura Leaderboard</h2>
+                <button class="close-modal-btn" onclick="closeModal('leaderboardModal')">&times;</button>
+            </div>
+            <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px; text-align: center;">The top 10 most helpful Sparks in the community.</p>
+            <div id="leaderboardList" style="margin-top: 10px; max-height: 60vh; overflow-y: auto; padding-right: 5px;">
+                <div style="text-align: center; color: #666; padding: 20px;">Loading champions...</div>
+            </div>
+        </div>
+    </div>
+    
+    
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="app.js"></script>
