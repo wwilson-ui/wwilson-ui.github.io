@@ -696,4 +696,111 @@ window.saveAuraSettings = async function() {
 };
 
 
+// ========================================
+// AURA LOG VIEWER
+// ========================================
+
+// Load all students for aura log dropdown
+async function loadAuraLogStudents() {
+    const select = document.getElementById('auraLogStudentSelect');
+    if (!select) return;
+    
+    // Get all students who have user_stats
+    const { data: students } = await sb
+        .from('user_stats')
+        .select('id, profiles!inner(email)')
+        .order('profiles(email)');
+    
+    select.innerHTML = '<option value="">-- Select a Student --</option>';
+    
+    if (students) {
+        students.forEach(s => {
+            const option = document.createElement('option');
+            option.value = s.id;
+            option.textContent = s.profiles.email.split('@')[0];
+            select.appendChild(option);
+        });
+    }
+}
+
+// Load selected student's aura log
+window.loadStudentAuraLog = async function() {
+    const studentId = document.getElementById('auraLogStudentSelect').value;
+    const container = document.getElementById('auraLogList');
+    const totalDisplay = document.getElementById('auraTotalPoints');
+    
+    if (!studentId) {
+        container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Select a student to view their aura history</p>';
+        totalDisplay.textContent = '0';
+        return;
+    }
+    
+    container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Loading...</p>';
+    
+    // Get aura log for this student
+    const { data: logs, error } = await sb
+        .from('aura_log')
+        .select('*')
+        .eq('user_id', studentId)
+        .order('created_at', { ascending: false });
+    
+    if (error) {
+        container.innerHTML = '<p style="color: red; text-align: center;">Error loading log: ' + error.message + '</p>';
+        console.error(error);
+        return;
+    }
+    
+    if (!logs || logs.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">No actions recorded yet</p>';
+        totalDisplay.textContent = '0';
+        return;
+    }
+    
+    // Calculate total
+    const total = logs.reduce((sum, log) => sum + (log.points_awarded || 0), 0);
+    totalDisplay.textContent = total;
+    
+    // Render log entries
+    container.innerHTML = '';
+    logs.forEach(log => {
+        const div = document.createElement('div');
+        const pointsColor = log.points_awarded > 0 ? '#4caf50' : '#f44336';
+        const pointsPrefix = log.points_awarded > 0 ? '+' : '';
+        const borderColor = log.points_awarded > 0 ? '#4caf50' : '#f44336';
+        
+        div.style.cssText = `padding: 15px; margin-bottom: 10px; background: #f8f9fa; border-left: 4px solid ${borderColor}; border-radius: 4px;`;
+        
+        const actionLabel = formatActionType(log.action_type);
+        
+        div.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="flex: 1;">
+                    <strong style="font-size: 1.05rem; color: #333;">${actionLabel}</strong>
+                    <div style="font-size: 0.85rem; color: #666; margin-top: 3px;">
+                        ${new Date(log.created_at).toLocaleString()}
+                    </div>
+                    ${log.notes ? `<div style="margin-top: 5px; font-size: 0.9rem; color: #555; font-style: italic;">${log.notes}</div>` : ''}
+                </div>
+                <div style="font-size: 1.4rem; font-weight: 700; color: ${pointsColor}; margin-left: 20px;">
+                    ${pointsPrefix}${log.points_awarded}
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+};
+
+function formatActionType(type) {
+    const labels = {
+        'post_created': '📝 Created a Post',
+        'comment_created': '💬 Posted a Comment',
+        'vote_cast': '👍 Cast a Vote',
+        'upvote_received': '⬆️ Received an Upvote',
+        'downvote_received': '⬇️ Received a Downvote',
+        'flag_upheld': '🏆 Flag Upheld',
+        'flagged_content': '⚠️ Content Flagged',
+        'false_flag': '❌ False Flag Penalty'
+    };
+    return labels[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
 
