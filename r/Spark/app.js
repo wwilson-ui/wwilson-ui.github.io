@@ -1263,6 +1263,11 @@ async function checkForNameChanges() {
 }
 
 function getEffectiveNameSetting(subredditId) {
+    // Override: If the teacher checked the global 'Show Real Names' box, reveal everyone.
+    if (typeof showRealNames !== 'undefined' && showRealNames === true) {
+        return true;
+    }
+
     const cached = nameMaskingCache[subredditId];
     if (!cached) return false;
     if (cached.subreddit_setting !== null && cached.subreddit_setting !== undefined) {
