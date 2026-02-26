@@ -1,5 +1,5 @@
 // ==========================================
-// r/Spark - Classroom Forum Logic with Aura & Rosters
+// r/Spark - Classroom Forum Logic
 // ==========================================
 
 let sb = null;
@@ -37,7 +37,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (subId) { currentSubFilter = subId; }
 
     await checkUser();
-    await loadTeacherSettings(); 
     await fetchNameMaskingSettings(); 
     pollingInterval = setInterval(checkForNameChanges, 5000); 
 
@@ -52,18 +51,15 @@ async function checkUser() {
     const authSection = document.getElementById('authSection');
     
     if (session) {
-        // Ensure profile exists (Self-Healing)
         const safeEmail = session.user.email.toLowerCase();
         await sb.from('profiles').upsert({ id: session.user.id, email: safeEmail, username: safeEmail.split('@')[0] }, { onConflict: 'id' });
 
         const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
         currentUser = profile;
         
-        // Determine if Teacher from Central DB
         const { data: teacherRecord } = await sb.from('classcast_teachers').select('*').eq('email', safeEmail).single();
         isTeacher = !!teacherRecord || safeEmail === 'wwilson@mtps.us';
         
-        // UI Updates
         const adminLink = document.getElementById('adminLink');
         const sidebarAddBtn = document.getElementById('sidebarAddBtn');
         const createPostBar = document.getElementById('createPostBar');
@@ -81,7 +77,7 @@ async function checkUser() {
         
         authSection.innerHTML = `
             <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-weight: 600;">${profile.username}</span>
+                <span style="font-weight: 600;">${profile.username || safeEmail.split('@')[0]}</span>
                 <button onclick="signOut()" class="auth-btn">Log Out</button>
             </div>
         `;
@@ -111,7 +107,6 @@ async function updateAura(userId, amount) {
             const newScore = (data.aura_score || 0) + amount;
             await sb.from('profiles').update({ aura_score: newScore }).eq('id', userId);
             
-            // If the logged-in user got points, update their badge live
             if (currentUser && currentUser.id === userId) {
                 currentUser.aura_score = newScore;
                 const el = document.getElementById('auraScoreValue');
@@ -132,7 +127,6 @@ async function loadSubreddits() {
     let allowedSubs = [];
     
     if (isTeacher) {
-        // Teacher sees subs assigned to any of their classes, or subs they made
         const { data: myClasses } = await sb.from('classcast_classes').select('class_name').contains('teacher_emails', `["${currentUser.email.toLowerCase()}"]`);
         const myClassNames = myClasses ? myClasses.map(c => c.class_name) : [];
         
@@ -140,11 +134,10 @@ async function loadSubreddits() {
             if (s.created_by === currentUser.id) return true;
             let targets = [];
             try { targets = typeof s.target_classes === 'string' ? JSON.parse(s.target_classes) : (s.target_classes || []); } catch(e){}
-            if (!targets || targets.length === 0) return true; // Global
+            if (!targets || targets.length === 0) return true; 
             return targets.some(c => myClassNames.includes(c));
         });
     } else if (currentUser) {
-        // Student sees only subs assigned to classes they are explicitly enrolled in
         const { data: myRosters } = await sb.from('classcast_roster').select('class_id').eq('student_email', currentUser.email.toLowerCase());
         const myClassIds = myRosters ? myRosters.map(r => r.class_id) : [];
         let myClassNames = [];
@@ -156,7 +149,7 @@ async function loadSubreddits() {
         allowedSubs = subs.filter(s => {
             let targets = [];
             try { targets = typeof s.target_classes === 'string' ? JSON.parse(s.target_classes) : (s.target_classes || []); } catch(e){}
-            if (!targets || targets.length === 0) return true; // Global
+            if (!targets || targets.length === 0) return true; 
             return targets.some(c => myClassNames.includes(c));
         });
     }
@@ -189,7 +182,6 @@ window.openSubModal = async function() {
     document.getElementById('createSubModal').style.display = 'flex';
     document.getElementById('subName').value = '';
     
-    // Auto-populate roster multi-select for Teacher
     if (isTeacher) {
         document.getElementById('rosterSelectionGroup').style.display = 'block';
         const select = document.getElementById('subRosters');
@@ -252,7 +244,7 @@ function setupFormListeners() {
             const { error } = await sb.from('posts').insert([{ title: title, content: content, subreddit_id: subId, user_id: currentUser.id, image_url: img, url: link }]);
             if (error) return alert("Posting Error: " + error.message);
 
-            await updateAura(currentUser.id, 10); // +10 Aura for Initiative/Posting
+            await updateAura(currentUser.id, 10); 
             
             closeModal('createPostModal'); postForm.reset(); loadPosts();
         });
@@ -279,7 +271,7 @@ async function loadPosts() {
     const list = document.getElementById('postsList');
     list.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Loading posts...</div>';
 
-    let query = sb.from('posts').select(`*, profiles(username, id), subreddits(name, id), comments(count)`);
+    let query = sb.from('posts').select(`*, profiles(username, email), subreddits(name, id), comments(id)`);
 
     if (currentSubFilter !== 'all') query = query.eq('subreddit_id', currentSubFilter);
     if (currentView === 'mine' && currentUser) query = query.eq('user_id', currentUser.id);
@@ -296,8 +288,8 @@ async function loadPosts() {
     let finalPosts = posts;
     if (currentSort === 'hot') {
         finalPosts.sort((a, b) => {
-            const aScore = a.points + (a.comments[0]?.count || 0) * 2;
-            const bScore = b.points + (b.comments[0]?.count || 0) * 2;
+            const aScore = (a.points || 0) + (a.comments ? a.comments.length : 0) * 2;
+            const bScore = (b.points || 0) + (b.comments ? b.comments.length : 0) * 2;
             return bScore - aScore;
         });
     }
@@ -309,39 +301,50 @@ function createPostHTML(post, isExpanded = false) {
     const timeAgo = formatTimestamp(post.created_at);
     const myVote = myVotes.posts[post.id] || 0;
     
-    let subSetting = getEffectiveNameSetting(post.subreddits.id);
-    let displayName = (isTeacher || subSetting) && post.profiles ? escapeHtml(post.profiles.username) : generateAnonName(post.user_id);
+    // Safety checks for missing profiles/subreddits
+    const subName = post.subreddits ? escapeHtml(post.subreddits.name) : 'Unknown';
+    const authorProfile = post.profiles || {};
+    const realName = authorProfile.username || (authorProfile.email ? authorProfile.email.split('@')[0] : 'Unknown');
+    
+    let subSetting = getEffectiveNameSetting(post.subreddits ? post.subreddits.id : null);
+    let displayName = (isTeacher || subSetting) ? escapeHtml(realName) : generateAnonName(post.user_id);
 
     let contentHtml = '';
-    if (post.image_url) contentHtml += `<img src="${escapeHtml(post.image_url)}" alt="Post image" style="max-width: 100%; max-height: 400px; border-radius: 4px; margin-top: 10px;">`;
-    if (post.url) contentHtml += `<div style="margin-top: 10px;"><a href="${escapeHtml(post.url)}" target="_blank" style="color: #0079D3; font-weight: 500;">🔗 External Link</a></div>`;
+    if (post.image_url) contentHtml += `<img src="${escapeHtml(post.image_url)}" alt="Post image" class="post-image">`;
+    if (post.url) contentHtml += `<a href="${escapeHtml(post.url)}" target="_blank" class="view-post-link" onclick="event.stopPropagation()">🔗 External Link</a>`;
     if (post.content) {
         const text = escapeHtml(post.content);
-        contentHtml += `<div class="post-text ${isExpanded ? '' : 'collapsed'}" style="margin-top: 10px; line-height: 1.5;">${text}</div>`;
+        contentHtml += `<div class="view-post-text ${isExpanded ? '' : 'collapsed'}" style="margin-top: 10px;">${text}</div>`;
     }
 
     const unreadIndicator = post.has_unread ? `<span style="background: var(--primary); color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.7rem; margin-left: 5px;">New</span>` : '';
+    const commentCount = post.comments ? post.comments.length : 0;
 
     return `
-        <div class="post-card" data-id="${post.id}">
-            <div class="vote-column">
-                <button class="vote-btn up ${myVote === 1 ? 'active' : ''}" onclick="handleVote('post', '${post.id}', 1)">▲</button>
-                <div class="score-text">${post.points}</div>
-                <button class="vote-btn down ${myVote === -1 ? 'active' : ''}" onclick="handleVote('post', '${post.id}', -1)">▼</button>
+        <div class="post-card ${isExpanded ? '' : 'clickable-card'}" data-id="${post.id}" ${!isExpanded ? `onclick="openPostDetails('${post.id}')"` : ''}>
+            <div class="post-header">
+                <span style="font-weight: 600; color: #1A1A1B;">r/${subName}</span>
+                <span>•</span>
+                <span>Posted by ${displayName} ${timeAgo}</span>
             </div>
-            <div class="post-content" onclick="openPostDetails('${post.id}')" style="cursor: pointer;">
-                <div class="post-meta">
-                    <span style="font-weight: 600; color: #1A1A1B;">r/${escapeHtml(post.subreddits.name)}</span>
-                    <span style="color: #7C7C7C; margin: 0 5px;">•</span>
-                    <span style="color: #7C7C7C;">Posted by ${displayName} ${timeAgo}</span>
+            
+            <div class="post-title">${escapeHtml(post.title)} ${unreadIndicator}</div>
+            
+            ${contentHtml}
+            
+            <div class="post-footer" onclick="event.stopPropagation()">
+                <div style="display:flex; align-items:center; gap:5px;">
+                    <button class="vote-btn up ${myVote === 1 ? 'active' : ''}" onclick="handleVote('post', '${post.id}', 1)">▲</button>
+                    <span class="score-text">${post.points || 0}</span>
+                    <button class="vote-btn down ${myVote === -1 ? 'active' : ''}" onclick="handleVote('post', '${post.id}', -1)">▼</button>
                 </div>
-                <h2 class="post-title">${escapeHtml(post.title)} ${unreadIndicator}</h2>
-                ${contentHtml}
-                <div class="post-actions" style="margin-top: 15px;">
-                    <div class="action-btn">💬 ${post.comments[0]?.count || 0} Comments</div>
-                    ${(isTeacher || (currentUser && currentUser.id === post.user_id)) ? 
-                        `<button class="action-btn" onclick="event.stopPropagation(); deletePost('${post.id}')" style="color: #c62828;">🗑️ Delete</button>` : ''}
+                
+                <div style="cursor: pointer; display:flex; align-items:center; gap:5px;" onclick="openPostDetails('${post.id}')">
+                    💬 ${commentCount} Comments
                 </div>
+                
+                ${(isTeacher || (currentUser && currentUser.id === post.user_id)) ? 
+                    `<button class="delete-icon" onclick="deletePost('${post.id}')" title="Delete Post">🗑️</button>` : ''}
             </div>
         </div>
     `;
@@ -359,7 +362,6 @@ window.handleVote = async function(type, id, value) {
 
     myVotes[type + 's'][id] = value;
     
-    // Optimistic UI Update
     const container = type === 'post' ? document.querySelector(`.post-card[data-id="${id}"]`) : document.querySelector(`.comment[data-id="${id}"]`);
     if (container) {
         const scoreEl = container.querySelector('.score-text');
@@ -375,15 +377,15 @@ window.handleVote = async function(type, id, value) {
         await sb.from(table).update({ points: targetRecord.points + voteDiff }).eq('id', id);
         
         // --- AURA MATH ---
-        if (previousVote === 0 && value !== 0) await updateAura(currentUser.id, 1); // +1 Voter Participation
+        if (previousVote === 0 && value !== 0) await updateAura(currentUser.id, 1); 
         
         let authorChange = 0;
-        if (previousVote === 0 && value === 1) authorChange = 2;       // Received Upvote
-        else if (previousVote === 0 && value === -1) authorChange = -1;// Received Downvote
-        else if (previousVote === 1 && value === 0) authorChange = -2; // Removed Upvote
-        else if (previousVote === -1 && value === 0) authorChange = 1; // Removed Downvote
-        else if (previousVote === 1 && value === -1) authorChange = -3;// Switched Up to Down
-        else if (previousVote === -1 && value === 1) authorChange = 3; // Switched Down to Up
+        if (previousVote === 0 && value === 1) authorChange = 2;       
+        else if (previousVote === 0 && value === -1) authorChange = -1;
+        else if (previousVote === 1 && value === 0) authorChange = -2; 
+        else if (previousVote === -1 && value === 0) authorChange = 1; 
+        else if (previousVote === 1 && value === -1) authorChange = -3;
+        else if (previousVote === -1 && value === 1) authorChange = 3; 
         
         if (authorChange !== 0 && targetRecord.user_id) await updateAura(targetRecord.user_id, authorChange);
     }
@@ -394,26 +396,28 @@ window.handleVote = async function(type, id, value) {
 window.openPostDetails = async function(postId) {
     currentOpenPostId = postId;
     document.getElementById('createPostBar').style.display = 'none';
-    document.getElementById('sortBar').style.display = 'none';
+    if(document.getElementById('sortBar')) document.getElementById('sortBar').style.display = 'none';
     
     const list = document.getElementById('postsList');
     list.innerHTML = '<div style="padding: 40px; text-align: center;">Loading post...</div>';
 
-    const { data: post } = await sb.from('posts').select(`*, profiles(username), subreddits(name, id)`).eq('id', postId).single();
+    const { data: post } = await sb.from('posts').select(`*, profiles(username, email), subreddits(name, id)`).eq('id', postId).single();
     if (!post) { showFeed(); return; }
 
-    let html = `<button class="action-btn" style="margin-bottom: 20px;" onclick="showFeed()">← Back to Feed</button>`;
-    html += createPostHTML({ ...post, comments: [{count: 0}] }, true);
+    let html = `<button class="back-btn" onclick="showFeed()">← Back to Feed</button>`;
+    
+    post.comments = []; 
+    html += createPostHTML(post, true); 
     
     html += `
-        <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ccc; margin-top: 20px;">
+        <div style="background: white; padding: 20px; border-radius: 4px; border: 1px solid var(--border); margin-top: 20px;">
             <textarea id="newCommentText" class="comment-box" rows="3" placeholder="What are your thoughts?"></textarea>
             <button class="submit-btn" style="width: auto; padding: 8px 20px; margin-top: 10px;" onclick="addComment('${postId}')">Comment</button>
         </div>
         <div id="commentsList" style="margin-top: 20px;">Loading comments...</div>
     `;
     list.innerHTML = html;
-    loadComments(postId, post.subreddits.id);
+    loadComments(postId, post.subreddits ? post.subreddits.id : null);
 };
 
 window.addComment = async function(postId) {
@@ -424,7 +428,7 @@ window.addComment = async function(postId) {
     const { error } = await sb.from('comments').insert([{ post_id: postId, user_id: currentUser.id, content: text }]);
     if (error) return alert("Error: " + error.message);
 
-    await updateAura(currentUser.id, 5); // +5 Aura for Engagement
+    await updateAura(currentUser.id, 5); 
     
     document.getElementById('newCommentText').value = '';
     const { data: post } = await sb.from('posts').select('subreddit_id').eq('id', postId).single();
@@ -433,30 +437,34 @@ window.addComment = async function(postId) {
 
 async function loadComments(postId, subredditId) {
     const list = document.getElementById('commentsList');
-    const { data: comments } = await sb.from('comments').select(`*, profiles(username)`).eq('post_id', postId).order('created_at', { ascending: true });
+    const { data: comments } = await sb.from('comments').select(`*, profiles(username, email)`).eq('post_id', postId).order('created_at', { ascending: true });
     
     if (!comments || comments.length === 0) { list.innerHTML = '<p style="color: #666;">No comments yet.</p>'; return; }
 
     let subSetting = getEffectiveNameSetting(subredditId);
 
     list.innerHTML = comments.map(c => {
-        let displayName = (isTeacher || subSetting) && c.profiles ? escapeHtml(c.profiles.username) : generateAnonName(c.user_id);
+        const authorProfile = c.profiles || {};
+        const realName = authorProfile.username || (authorProfile.email ? authorProfile.email.split('@')[0] : 'Unknown');
+        let displayName = (isTeacher || subSetting) ? escapeHtml(realName) : generateAnonName(c.user_id);
         const myVote = myVotes.comments[c.id] || 0;
         
         return `
-            <div class="comment" data-id="${c.id}" style="display: flex; gap: 15px; margin-bottom: 20px; padding-left: 10px; border-left: 2px solid #eee;">
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                    <button class="vote-btn up ${myVote === 1 ? 'active' : ''}" onclick="handleVote('comment', '${c.id}', 1)" style="font-size: 0.8rem; padding: 2px;">▲</button>
-                    <div class="score-text" style="font-size: 0.85rem; margin: 2px 0;">${c.points}</div>
-                    <button class="vote-btn down ${myVote === -1 ? 'active' : ''}" onclick="handleVote('comment', '${c.id}', -1)" style="font-size: 0.8rem; padding: 2px;">▼</button>
+            <div class="comment" data-id="${c.id}" style="display: flex; gap: 15px; margin-bottom: 20px; padding-left: 10px; border-left: 2px solid var(--border);">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 5px;">
+                    <button class="vote-btn up ${myVote === 1 ? 'active' : ''}" onclick="handleVote('comment', '${c.id}', 1)">▲</button>
+                    <span class="score-text" style="font-size: 0.9rem;">${c.points || 0}</span>
+                    <button class="vote-btn down ${myVote === -1 ? 'active' : ''}" onclick="handleVote('comment', '${c.id}', -1)">▼</button>
                 </div>
                 <div style="flex: 1;">
-                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;">
-                        <strong style="color: #1A1A1B;">${displayName}</strong> • ${formatTimestamp(c.created_at)}
+                    <div class="post-header" style="margin-bottom: 5px;">
+                        <strong style="color: var(--text-primary);">${displayName}</strong> 
+                        <span>•</span> 
+                        <span>${formatTimestamp(c.created_at)}</span>
                     </div>
-                    <div style="line-height: 1.4; color: #333;">${escapeHtml(c.content)}</div>
+                    <div class="view-post-text" style="margin-bottom: 5px;">${escapeHtml(c.content)}</div>
                     ${(isTeacher || (currentUser && currentUser.id === c.user_id)) ? 
-                        `<button class="action-btn" style="color: #c62828; padding: 0; margin-top: 8px; font-size: 0.8rem;" onclick="deleteComment('${c.id}', '${postId}', '${subredditId}')">Delete</button>` : ''}
+                        `<button class="delete-icon" style="font-size: 0.85rem;" onclick="deleteComment('${c.id}', '${postId}', '${subredditId}')">🗑️ Delete</button>` : ''}
                 </div>
             </div>
         `;
@@ -466,7 +474,7 @@ async function loadComments(postId, subredditId) {
 window.showFeed = function() {
     currentOpenPostId = null;
     document.getElementById('createPostBar').style.display = 'flex';
-    document.getElementById('sortBar').style.display = 'flex';
+    if(document.getElementById('sortBar')) document.getElementById('sortBar').style.display = 'flex';
     loadPosts();
 };
 
@@ -480,8 +488,6 @@ async function loadMyVotes() {
         if (stored) myVotes = JSON.parse(stored);
     } catch (e) { myVotes = { posts: {}, comments: {} }; }
 }
-
-async function loadTeacherSettings() { }
 
 async function fetchNameMaskingSettings() {
     try {
