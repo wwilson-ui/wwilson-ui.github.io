@@ -7,32 +7,6 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="https://wwilson-ui.github.io/favicon/favicon.png">
-    <style>
-        /* Aura Badge Style */
-        .aura-badge {
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            text-shadow: 0 1px 1px rgba(0,0,0,0.2);
-        }
-        
-        /* Multi-select roster style */
-        .roster-select {
-            width: 100%;
-            height: 120px;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-family: inherit;
-        }
-    </style>
 </head>
 <body>
 
@@ -42,10 +16,6 @@
             r/Spark
         </a>
         <div style="display: flex; align-items: center; gap: 15px;">
-            <div id="auraDisplay" style="display: none;">
-                <span class="aura-badge">✨ <span id="auraScoreValue">0</span></span>
-            </div>
-            
             <a id="adminLink" href="admin.html" style="display: none; color: #0079D3; font-weight: 600; text-decoration: none;">🛡️ Admin</a>
             <div id="authSection"></div>
         </div>
@@ -58,55 +28,93 @@
                 <h3>Sub-Spark Communities</h3>
                 <button id="sidebarAddBtn" class="circle-plus-btn" onclick="openSubModal()" style="display:none;">+</button>
             </div>
-            <ul id="subredditList" class="nav-list">
-                </ul>
-
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border);">
-                <h3>Filter by Period</h3>
-                <ul id="courseFilterList" class="nav-list" style="margin-top: 10px;">
-                    </ul>
-            </div>
+            <ul id="subredditList" class="sub-list">
+                <li class="loading-text">Loading...</li>
+            </ul>
         </aside>
 
         <main class="main-content">
-            <div class="create-post-bar" id="createPostBar" style="display: none;">
-                <img src="https://www.redditstatic.com/avatars/defaults/v2/avatar_default_1.png" alt="Avatar" class="post-avatar">
-                <input type="text" placeholder="Create Post" onclick="openPostModal()" readonly>
-            </div>
-
-            <div class="sort-bar" id="sortBar" style="display: none; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
-                <button class="sort-btn active" onclick="setSort('hot')">🔥 Hot</button>
-                <button class="sort-btn" onclick="setSort('new')">✨ New</button>
-                <button class="sort-btn" onclick="setSort('top')">🏆 Top</button>
+            
+            <div id="feedView">
+                <!-- Sort and Teacher Controls -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: white; padding: 10px; border-radius: 4px; border: 1px solid var(--border);">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <!-- View Switcher -->
+                        <button class="view-btn" data-view="all" onclick="switchToAllPosts()" style="padding: 6px 12px; border: 1px solid #ccc; background: #FF4500; color: white; border-radius: 4px; cursor: pointer; font-weight: 600;">📰 All Posts</button>
+                        <button class="view-btn" data-view="mine" onclick="switchToMyPosts()" style="padding: 6px 12px; border: 1px solid #ccc; background: white; color: black; border-radius: 4px; cursor: pointer; font-weight: 600;">📝 My Posts</button>
+                        
+                        <div style="border-left: 2px solid #ccc; height: 30px; margin: 0 5px;"></div>
+                        
+                        <!-- Sort Options -->
+                        <button class="sort-btn" data-sort="hot" onclick="changeSortReload('hot')" style="padding: 6px 12px; border: 1px solid #ccc; background: #FF4500; color: white; border-radius: 4px; cursor: pointer; font-weight: 600;">🔥 Hot</button>
+                        <button class="sort-btn" data-sort="new" onclick="changeSortReload('new')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; color: black; border-radius: 4px; cursor: pointer; font-weight: 600;">⚡ New</button>
+                        <button class="sort-btn" data-sort="top" onclick="changeSortReload('top')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; color: black; border-radius: 4px; cursor: pointer; font-weight: 600;">⭐ Top</button>
+                        <button class="sort-btn" data-sort="controversial" onclick="changeSortReload('controversial')" style="padding: 6px 12px; border: 1px solid #ccc; background: white; color: black; border-radius: 4px; cursor: pointer; font-weight: 600;">⚔️ Controversial</button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <!-- Notification Bell -->
+                        <div id="notificationContainer" style="display: none; position: relative; cursor: pointer;" onclick="showNotifications()" title="New comments on your posts">
+                            <span style="font-size: 1.5rem;">🔔</span>
+                            <span id="notificationBadge" style="display: none; position: absolute; top: -5px; right: -5px; background: #ff4444; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; font-weight: bold; display: flex; align-items: center; justify-content: center;">0</span>
+                        </div>
+                        
+                        <!-- Teacher Controls -->
+                        <div id="teacherControls" style="display: none;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="toggleNamesCheckbox" onchange="toggleRealNames()" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 0.9rem; font-weight: 600;">Show Real Names</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
                 
-                <div style="margin-left: auto; display: flex; gap: 10px;">
-                    <button id="viewAllBtn" class="sort-btn active" onclick="setView('all')">All Posts</button>
-                    <button id="viewMineBtn" class="sort-btn" onclick="setView('mine')">
-                        My Posts <span id="notificationBadge" class="notification-badge" style="display: none;">0</span>
-                    </button>
+                <div id="actionBar" class="action-bar" style="display: none;">
+                    <div class="create-input" onclick="openCreateModal()">Create a Post...</div>
+                </div>
+                <div id="postsFeed">
+                    <div style="text-align: center; padding: 40px; color: #777;">Loading feed...</div>
                 </div>
             </div>
 
-            <div id="postsList">
-                <div style="text-align: center; padding: 40px; color: #666;">
-                    Loading posts...
+            <div id="postView" style="display: none;">
+                <button class="back-btn" onclick="showFeed()">← Back to Feed</button>
+                
+                <div class="post-card full-post-card">
+                    <div class="post-header">
+                        <span id="detailSub"></span> • Posted by <span id="detailAuthor"></span>
+                    </div>
+                    
+                    <h1 id="detailTitle" class="detail-title"></h1>
+                    <div id="detailContent" class="detail-text"></div>
+                    <img id="detailImage" class="detail-img" style="display:none;">
+                    <a id="detailLink" class="detail-link" target="_blank" style="display:none;"></a>
+
+                    <hr class="divider">
+
+                    <div class="comments-section">
+                        <h3>Comments</h3>
+                        <div id="detailCommentInput" style="display:none; margin-bottom: 20px;">
+                            <textarea id="newCommentText" class="comment-box" placeholder="What are your thoughts?" rows="3"></textarea>
+                            <button onclick="submitNewComment()" class="submit-btn small-btn" style="margin-top:10px; width:auto;">Comment</button>
+                        </div>
+                        <div id="detailCommentsList"></div>
+                    </div>
                 </div>
             </div>
+
         </main>
-
     </div>
 
     <div id="createPostModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Create a Post</h2>
+                <h2>Create Post</h2>
                 <button class="close-modal-btn" onclick="closeModal('createPostModal')">&times;</button>
             </div>
             <form id="createPostForm">
                 <div class="form-group">
-                    <label>Choose Community</label>
-                    <select id="postSubreddit" required>
-                        </select>
+                    <label>Choose a Community</label>
+                    <select id="postSubreddit" required></select>
                 </div>
                 <div class="form-group">
                     <label>Title</label>
@@ -137,18 +145,9 @@
             </div>
             <form id="createSubForm">
                 <div class="form-group">
-                    <label>Community Name</label>
+                    <label>Name</label>
                     <input type="text" id="subName" placeholder="e.g. History_Period_1" required>
                 </div>
-                
-                <div class="form-group" id="rosterSelectionGroup" style="display: none;">
-                    <label>Assign to Classes (Hold Ctrl/Cmd to select multiple)</label>
-                    <p style="font-size: 0.8rem; color: #666; margin-bottom: 5px;">Only students in selected rosters will see this community.</p>
-                    <select id="subRosters" class="roster-select" multiple>
-                        <option value="none" disabled>Loading your classes...</option>
-                    </select>
-                </div>
-
                 <button type="submit" class="submit-btn">Create</button>
             </form>
         </div>

@@ -1,6 +1,4 @@
-// ==========================================
-// r/Spark - Classroom Forum Logic
-// ==========================================
+// app.js
 
 let sb = null;
 let currentUser = null;
@@ -8,8 +6,10 @@ let isTeacher = false;
 let currentSubFilter = 'all';
 let currentOpenPostId = null; 
 let myVotes = { posts: {}, comments: {} };
-let currentSort = 'hot'; 
-let currentView = 'all'; 
+let showRealNames = false; // DEPRECATED - now using per-subreddit system
+let currentSort = 'hot'; // hot, new, or top
+let currentView = 'all'; // 'all' or 'mine'
+let unreadNotifications = 0; // Count of posts with new comments
 
 // Name masking state
 let nameMaskingCache = {};
@@ -22,7 +22,7 @@ const ANIMALS = ['Badger', 'Fox', 'Owl', 'Eagle', 'Bear', 'Dolphin', 'Wolf', 'Ha
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.supabase !== 'undefined') {
         sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-    } else { alert('Supabase not loaded. Check config.js'); return; }
+    } else { alert('Supabase not loaded'); return; }
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -31,515 +31,1172 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // --- CATCH DYNAMIC LINKS FROM CLASSCAST ---
-    const urlParams = new URLSearchParams(window.location.search);
-    const subId = urlParams.get('sub');
-    if (subId) { currentSubFilter = subId; }
-
     await checkUser();
+    await loadTeacherSettings(); 
     await fetchNameMaskingSettings(); 
     pollingInterval = setInterval(checkForNameChanges, 5000); 
+
+    // --- NEW: CATCH DYNAMIC LINKS FROM CLASSCAST ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const subId = urlParams.get('sub');
+    if (subId) {
+        currentSubFilter = subId; // Instantly filter to this specific Sub-Spark
+    }
+    // -----------------------------------------------
 
     loadSubreddits();
     loadPosts(); 
     setupFormListeners();
 });
 
-// ================= AUTH & AURA INITIALIZATION =================
+
+// ================= NAVIGATION =================
+function showFeed() {
+    document.getElementById('postView').style.display = 'none';
+    document.getElementById('feedView').style.display = 'block';
+    currentOpenPostId = null;
+}
+
+// ================= TEACHER SETTINGS =================
+async function loadTeacherSettings() {
+    const { data } = await sb.from('teacher_settings').select('*').eq('setting_key', 'show_real_names').single();
+    if (data) {
+        showRealNames = data.setting_value;
+    }
+}
+
+window.toggleRealNames = async function() {
+    if (!isTeacher) return;
+    showRealNames = !showRealNames;
+    
+    const { error } = await sb.from('teacher_settings')
+        .update({ setting_value: showRealNames, updated_at: new Date().toISOString(), updated_by: currentUser.id })
+        .eq('setting_key', 'show_real_names');
+    
+    if (error) {
+        console.error('Failed to update setting:', error);
+        showRealNames = !showRealNames; // Revert
+    } else {
+        loadPosts(); // Reload to show/hide names
+    }
+};
+
+// ================= VIEW SWITCHING =================
+window.switchToMyPosts = function() {
+    currentView = 'mine';
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.style.background = 'white';
+        btn.style.color = 'black';
+    });
+    const myPostsBtn = document.querySelector('[data-view="mine"]');
+    if (myPostsBtn) {
+        myPostsBtn.style.background = '#FF4500';
+        myPostsBtn.style.color = 'white';
+    }
+    loadPosts();
+};
+
+window.switchToAllPosts = function() {
+    currentView = 'all';
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.style.background = 'white';
+        btn.style.color = 'black';
+    });
+    const allPostsBtn = document.querySelector('[data-view="all"]');
+    if (allPostsBtn) {
+        allPostsBtn.style.background = '#FF4500';
+        allPostsBtn.style.color = 'white';
+    }
+    loadPosts();
+};
+
+window.showNotifications = async function() {
+    if (!currentUser) return;
+    
+    // Fetch my posts with new comments
+    const { data: myPosts } = await sb
+        .from('posts')
+        .select(`
+            *,
+            subreddits(name),
+            profiles(email),
+            comments(created_at)
+        `)
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+    
+    if (!myPosts || myPosts.length === 0) {
+        alert('You haven\'t created any posts yet!');
+        return;
+    }
+    
+    // Check which have new comments
+    const { data: viewData } = await sb
+        .from('post_views')
+        .select('post_id, last_viewed_at')
+        .eq('user_id', currentUser.id);
+    
+    const viewMap = {};
+    if (viewData) {
+        viewData.forEach(v => {
+            viewMap[v.post_id] = new Date(v.last_viewed_at);
+        });
+    }
+    
+    const postsWithNewComments = myPosts.filter(post => {
+        const lastViewed = viewMap[post.id];
+        if (!lastViewed) return post.comments.length > 0; // Never viewed, has comments
+        
+        // Check if there are comments after last viewed
+        return post.comments.some(c => new Date(c.created_at) > lastViewed);
+    });
+    
+    if (postsWithNewComments.length === 0) {
+        alert('No new activity on your posts!');
+        return;
+    }
+    
+    // Switch to my posts view and highlight those with activity
+    currentView = 'mine';
+    loadPosts();
+};
+
+// Calculate unread notifications
+async function updateNotificationCount() {
+    if (!currentUser) {
+        unreadNotifications = 0;
+        updateNotificationBadge();
+        return;
+    }
+    
+    const { data: myPosts } = await sb
+        .from('posts')
+        .select(`id, comments(created_at)`)
+        .eq('user_id', currentUser.id);
+    
+    if (!myPosts) {
+        unreadNotifications = 0;
+        updateNotificationBadge();
+        return;
+    }
+    
+    const { data: viewData } = await sb
+        .from('post_views')
+        .select('post_id, last_viewed_at')
+        .eq('user_id', currentUser.id);
+    
+    const viewMap = {};
+    if (viewData) {
+        viewData.forEach(v => {
+            viewMap[v.post_id] = new Date(v.last_viewed_at);
+        });
+    }
+    
+    let count = 0;
+    myPosts.forEach(post => {
+        const lastViewed = viewMap[post.id];
+        if (!lastViewed) {
+            if (post.comments.length > 0) count++;
+        } else {
+            const hasNewComments = post.comments.some(c => new Date(c.created_at) > lastViewed);
+            if (hasNewComments) count++;
+        }
+    });
+    
+    unreadNotifications = count;
+    updateNotificationBadge();
+}
+
+function updateNotificationBadge() {
+    const badge = document.getElementById('notificationBadge');
+    if (badge) {
+        badge.textContent = unreadNotifications;
+        badge.style.display = unreadNotifications > 0 ? 'inline-block' : 'none';
+    }
+}
+
+async function markPostAsViewed(postId) {
+    if (!currentUser) return;
+    
+    // Upsert post view
+    await sb.from('post_views').upsert({
+        user_id: currentUser.id,
+        post_id: postId,
+        last_viewed_at: new Date().toISOString()
+    }, {
+        onConflict: 'user_id,post_id'
+    });
+    
+    // Update notification count
+    await updateNotificationCount();
+}
+
+// ================= SORTING =================
+window.changeSortReload = function(sortType) {
+    currentSort = sortType;
+    
+    // Update button styles
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.background = 'white';
+        btn.style.color = 'black';
+    });
+    
+    const activeBtn = document.querySelector(`[data-sort="${sortType}"]`);
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.style.background = '#FF4500';
+        activeBtn.style.color = 'white';
+    }
+    
+    loadPosts();
+};
+
+// ================= FLAGGING =================
+window.flagContent = async function(contentId, contentType) {
+    if (!currentUser) return alert('Please sign in to flag content');
+    
+    const reason = prompt('Why are you flagging this content? (optional)');
+    if (reason === null) return; // User cancelled
+    
+    const payload = {
+        user_id: currentUser.id,
+        reason: reason || 'No reason provided',
+        reviewed: false
+    };
+    
+    if (contentType === 'post') {
+        payload.post_id = contentId;
+        payload.comment_id = null;
+    } else {
+        payload.comment_id = contentId;
+        payload.post_id = null;
+    }
+    
+    const { error } = await sb.from('flags').insert([payload]);
+    
+    if (error) {
+        alert('Error flagging content: ' + error.message);
+    } else {
+        alert('Content has been flagged for teacher review');
+    }
+};
+
+function openPostPage(post, authorName, realIdentity) {
+    currentOpenPostId = post.id;
+    console.log('📖 Opening post:', post.id);
+
+    // Mark post as viewed if it's the user's own post
+    if (currentUser && currentUser.id === post.user_id) {
+        markPostAsViewed(post.id);
+    }
+
+    // Toggle Views
+    document.getElementById('feedView').style.display = 'none';
+    document.getElementById('postView').style.display = 'block';
+    window.scrollTo(0, 0);
+
+    // Fill Data
+    document.getElementById('detailSub').textContent = `r/${post.subreddits ? post.subreddits.name : 'Unknown'}`;
+    
+    // Use per-subreddit name setting
+    const showReal = getEffectiveNameSetting(post.subreddit_id);
+    const isAuthor = currentUser && currentUser.id === post.user_id;
+    const email = post.profiles?.email || realIdentity || '';
+    
+    let displayName;
+    if (showReal) {
+        displayName = email.split('@')[0] || 'Unknown';
+        if (isAuthor) displayName += ' (you)';
+    } else {
+        displayName = authorName;
+        if (isAuthor) displayName += ' (you)';
+        else if (isTeacher) displayName += ` <span style="color:#ff4500;">(${email})</span>`;
+    }
+    
+    document.getElementById('detailAuthor').innerHTML = displayName;
+    
+    // Add action buttons (edit/delete/flag) to the post header
+    const detailHeader = document.querySelector('#postView .post-header');
+    if (detailHeader) {
+        // Remove existing action buttons if any
+        const existingActions = detailHeader.querySelector('.detail-actions');
+        if (existingActions) existingActions.remove();
+        
+        // Create action buttons container
+        const actionsDiv = document.createElement('span');
+        actionsDiv.className = 'detail-actions';
+        actionsDiv.style.cssText = 'margin-left: auto; display: flex; gap: 5px;';
+        
+        // Edit button (for post author)
+        if (isAuthor) {
+            const editBtn = document.createElement('button');
+            editBtn.className = 'delete-icon';
+            editBtn.style.color = '#0079D3';
+            editBtn.title = 'Edit post';
+            editBtn.innerHTML = '✏️';
+            editBtn.onclick = () => editPost(post.id);
+            actionsDiv.appendChild(editBtn);
+        }
+        
+        // Flag button (for non-authors)
+        if (currentUser && !isAuthor) {
+            const flagBtn = document.createElement('button');
+            flagBtn.className = 'delete-icon';
+            flagBtn.style.color = '#ff8800';
+            flagBtn.title = 'Flag for teacher';
+            flagBtn.innerHTML = '🚩';
+            flagBtn.onclick = () => flagContent(post.id, 'post');
+            actionsDiv.appendChild(flagBtn);
+        }
+        
+        // Delete button (for author or teacher)
+        if (isAuthor || isTeacher) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-icon';
+            deleteBtn.title = 'Delete post';
+            deleteBtn.innerHTML = '🗑️';
+            deleteBtn.onclick = () => {
+                if (confirm('Delete this post?')) {
+                    deletePost(post.id);
+                    showFeed(); // Return to feed after deletion
+                }
+            };
+            actionsDiv.appendChild(deleteBtn);
+        }
+        
+        detailHeader.appendChild(actionsDiv);
+    }
+
+    document.getElementById('detailTitle').textContent = post.title;
+    
+    const contentDiv = document.getElementById('detailContent');
+    contentDiv.innerHTML = post.content ? escapeHtml(post.content).replace(/\n/g, '<br>') : '';
+    
+    const imgEl = document.getElementById('detailImage');
+    if (post.image_url) { imgEl.src = post.image_url; imgEl.style.display = 'block'; }
+    else { imgEl.style.display = 'none'; }
+    
+    const linkEl = document.getElementById('detailLink');
+    if (post.url) { linkEl.href = post.url; linkEl.textContent = `🔗 ${post.url}`; linkEl.style.display = 'block'; }
+    else { linkEl.style.display = 'none'; }
+
+    // VOTING (Using detail- prefix)
+    // ... (Your existing voting code below works fine, leave it as is) ...
+    
+    // Add voting buttons to the expanded post view
+    // (Copy the rest of your existing function logic here or leave it alone if you just paste the top part)
+    const userVote = myVotes.posts[post.id] || 0;
+    const upActive = userVote === 1 ? 'active' : '';
+    const downActive = userVote === -1 ? 'active' : '';
+    
+    // Remove existing vote section if it exists
+    const existingVoteSection = document.getElementById('detailVoteSection');
+    if (existingVoteSection) existingVoteSection.remove();
+    
+    // Create voting section
+    const voteSection = document.createElement('div');
+    voteSection.id = 'detailVoteSection';
+    voteSection.style.cssText = 'display: flex; align-items: center; gap: 15px; margin: 20px 0; padding: 15px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee;';
+    
+    // Create upvote button with 'detail-' prefix
+    const upBtn = document.createElement('button');
+    upBtn.id = `detail-btn-up-post-${post.id}`;
+    upBtn.className = `vote-btn up ${upActive}`;
+    upBtn.textContent = '⬆';
+    upBtn.onclick = (e) => {
+        e.stopPropagation();
+        window.vote(post.id, 1, 'post');
+    };
+    
+    // Create score display with 'detail-' prefix
+    const scoreSpan = document.createElement('span');
+    scoreSpan.id = `detail-score-post-${post.id}`;
+    scoreSpan.className = 'score-text';
+    scoreSpan.style.cssText = 'font-weight: bold; font-size: 1rem;';
+    scoreSpan.textContent = post.vote_count || 0;
+    
+    // Create downvote button with 'detail-' prefix
+    const downBtn = document.createElement('button');
+    downBtn.id = `detail-btn-down-post-${post.id}`;
+    downBtn.className = `vote-btn down ${downActive}`;
+    downBtn.textContent = '⬇';
+    downBtn.onclick = (e) => {
+        e.stopPropagation();
+        window.vote(post.id, -1, 'post');
+    };
+    
+    // Create helper text
+    const helperText = document.createElement('span');
+    helperText.style.cssText = 'color: var(--text-secondary); font-size: 0.9rem; margin-left: 10px;';
+    helperText.textContent = 'Vote on this post';
+    
+    // Assemble vote section
+    voteSection.appendChild(upBtn);
+    voteSection.appendChild(scoreSpan);
+    voteSection.appendChild(downBtn);
+    voteSection.appendChild(helperText);
+    
+    // Insert the vote section before the divider
+    const divider = document.querySelector('#postView hr.divider');
+    if (divider) {
+        divider.parentNode.insertBefore(voteSection, divider);
+    } else {
+        // Fallback if divider missing
+        document.getElementById('detailTitle').after(voteSection);
+    }
+
+    // Fetch fresh vote count
+    (async () => {
+        const { data: freshPost } = await sb.from('posts').select('vote_count').eq('id', post.id).single();
+        if (freshPost && scoreSpan) {
+            scoreSpan.textContent = freshPost.vote_count || 0;
+        }
+    })();
+
+    // Show Comments Input
+    document.getElementById('detailCommentInput').style.display = currentUser ? 'block' : 'none';
+    loadDetailComments(post.id);
+}
+
+// ================= AUTH (SELF-HEALING VERSION) =================
 async function checkUser() {
     const { data: { session } } = await sb.auth.getSession();
     const authSection = document.getElementById('authSection');
-    
+    const actionBar = document.getElementById('actionBar');
+
     if (session) {
-        const safeEmail = session.user.email.toLowerCase();
-        await sb.from('profiles').upsert({ id: session.user.id, email: safeEmail, username: safeEmail.split('@')[0] }, { onConflict: 'id' });
+        console.log('✅ Session active:', session.user.email);
+        
+        // 1. Try to get the profile
+        let { data: profile, error: fetchError } = await sb.from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
 
-        const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+        // 2. If profile is missing, CREATE it (Self-Healing)
+        // 2. If profile is missing OR username is missing, FIX IT
+if (!profile || !profile.username) {
+    console.log('✨ Profile or username missing, fixing now...');
+    
+    // Generate a username from the email (e.g., "wwilson" from "wwilson@mtps.us")
+    const generatedUsername = session.user.email.split('@')[0];
+
+    const { data: updatedProfile, error: upsertError } = await sb.from('profiles').upsert({
+        id: session.user.id,
+        email: session.user.email,
+        username: generatedUsername,
+        role: session.user.email === 'wwilson@mtps.us' ? 'teacher' : 'student'
+    }).select().single();
+    
+    if (upsertError) {
+        console.error('❌ Could not fix profile:', upsertError);
+    } else {
+        profile = updatedProfile;
+    }
+}
+
         currentUser = profile;
+        isTeacher = currentUser.role === 'teacher';
         
-        const { data: teacherRecord } = await sb.from('classcast_teachers').select('*').eq('email', safeEmail).single();
-        isTeacher = !!teacherRecord || safeEmail === 'wwilson@mtps.us';
+        await loadMyVotes();
+        await updateNotificationCount(); // Check for new comments on user's posts
         
-        const adminLink = document.getElementById('adminLink');
-        const sidebarAddBtn = document.getElementById('sidebarAddBtn');
-        const createPostBar = document.getElementById('createPostBar');
-        const sortBar = document.getElementById('sortBar');
-        const auraDisplay = document.getElementById('auraDisplay');
-        const auraScoreValue = document.getElementById('auraScoreValue');
-
-        if (adminLink) adminLink.style.display = isTeacher ? 'inline' : 'none';
-        if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
-        if (createPostBar) createPostBar.style.display = 'flex';
-        if (sortBar) sortBar.style.display = 'flex';
-        
-        if (auraDisplay) auraDisplay.style.display = 'flex';
-        if (auraScoreValue) auraScoreValue.innerText = currentUser.aura_score || 0;
-        
+        // Update UI
         authSection.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-weight: 600;">${profile.username || safeEmail.split('@')[0]}</span>
-                <button onclick="signOut()" class="auth-btn">Log Out</button>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <div style="text-align:right; line-height:1.2;">
+                    <div style="font-weight:bold; font-size:0.9rem;">${currentUser.username || currentUser.email.split('@')[0]}</div>
+                    <div style="font-size:0.75rem; color:${isTeacher ? '#0079D3' : '#00D9A5'}; font-weight:bold; text-transform:uppercase;">${isTeacher ? 'TEACHER' : 'STUDENT'}</div>
+                </div>
+                <button class="google-btn" onclick="signOut()" style="padding: 4px 10px; font-size: 0.8rem;">Sign Out</button>
             </div>
         `;
+        if (actionBar) actionBar.style.display = 'flex';
+        const sidebarAddBtn = document.getElementById('sidebarAddBtn');
+        if (sidebarAddBtn) sidebarAddBtn.style.display = isTeacher ? 'flex' : 'none';
+        
+        // Show admin link for teachers
+        const adminLink = document.getElementById('adminLink');
+        if (adminLink) adminLink.style.display = isTeacher ? 'block' : 'none';
+        
+        // Show teacher controls
+        const teacherControls = document.getElementById('teacherControls');
+        if (teacherControls) teacherControls.style.display = isTeacher ? 'block' : 'none';
+        
+        // Show notification bell for all users
+        const notificationContainer = document.getElementById('notificationContainer');
+        if (notificationContainer) notificationContainer.style.display = 'block';
+        
+        // Set checkbox state
+        const toggleCheckbox = document.getElementById('toggleNamesCheckbox');
+        if (toggleCheckbox) toggleCheckbox.checked = showRealNames;
 
-        await loadMyVotes();
     } else {
-        currentUser = null;
-        authSection.innerHTML = `<button onclick="signIn()" class="auth-btn">Sign in with Google</button>`;
+        authSection.innerHTML = `
+            <button class="google-btn" onclick="signIn()">
+                <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="G" style="width:18px; height:18px;">
+                Sign in with Google
+            </button>
+        `;
+        if (actionBar) actionBar.style.display = 'none';
     }
+}
+
+
+
+// 1. Load Votes when user logs in
+async function loadMyVotes() {
+    if (!currentUser) return;
+    const { data } = await sb.from('votes').select('*').eq('user_id', currentUser.id);
+    if (data) {
+        myVotes = { posts: {}, comments: {} }; // Reset
+        data.forEach(v => {
+            if (v.post_id) myVotes.posts[v.post_id] = v.vote_type;
+            if (v.comment_id) myVotes.comments[v.comment_id] = v.vote_type;
+        });
+    }
+}
+
+// 2. The Main Vote Function - GLOBAL
+window.vote = async function(id, typeValue, itemType = 'post') { // typeValue is 1 or -1
+    console.log('🗳️ Vote called:', { id, typeValue, itemType, currentUser });
+    
+    if (!currentUser) {
+        alert("Please sign in to vote.");
+        return;
+    }
+
+    // Check current state
+    const currentVote = itemType === 'post' ? myVotes.posts[id] : myVotes.comments[id];
+    console.log('Current vote state:', currentVote);
+    
+    // DECIDE ACTION:
+    // If clicking the same button -> DELETE vote (toggle off)
+    // If clicking different button -> UPSERT (change vote)
+    // If no previous vote -> UPSERT (add vote)
+    
+    let action = 'upsert';
+    if (currentVote === typeValue) action = 'delete';
+    console.log('Action:', action);
+
+    // Optimistic UI Update (Instant feedback)
+    updateVoteUI(id, action === 'delete' ? 0 : typeValue, itemType);
+
+    if (action === 'delete') {
+        // DELETE VOTE
+        // We match user_id AND the specific post/comment id
+        let query = sb.from('votes').delete().eq('user_id', currentUser.id);
+        if (itemType === 'post') query = query.eq('post_id', id);
+        else query = query.eq('comment_id', id);
+        
+        const { error } = await query;
+        console.log('Delete result:', { error });
+        
+        if (error) {
+            console.error('❌ Delete vote failed:', error);
+            alert('Error deleting vote: ' + error.message);
+        }
+        
+        // Update local state
+        if (itemType === 'post') delete myVotes.posts[id];
+        else delete myVotes.comments[id];
+
+    } else {
+        // INSERT/UPDATE VOTE
+        const payload = {
+            user_id: currentUser.id,
+            vote_type: typeValue
+        };
+        
+        // Handle your constraint: One ID must be null
+        if (itemType === 'post') {
+            payload.post_id = id;
+            payload.comment_id = null; 
+        } else {
+            payload.comment_id = id;
+            payload.post_id = null;
+        }
+        
+        console.log('Upserting payload:', payload);
+
+        const { data, error } = await sb.from('votes').upsert(payload, { 
+            onConflict: itemType === 'post' ? 'user_id,post_id' : 'user_id,comment_id' 
+        });
+
+        console.log('Upsert result:', { data, error });
+
+        if (error) {
+            console.error('❌ Vote failed:', error);
+            alert('Vote error: ' + error.message);
+            // Revert UI if needed
+        } else {
+            console.log('✅ Vote successful');
+            // Update local state
+            if (itemType === 'post') myVotes.posts[id] = typeValue;
+            else myVotes.comments[id] = typeValue;
+            
+            // If we're in the detail view, refresh the vote buttons
+            if (currentOpenPostId && currentOpenPostId === id && itemType === 'post') {
+                console.log('🔄 Refreshing detail view vote buttons');
+                const voteSection = document.getElementById('detailVoteSection');
+                if (voteSection) {
+                    // Simply reload the vote count from database
+                    const { data: post } = await sb.from('posts').select('vote_count').eq('id', id).single();
+                    const scoreSpan = document.getElementById(`detail-score-post-${id}`);
+                    if (scoreSpan && post) {
+                        scoreSpan.textContent = post.vote_count || 0;
+                    }
+                    
+                    // Update button states based on new vote
+                    const upBtn = document.getElementById(`detail-btn-up-post-${id}`);
+                    const downBtn = document.getElementById(`detail-btn-down-post-${id}`);
+                    if (upBtn && downBtn) {
+                        upBtn.classList.remove('active');
+                        downBtn.classList.remove('active');
+                        const newVote = myVotes.posts[id] || 0;
+                        if (newVote === 1) upBtn.classList.add('active');
+                        if (newVote === -1) downBtn.classList.add('active');
+                    }
+                    console.log('✅ Detail view updated');
+                }
+            }
+        }
+    }
+}
+
+// 3. Helper to update colors/numbers instantly
+
+function updateVoteUI(id, newValue, type) {
+    // Defines a helper to update a specific set of buttons (Feed or Detail)
+    const updateButtons = (prefix) => {
+        const idPrefix = prefix ? `${prefix}-` : ''; 
+        const btnUp = document.getElementById(`${idPrefix}btn-up-${type}-${id}`);
+        const btnDown = document.getElementById(`${idPrefix}btn-down-${type}-${id}`);
+        const scoreSpan = document.getElementById(`${idPrefix}score-${type}-${id}`);
+
+        if (!btnUp || !btnDown || !scoreSpan) return; // Skip if not found on screen
+
+        // 1. Calculate Score Change
+        let currentScore = parseInt(scoreSpan.innerText) || 0;
+        const oldValue = (type === 'post' ? myVotes.posts[id] : myVotes.comments[id]) || 0;
+
+        // Undo old vote locally
+        if (oldValue === 1) currentScore--;
+        if (oldValue === -1) currentScore++;
+
+        // Apply new vote locally
+        if (newValue === 1) currentScore++;
+        if (newValue === -1) currentScore--;
+
+        scoreSpan.innerText = currentScore;
+
+        // 2. Update Colors
+        btnUp.classList.remove('active');
+        btnDown.classList.remove('active');
+        
+        if (newValue === 1) btnUp.classList.add('active');
+        if (newValue === -1) btnDown.classList.add('active');
+    };
+
+    // Run the helper for BOTH locations
+    updateButtons('');       // Main Feed
+    updateButtons('detail'); // Expanded View
 }
 
 window.signIn = async function() {
-    await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + window.location.pathname, queryParams: { prompt: 'consent', hd: 'mtps.us' } } });
-};
-
-window.signOut = async function() {
-    await sb.auth.signOut();
-    window.location.reload();
-};
-
-// ================= AURA SCORE ENGINE =================
-async function updateAura(userId, amount) {
-    if (!userId || amount === 0) return;
-    try {
-        const { data } = await sb.from('profiles').select('aura_score').eq('id', userId).single();
-        if (data) {
-            const newScore = (data.aura_score || 0) + amount;
-            await sb.from('profiles').update({ aura_score: newScore }).eq('id', userId);
-            
-            if (currentUser && currentUser.id === userId) {
-                currentUser.aura_score = newScore;
-                const el = document.getElementById('auraScoreValue');
-                if (el) el.innerText = newScore;
-            }
+    // REMOVED 'hd' restriction to allow testing with any Google account
+    await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { 
+            redirectTo: 'https://wwilson-ui.github.io/r/Spark/', queryParams: { hd: 'mtps.us' } 
         }
-    } catch(err) { console.error("Aura DB Error:", err); }
+    });
+};
+
+window.signOut = async function() { 
+    await sb.auth.signOut(); 
+    localStorage.clear(); // Clear local storage to ensure a fresh state
+    window.location.reload(); 
+};
+
+// ================= POSTS & FEED =================
+async function loadPosts() {
+    const feed = document.getElementById('postsFeed');
+    feed.innerHTML = '<div style="padding:20px; text-align:center;">Loading...</div>';
+    
+    let query = sb.from('posts').select(`*, subreddits(name), profiles(email)`);
+    
+    // Filter by user if in "My Posts" view
+    if (currentView === 'mine' && currentUser) {
+        query = query.eq('user_id', currentUser.id);
+    }
+    
+    // Apply sorting
+    if (currentSort === 'new') {
+        query = query.order('created_at', { ascending: false });
+    } else if (currentSort === 'top') {
+        query = query.order('vote_count', { ascending: false });
+    } else if (currentSort === 'controversial') {
+        query = query.order('created_at', { ascending: false });
+    } else { // hot (default)
+        query = query.order('vote_count', { ascending: false }).order('created_at', { ascending: false });
+    }
+    
+    if (currentSubFilter !== 'all') query = query.eq('subreddit_id', currentSubFilter);
+
+    const { data: posts, error } = await query;
+    if (error) { feed.innerHTML = 'Error loading posts'; return; }
+
+    // Client-side sort for controversial
+    if (currentSort === 'controversial' && posts) {
+        posts.sort((a, b) => {
+            // Controversial = lots of comments but low/divided vote score
+            // Formula: comment_count / (abs(vote_count) + 1)
+            // Higher = more controversial (many comments, low score)
+            
+            const aControversy = (a.comment_count || 0) / (Math.abs(a.vote_count || 0) + 1);
+            const bControversy = (b.comment_count || 0) / (Math.abs(b.vote_count || 0) + 1);
+            
+            return bControversy - aControversy;
+        });
+    }
+
+    feed.innerHTML = '';
+    if (posts.length === 0) {
+        const message = currentView === 'mine' ? 
+            'You haven\'t created any posts yet!' : 
+            'No posts yet. Be the first!';
+        feed.innerHTML = `<div style="padding:40px; text-align:center; color:#777;">${message}</div>`;
+        return;
+    }
+    posts.forEach(post => feed.appendChild(createPostElement(post)));
 }
 
-// ================= ROSTER FILTERING & SUBREDDITS =================
-async function loadSubreddits() {
-    const list = document.getElementById('subredditList');
-    list.innerHTML = '<li><a href="#" style="color:#666;">Loading classes...</a></li>';
+function createPostElement(post) {
+    const div = document.createElement('div');
+    div.className = 'post-card clickable-card';
+    div.setAttribute('data-post-id', post.id);
     
-    let { data: subs, error } = await sb.from('subreddits').select('*').order('name');
-    if (error) return console.error(error);
+    const isAuthor = currentUser && currentUser.id === post.user_id;
+    const authorName = getAnonName(post.user_id);
+    const authorEmail = post.profiles?.email || '';
     
-    let allowedSubs = [];
+    // Use per-subreddit name setting
+    const showReal = getEffectiveNameSetting(post.subreddit_id);
     
-    if (isTeacher) {
-        const { data: myClasses } = await sb.from('classcast_classes').select('class_name').contains('teacher_emails', `["${currentUser.email.toLowerCase()}"]`);
-        const myClassNames = myClasses ? myClasses.map(c => c.class_name) : [];
-        
-        allowedSubs = subs.filter(s => {
-            if (s.created_by === currentUser.id) return true;
-            let targets = [];
-            try { targets = typeof s.target_classes === 'string' ? JSON.parse(s.target_classes) : (s.target_classes || []); } catch(e){}
-            if (!targets || targets.length === 0) return true; 
-            return targets.some(c => myClassNames.includes(c));
-        });
-    } else if (currentUser) {
-        const { data: myRosters } = await sb.from('classcast_roster').select('class_id').eq('student_email', currentUser.email.toLowerCase());
-        const myClassIds = myRosters ? myRosters.map(r => r.class_id) : [];
-        let myClassNames = [];
-        if (myClassIds.length > 0) {
-            const { data: classData } = await sb.from('classcast_classes').select('class_name').in('id', myClassIds);
-            if (classData) myClassNames = classData.map(c => c.class_name);
-        }
-        
-        allowedSubs = subs.filter(s => {
-            let targets = [];
-            try { targets = typeof s.target_classes === 'string' ? JSON.parse(s.target_classes) : (s.target_classes || []); } catch(e){}
-            if (!targets || targets.length === 0) return true; 
-            return targets.some(c => myClassNames.includes(c));
-        });
+    let displayName;
+    if (showReal) {
+        displayName = authorEmail.split('@')[0] || 'Unknown';
+        if (isAuthor) displayName += ' (you)';
+    } else {
+        displayName = authorName;
+        if (isAuthor) displayName += ' (you)';
+        else if (isTeacher) displayName += ` <span style="color:#999; font-size:0.75em;">(${authorEmail})</span>`;
     }
 
-    list.innerHTML = `<li><a href="#" class="${currentSubFilter === 'all' ? 'active' : ''}" onclick="selectSub('all')"><span class="sub-icon">⚡</span> All Sparks</a></li>`;
+div.onclick = (e) => {
+        if (e.target.closest('button')) return;
+        openPostPage(post, authorName, authorEmail);
+    };
+    // Action buttons
+    const deleteBtn = (isTeacher || isAuthor) ? `<button class="delete-icon" onclick="deletePost('${post.id}')" title="Delete post">🗑️</button>` : '';
+    const editBtn = isAuthor ? `<button class="delete-icon" onclick="editPost('${post.id}')" title="Edit post" style="color:#0079D3;">✏️</button>` : '';
+    const flagBtn = currentUser && !isAuthor ? `<button class="delete-icon" onclick="flagContent('${post.id}', 'post')" title="Flag for teacher" style="color:#ff8800;">🚩</button>` : '';
     
-    allowedSubs.forEach(sub => {
-        list.innerHTML += `<li><a href="#" class="${currentSubFilter === sub.id ? 'active' : ''}" onclick="selectSub('${sub.id}')"><span class="sub-icon">💬</span> r/${escapeHtml(sub.name)}</a></li>`;
+    // Get current user's vote for this post
+    const userVote = myVotes.posts[post.id] || 0;
+    const upActive = userVote === 1 ? 'active' : '';
+    const downActive = userVote === -1 ? 'active' : '';
+    
+    // Format timestamp
+    const timestamp = formatTimestamp(post.created_at);
+
+    div.innerHTML = `
+        <div class="post-header">
+            <strong>r/${post.subreddits ? post.subreddits.name : 'Unknown'}</strong>
+            <span>•</span>
+            <span>Posted by ${displayName}</span>
+            <span>•</span>
+            <span style="color: #999; font-size: 0.85em;">${timestamp}</span>
+            <span style="flex-grow:1"></span>
+            ${editBtn}${flagBtn}${deleteBtn}
+        </div>
+        <div class="post-title" style="font-size: 1.1rem; margin-bottom: 5px;">${escapeHtml(post.title)}</div>
+        
+        <div class="post-footer">
+            <button id="btn-up-post-${post.id}" class="vote-btn up ${upActive}" onclick="vote('${post.id}', 1, 'post')">⬆</button>
+            <span id="score-post-${post.id}" class="score-text">${post.vote_count || 0}</span>
+            <button id="btn-down-post-${post.id}" class="vote-btn down ${downActive}" onclick="vote('${post.id}', -1, 'post')">⬇</button>
+            <span class="comment-count" style="margin-left:15px; font-weight:normal; font-size:0.9rem; color:#888;">
+                💬 ${post.comment_count || 0} ${(post.comment_count || 0) === 1 ? 'comment' : 'comments'}
+            </span>
+        </div>
+    `;
+    return div;
+}
+
+// ================= COMMENTS =================
+async function loadDetailComments(postId) {
+    const list = document.getElementById('detailCommentsList');
+    list.innerHTML = 'Loading comments...';
+    
+    const { data: comments } = await sb.from('comments')
+        .select(`*, profiles(email)`)
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+
+    const tree = buildCommentTree(comments || []);
+    renderComments(tree, list);
+}
+
+async function submitNewComment() {
+    const txt = document.getElementById('newCommentText');
+    const content = txt.value.trim();
+    if (!content) return;
+
+    const { error } = await sb.from('comments').insert([{
+        post_id: currentOpenPostId, user_id: currentUser.id, content: content
+    }]);
+
+    if (error) {
+        alert(error.message);
+    } else {
+        txt.value = '';
+        
+        // Reload comments
+        await loadDetailComments(currentOpenPostId);
+        
+        // Fetch updated post data to get new comment count
+        const { data: updatedPost } = await sb.from('posts')
+            .select('comment_count')
+            .eq('id', currentOpenPostId)
+            .single();
+        
+        // Update comment count display in feed if visible
+        if (updatedPost) {
+            const feedCommentCount = document.querySelector(`#postsFeed [data-post-id="${currentOpenPostId}"] .comment-count`);
+            if (feedCommentCount) {
+                feedCommentCount.textContent = `💬 ${updatedPost.comment_count || 0} ${(updatedPost.comment_count || 0) === 1 ? 'comment' : 'comments'}`;
+            }
+        }
+    }
+}
+
+function buildCommentTree(comments) {
+    const map = {}; const roots = [];
+    comments.forEach(c => { c.children = []; map[c.id] = c; });
+    comments.forEach(c => {
+        if (c.parent_id && map[c.parent_id]) map[c.parent_id].children.push(c);
+        else roots.push(c);
     });
     
-    const postSubSelect = document.getElementById('postSubreddit');
-    if(postSubSelect) {
-        postSubSelect.innerHTML = '<option value="" disabled selected>Choose Community</option>';
-        allowedSubs.forEach(sub => postSubSelect.innerHTML += `<option value="${sub.id}">r/${escapeHtml(sub.name)}</option>`);
-    }
+    // Sort top-level comments by vote_count (descending)
+    roots.sort((a, b) => (b.vote_count || 0) - (a.vote_count || 0));
+    
+    // Sort replies by creation time (oldest first) within each thread
+    roots.forEach(root => {
+        if (root.children.length > 0) {
+            root.children.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        }
+    });
+    
+    return roots;
+}
+
+function renderComments(comments, container) {
+    container.innerHTML = '';
+    if (comments.length === 0) { container.innerHTML = '<div style="color:#999; font-style:italic;">No comments yet.</div>'; return; }
+
+    comments.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'comment';
+        const isAuthor = currentUser && currentUser.id === c.user_id;
+        const authorName = getAnonName(c.user_id);
+        
+        // Show real names if toggle is ON (for everyone)
+        let displayName = authorName;
+        if (showRealNames) {
+            displayName = `${c.profiles?.email?.split('@')[0] || 'Unknown'}`;
+            if (isAuthor) displayName += ' (you)';
+        } else if (isAuthor) {
+            displayName = `${authorName} (you)`;
+        } else if (isTeacher) {
+            displayName = `${authorName} <span style="color:#999; font-size:0.85em;">(${c.profiles?.email || ''})</span>`;
+        }
+        
+        const deleteBtn = (isTeacher || isAuthor) ? `<button class="delete-sub-x" onclick="deleteComment('${c.id}')">✕</button>` : '';
+        const flagBtn = currentUser && !isAuthor ? `<button class="delete-icon" onclick="flagContent('${c.id}', 'comment')" title="Flag" style="color:#ff8800; font-size:0.9rem;">🚩</button>` : '';
+        
+        // Get current user's vote for this comment
+        const userVote = myVotes.comments[c.id] || 0;
+        const upActive = userVote === 1 ? 'active' : '';
+        const downActive = userVote === -1 ? 'active' : '';
+        
+        // Format timestamp
+        const timestamp = formatTimestamp(c.created_at);
+
+        div.innerHTML = `
+            <div class="comment-header">
+                <strong>${displayName}</strong> 
+                <span style="color: #999; font-size: 0.75em; margin-left: 5px;">${timestamp}</span>
+                ${flagBtn}${deleteBtn}
+            </div>
+            <div style="margin-top:2px;">${escapeHtml(c.content)}</div>
+            <div style="margin-top:8px; display:flex; align-items:center; gap:8px;">
+                <button id="btn-up-comment-${c.id}" class="vote-btn up ${upActive}" onclick="vote('${c.id}', 1, 'comment')">⬆</button>
+                <span id="score-comment-${c.id}" class="score-text" style="font-size:0.85rem;">${c.vote_count || 0}</span>
+                <button id="btn-down-comment-${c.id}" class="vote-btn down ${downActive}" onclick="vote('${c.id}', -1, 'comment')">⬇</button>
+                <span style="margin-left:10px; font-size:0.8rem; color:#888; cursor:pointer;" onclick="replyToComment('${c.id}', '${authorName}')">Reply</span>
+            </div>
+            <div id="reply-box-${c.id}" style="display:none; margin-top:5px;">
+                <input type="text" id="reply-input-${c.id}" placeholder="Reply to ${authorName}..." style="width:100%; padding:5px;">
+                <button onclick="submitReply('${c.id}')" style="margin-top:5px; padding:2px 8px;">Send</button>
+            </div>
+            <div id="children-${c.id}" style="margin-left:15px; border-left:2px solid #eee; padding-left:10px;"></div>
+        `;
+        container.appendChild(div);
+        if (c.children.length) renderComments(c.children, div.querySelector(`#children-${c.id}`));
+    });
+}
+
+window.replyToComment = function(cid, name) {
+    if (!currentUser) return alert("Please sign in");
+    const box = document.getElementById(`reply-box-${cid}`);
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+};
+
+window.submitReply = async function(pid) {
+    const input = document.getElementById(`reply-input-${pid}`);
+    const content = input.value.trim();
+    if (!content) return;
+    await sb.from('comments').insert([{ post_id: currentOpenPostId, user_id: currentUser.id, content, parent_id: pid }]);
+    loadDetailComments(currentOpenPostId);
+};
+
+// ================= HELPERS (Sidebars, Deletion, etc) =================
+// (These are unchanged, just including so the file is complete)
+async function loadSubreddits() {
+    const list = document.getElementById('subredditList');
+    const postSelect = document.getElementById('postSubreddit');
+    const { data: subs } = await sb.from('subreddits').select('*').order('name');
+    list.innerHTML = ''; postSelect.innerHTML = '';
+    
+    const allLi = document.createElement('li');
+    allLi.className = `sub-item ${currentSubFilter === 'all' ? 'active' : ''}`;
+    allLi.innerHTML = `<span>r/All</span>`;
+    allLi.onclick = () => { currentSubFilter = 'all'; showFeed(); loadSubreddits(); loadPosts(); };
+    list.appendChild(allLi);
+
+    if (subs) subs.forEach(sub => {
+        const li = document.createElement('li');
+        li.className = `sub-item ${currentSubFilter === sub.id ? 'active' : ''}`;
+        let html = `<span onclick="selectSub('${sub.id}')">r/${sub.name}</span>`;
+        if (isTeacher) html += `<span class="delete-sub-x" onclick="deleteSub('${sub.id}', '${sub.name}')">✕</span>`;
+        li.innerHTML = html;
+        list.appendChild(li);
+
+        const opt = document.createElement('option');
+        opt.value = sub.id; opt.textContent = sub.name;
+        postSelect.appendChild(opt);
+    });
 }
 
 window.selectSub = function(id) { 
     currentSubFilter = id; 
+    
+    // Clean up the URL so it matches what they are looking at
     const url = new URL(window.location);
-    if (id === 'all') url.searchParams.delete('sub');
-    else url.searchParams.set('sub', id);
+    if (id === 'all') {
+        url.searchParams.delete('sub');
+    } else {
+        url.searchParams.set('sub', id);
+    }
     window.history.pushState({}, '', url);
 
-    showFeed(); loadSubreddits(); loadPosts(); 
+    showFeed(); 
+    loadSubreddits(); 
+    loadPosts(); 
 };
 
-// ================= MODALS & FORMS =================
-window.openSubModal = async function() {
-    document.getElementById('createSubModal').style.display = 'flex';
-    document.getElementById('subName').value = '';
+window.editPost = async function(id) {
+    // Fetch the post
+    const { data: post } = await sb.from('posts').select('*').eq('id', id).single();
+    if (!post) return alert('Post not found');
     
-    if (isTeacher) {
-        document.getElementById('rosterSelectionGroup').style.display = 'block';
-        const select = document.getElementById('subRosters');
-        select.innerHTML = '<option value="all" selected>-- Visible to ALL My Classes --</option>';
-        
-        const { data: myClasses } = await sb.from('classcast_classes').select('class_name').contains('teacher_emails', `["${currentUser.email.toLowerCase()}"]`);
-        if (myClasses) {
-            myClasses.forEach(c => select.innerHTML += `<option value="${escapeHtml(c.class_name)}">${escapeHtml(c.class_name)}</option>`);
-        }
-    }
+    // Populate the form
+    document.getElementById('postTitle').value = post.title;
+    document.getElementById('postContent').value = post.content || '';
+    document.getElementById('postImage').value = post.image_url || '';
+    document.getElementById('postLink').value = post.url || '';
+    document.getElementById('postSubreddit').value = post.subreddit_id;
+    
+    // Change form to edit mode
+    const form = document.getElementById('createPostForm');
+    form.dataset.editingId = id;
+    const submitBtn = form.querySelector('.submit-btn');
+    submitBtn.textContent = 'Update Post';
+    
+    // Open modal
+    document.getElementById('createPostModal').classList.add('active');
 };
 
-window.openPostModal = function() {
-    if (!currentUser) return alert('Please sign in to post!');
-    document.getElementById('createPostModal').style.display = 'flex';
-    if (currentSubFilter !== 'all') document.getElementById('postSubreddit').value = currentSubFilter;
-};
+window.deletePost = async function(id) { if(confirm('Delete post?')) { await sb.from('posts').delete().eq('id', id); loadPosts(); } };
+window.deleteSub = async function(id, name) { if(confirm(`Delete r/${name}?`)) { await sb.from('subreddits').delete().eq('id', id); loadSubreddits(); loadPosts(); } };
+window.deleteComment = async function(id) { if(confirm('Delete comment?')) { await sb.from('comments').delete().eq('id', id); loadDetailComments(currentOpenPostId); } };
 
-window.closeModal = function(id) { document.getElementById(id).style.display = 'none'; };
-
+function getAnonName(id) {
+    let hash = 0; for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+    const adj = ADJECTIVES[Math.abs(hash) % ADJECTIVES.length];
+    const ani = ANIMALS[Math.abs(hash) % ANIMALS.length];
+    return `${adj} ${ani}`;
+}
 function setupFormListeners() {
-    const subForm = document.getElementById('createSubForm');
-    if (subForm) {
-        subForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('subName').value.trim().replace(/\s+/g, '_');
-            if (!name) return;
-            
-            let targetClasses = [];
-            if (isTeacher) {
-                const select = document.getElementById('subRosters');
-                const selected = Array.from(select.selectedOptions).map(opt => opt.value);
-                if (selected.includes('all')) {
-                    const { data: myClasses } = await sb.from('classcast_classes').select('class_name').contains('teacher_emails', `["${currentUser.email.toLowerCase()}"]`);
-                    targetClasses = myClasses ? myClasses.map(c => c.class_name) : [];
-                } else {
-                    targetClasses = selected;
-                }
-            }
-            
-            const { data, error } = await sb.from('subreddits').insert([{ name: name, created_by: currentUser.id, target_classes: JSON.stringify(targetClasses) }]).select();
-            if (error) return alert("Error: " + error.message);
-            
-            closeModal('createSubModal'); currentSubFilter = data[0].id; loadSubreddits(); loadPosts();
-        });
-    }
-
     const postForm = document.getElementById('createPostForm');
-    if (postForm) {
-        postForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const title = document.getElementById('postTitle').value;
-            const content = document.getElementById('postContent').value;
-            const subId = document.getElementById('postSubreddit').value;
-            const img = document.getElementById('postImage').value;
-            const link = document.getElementById('postLink').value;
-
-            if (!subId) return alert('Please select a community');
-
-            const { error } = await sb.from('posts').insert([{ title: title, content: content, subreddit_id: subId, user_id: currentUser.id, image_url: img, url: link }]);
-            if (error) return alert("Posting Error: " + error.message);
-
-            await updateAura(currentUser.id, 10); 
-            
-            closeModal('createPostModal'); postForm.reset(); loadPosts();
-        });
-    }
-}
-
-// ================= POSTS & RENDERING =================
-window.setSort = function(sort) {
-    currentSort = sort;
-    document.querySelectorAll('#sortBar .sort-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    loadPosts();
-};
-
-window.setView = function(view) {
-    if (!currentUser && view === 'mine') return alert('Please sign in first');
-    currentView = view;
-    document.getElementById('viewAllBtn').classList.toggle('active', view === 'all');
-    document.getElementById('viewMineBtn').classList.toggle('active', view === 'mine');
-    loadPosts();
-};
-
-async function loadPosts() {
-    const list = document.getElementById('postsList');
-    list.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Loading posts...</div>';
-
-    let query = sb.from('posts').select(`*, profiles(username, email), subreddits(name, id), comments(id)`);
-
-    if (currentSubFilter !== 'all') query = query.eq('subreddit_id', currentSubFilter);
-    if (currentView === 'mine' && currentUser) query = query.eq('user_id', currentUser.id);
-
-    if (currentSort === 'new') query = query.order('created_at', { ascending: false });
-    else if (currentSort === 'top') query = query.order('points', { ascending: false });
-    else query = query.order('created_at', { ascending: false }); 
-
-    const { data: posts, error } = await query;
-    if (error) { list.innerHTML = `<div style="padding: 20px; color: red;">Error: ${error.message}</div>`; return; }
-
-    if (!posts || posts.length === 0) { list.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">No posts here yet. Be the first!</div>'; return; }
-
-    let finalPosts = posts;
-    if (currentSort === 'hot') {
-        finalPosts.sort((a, b) => {
-            const aScore = (a.points || 0) + (a.comments ? a.comments.length : 0) * 2;
-            const bScore = (b.points || 0) + (b.comments ? b.comments.length : 0) * 2;
-            return bScore - aScore;
-        });
-    }
-
-    list.innerHTML = finalPosts.map(post => createPostHTML(post)).join('');
-}
-
-function createPostHTML(post, isExpanded = false) {
-    const timeAgo = formatTimestamp(post.created_at);
-    const myVote = myVotes.posts[post.id] || 0;
-    
-    // Safety checks for missing profiles/subreddits
-    const subName = post.subreddits ? escapeHtml(post.subreddits.name) : 'Unknown';
-    const authorProfile = post.profiles || {};
-    const realName = authorProfile.username || (authorProfile.email ? authorProfile.email.split('@')[0] : 'Unknown');
-    
-    let subSetting = getEffectiveNameSetting(post.subreddits ? post.subreddits.id : null);
-    let displayName = (isTeacher || subSetting) ? escapeHtml(realName) : generateAnonName(post.user_id);
-
-    let contentHtml = '';
-    if (post.image_url) contentHtml += `<img src="${escapeHtml(post.image_url)}" alt="Post image" class="post-image">`;
-    if (post.url) contentHtml += `<a href="${escapeHtml(post.url)}" target="_blank" class="view-post-link" onclick="event.stopPropagation()">🔗 External Link</a>`;
-    if (post.content) {
-        const text = escapeHtml(post.content);
-        contentHtml += `<div class="view-post-text ${isExpanded ? '' : 'collapsed'}" style="margin-top: 10px;">${text}</div>`;
-    }
-
-    const unreadIndicator = post.has_unread ? `<span style="background: var(--primary); color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.7rem; margin-left: 5px;">New</span>` : '';
-    const commentCount = post.comments ? post.comments.length : 0;
-
-    return `
-        <div class="post-card ${isExpanded ? '' : 'clickable-card'}" data-id="${post.id}" ${!isExpanded ? `onclick="openPostDetails('${post.id}')"` : ''}>
-            <div class="post-header">
-                <span style="font-weight: 600; color: #1A1A1B;">r/${subName}</span>
-                <span>•</span>
-                <span>Posted by ${displayName} ${timeAgo}</span>
-            </div>
-            
-            <div class="post-title">${escapeHtml(post.title)} ${unreadIndicator}</div>
-            
-            ${contentHtml}
-            
-            <div class="post-footer" onclick="event.stopPropagation()">
-                <div style="display:flex; align-items:center; gap:5px;">
-                    <button class="vote-btn up ${myVote === 1 ? 'active' : ''}" onclick="handleVote('post', '${post.id}', 1)">▲</button>
-                    <span class="score-text">${post.points || 0}</span>
-                    <button class="vote-btn down ${myVote === -1 ? 'active' : ''}" onclick="handleVote('post', '${post.id}', -1)">▼</button>
-                </div>
-                
-                <div style="cursor: pointer; display:flex; align-items:center; gap:5px;" onclick="openPostDetails('${post.id}')">
-                    💬 ${commentCount} Comments
-                </div>
-                
-                ${(isTeacher || (currentUser && currentUser.id === post.user_id)) ? 
-                    `<button class="delete-icon" onclick="deletePost('${post.id}')" title="Delete Post">🗑️</button>` : ''}
-            </div>
-        </div>
-    `;
-}
-
-// ================= VOTING, COMMENTS, AND DETAILS =================
-window.handleVote = async function(type, id, value) {
-    if (!currentUser) return alert('Please sign in to vote');
-
-    const previousVote = myVotes[type + 's'][id] || 0;
-    if (previousVote === value) value = 0; 
-
-    const voteDiff = value - previousVote;
-    if (voteDiff === 0) return;
-
-    myVotes[type + 's'][id] = value;
-    
-    const container = type === 'post' ? document.querySelector(`.post-card[data-id="${id}"]`) : document.querySelector(`.comment[data-id="${id}"]`);
-    if (container) {
-        const scoreEl = container.querySelector('.score-text');
-        if (scoreEl) scoreEl.textContent = parseInt(scoreEl.textContent) + voteDiff;
-        container.querySelector('.vote-btn.up')?.classList.toggle('active', value === 1);
-        container.querySelector('.vote-btn.down')?.classList.toggle('active', value === -1);
-    }
-
-    const table = type === 'post' ? 'posts' : 'comments';
-    const { data: targetRecord } = await sb.from(table).select('user_id, points').eq('id', id).single();
-    
-    if (targetRecord) {
-        await sb.from(table).update({ points: targetRecord.points + voteDiff }).eq('id', id);
+    postForm.onsubmit = async (e) => {
+        e.preventDefault();
         
-        // --- AURA MATH ---
-        if (previousVote === 0 && value !== 0) await updateAura(currentUser.id, 1); 
+        const postData = {
+            title: document.getElementById('postTitle').value,
+            content: document.getElementById('postContent').value,
+            url: document.getElementById('postLink').value,
+            image_url: document.getElementById('postImage').value,
+            subreddit_id: document.getElementById('postSubreddit').value
+        };
         
-        let authorChange = 0;
-        if (previousVote === 0 && value === 1) authorChange = 2;       
-        else if (previousVote === 0 && value === -1) authorChange = -1;
-        else if (previousVote === 1 && value === 0) authorChange = -2; 
-        else if (previousVote === -1 && value === 0) authorChange = 1; 
-        else if (previousVote === 1 && value === -1) authorChange = -3;
-        else if (previousVote === -1 && value === 1) authorChange = 3; 
+        // Check if we're editing or creating
+        const editingId = postForm.dataset.editingId;
+        let error;
         
-        if (authorChange !== 0 && targetRecord.user_id) await updateAura(targetRecord.user_id, authorChange);
+        if (editingId) {
+            // Update existing post
+            ({ error } = await sb.from('posts').update(postData).eq('id', editingId));
+            delete postForm.dataset.editingId;
+        } else {
+            // Create new post
+            postData.user_id = currentUser.id;
+            ({ error } = await sb.from('posts').insert([postData]));
+        }
+        
+        if (!error) { 
+            closeModal('createPostModal');
+            postForm.reset();
+            postForm.querySelector('.submit-btn').textContent = 'Post';
+            loadPosts();
+        } else {
+            alert('Error: ' + error.message);
+        }
+    };
+    
+    document.getElementById('createSubForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const { error } = await sb.from('subreddits').insert([{
+            name: document.getElementById('subName').value, created_by: currentUser.id
+        }]);
+        if (!error) { closeModal('createSubModal'); loadSubreddits(); }
+    };
+}
+
+window.openCreateModal = () => {
+    const form = document.getElementById('createPostForm');
+    delete form.dataset.editingId;
+    form.reset();
+    form.querySelector('.submit-btn').textContent = 'Post';
+    document.getElementById('createPostModal').classList.add('active');
+};
+window.openSubModal = () => document.getElementById('createSubModal').classList.add('active');
+window.closeModal = (id) => {
+    document.getElementById(id).classList.remove('active');
+    if (id === 'createPostModal') {
+        const form = document.getElementById('createPostForm');
+        delete form.dataset.editingId;
+        form.reset();
+        form.querySelector('.submit-btn').textContent = 'Post';
     }
-
-    localStorage.setItem('myVotes', JSON.stringify(myVotes));
 };
+function escapeHtml(t) { return t ? t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") : ''; }
 
-window.openPostDetails = async function(postId) {
-    currentOpenPostId = postId;
-    document.getElementById('createPostBar').style.display = 'none';
-    if(document.getElementById('sortBar')) document.getElementById('sortBar').style.display = 'none';
+function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
     
-    const list = document.getElementById('postsList');
-    list.innerHTML = '<div style="padding: 40px; text-align: center;">Loading post...</div>';
-
-    const { data: post } = await sb.from('posts').select(`*, profiles(username, email), subreddits(name, id)`).eq('id', postId).single();
-    if (!post) { showFeed(); return; }
-
-    let html = `<button class="back-btn" onclick="showFeed()">← Back to Feed</button>`;
-    
-    post.comments = []; 
-    html += createPostHTML(post, true); 
-    
-    html += `
-        <div style="background: white; padding: 20px; border-radius: 4px; border: 1px solid var(--border); margin-top: 20px;">
-            <textarea id="newCommentText" class="comment-box" rows="3" placeholder="What are your thoughts?"></textarea>
-            <button class="submit-btn" style="width: auto; padding: 8px 20px; margin-top: 10px;" onclick="addComment('${postId}')">Comment</button>
-        </div>
-        <div id="commentsList" style="margin-top: 20px;">Loading comments...</div>
-    `;
-    list.innerHTML = html;
-    loadComments(postId, post.subreddits ? post.subreddits.id : null);
-};
-
-window.addComment = async function(postId) {
-    if (!currentUser) return alert('Please sign in to comment');
-    const text = document.getElementById('newCommentText').value.trim();
-    if (!text) return;
-
-    const { error } = await sb.from('comments').insert([{ post_id: postId, user_id: currentUser.id, content: text }]);
-    if (error) return alert("Error: " + error.message);
-
-    await updateAura(currentUser.id, 5); 
-    
-    document.getElementById('newCommentText').value = '';
-    const { data: post } = await sb.from('posts').select('subreddit_id').eq('id', postId).single();
-    if(post) loadComments(postId, post.subreddit_id);
-};
-
-async function loadComments(postId, subredditId) {
-    const list = document.getElementById('commentsList');
-    const { data: comments } = await sb.from('comments').select(`*, profiles(username, email)`).eq('post_id', postId).order('created_at', { ascending: true });
-    
-    if (!comments || comments.length === 0) { list.innerHTML = '<p style="color: #666;">No comments yet.</p>'; return; }
-
-    let subSetting = getEffectiveNameSetting(subredditId);
-
-    list.innerHTML = comments.map(c => {
-        const authorProfile = c.profiles || {};
-        const realName = authorProfile.username || (authorProfile.email ? authorProfile.email.split('@')[0] : 'Unknown');
-        let displayName = (isTeacher || subSetting) ? escapeHtml(realName) : generateAnonName(c.user_id);
-        const myVote = myVotes.comments[c.id] || 0;
-        
-        return `
-            <div class="comment" data-id="${c.id}" style="display: flex; gap: 15px; margin-bottom: 20px; padding-left: 10px; border-left: 2px solid var(--border);">
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 5px;">
-                    <button class="vote-btn up ${myVote === 1 ? 'active' : ''}" onclick="handleVote('comment', '${c.id}', 1)">▲</button>
-                    <span class="score-text" style="font-size: 0.9rem;">${c.points || 0}</span>
-                    <button class="vote-btn down ${myVote === -1 ? 'active' : ''}" onclick="handleVote('comment', '${c.id}', -1)">▼</button>
-                </div>
-                <div style="flex: 1;">
-                    <div class="post-header" style="margin-bottom: 5px;">
-                        <strong style="color: var(--text-primary);">${displayName}</strong> 
-                        <span>•</span> 
-                        <span>${formatTimestamp(c.created_at)}</span>
-                    </div>
-                    <div class="view-post-text" style="margin-bottom: 5px;">${escapeHtml(c.content)}</div>
-                    ${(isTeacher || (currentUser && currentUser.id === c.user_id)) ? 
-                        `<button class="delete-icon" style="font-size: 0.85rem;" onclick="deleteComment('${c.id}', '${postId}', '${subredditId}')">🗑️ Delete</button>` : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
+    if (diffMins < 60) {
+        return diffMins <= 1 ? 'just now' : `${diffMins}m ago`;
+    }
+    if (diffHours < 24) {
+        return `${diffHours}h ago`;
+    }
+    if (diffDays < 7) {
+        return `${diffDays}d ago`;
+    }
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-window.showFeed = function() {
-    currentOpenPostId = null;
-    document.getElementById('createPostBar').style.display = 'flex';
-    if(document.getElementById('sortBar')) document.getElementById('sortBar').style.display = 'flex';
-    loadPosts();
-};
-
-window.deletePost = async function(id) { if (confirm("Delete this post?")) { await sb.from('posts').delete().eq('id', id); showFeed(); }};
-window.deleteComment = async function(id, postId, subId) { if (confirm("Delete comment?")) { await sb.from('comments').delete().eq('id', id); loadComments(postId, subId); }};
-
-// ================= UTILITIES & POLLING =================
-async function loadMyVotes() {
-    try {
-        const stored = localStorage.getItem('myVotes');
-        if (stored) myVotes = JSON.parse(stored);
-    } catch (e) { myVotes = { posts: {}, comments: {} }; }
-}
+// ========================================
+// NAME MASKING SYSTEM
+// ========================================
 
 async function fetchNameMaskingSettings() {
     try {
-        const { data } = await sb.from('name_masking_status').select('*');
+        const { data, error } = await sb.from('name_masking_status').select('*');
+        if (error) throw error;
+        
         if (data) {
             data.forEach(item => {
-                nameMaskingCache[item.subreddit_id] = { subreddit_setting: item.subreddit_setting, teacher_global_setting: item.teacher_global_setting, last_change: item.last_change };
+                nameMaskingCache[item.subreddit_id] = {
+                    subreddit_setting: item.subreddit_setting,
+                    teacher_global_setting: item.teacher_global_setting,
+                    last_change: item.last_change
+                };
             });
-            lastPollTime = new Date();
         }
-    } catch (e) { console.error('Masking fetch error:', e); }
+        lastPollTime = new Date();
+    } catch (error) {
+        console.error('Name masking fetch error:', error);
+    }
 }
 
 async function checkForNameChanges() {
     if (!lastPollTime) return;
     try {
-        const { data } = await sb.from('name_masking_status').select('*').gt('last_change', lastPollTime.toISOString());
-        if (data && data.length > 0) {
-            data.forEach(item => {
-                nameMaskingCache[item.subreddit_id] = { subreddit_setting: item.subreddit_setting, teacher_global_setting: item.teacher_global_setting, last_change: item.last_change };
-            });
-            lastPollTime = new Date();
-            if(!currentOpenPostId) loadPosts(); else loadComments(currentOpenPostId, document.getElementById('postSubreddit').value);
-        }
-    } catch (e) {}
+        const { data, error } = await sb.from('name_masking_status').select('*').gt('last_change', lastPollTime.toISOString());
+        if (error || !data || data.length === 0) return;
+        
+        console.log('🎭 Name settings changed');
+        data.forEach(item => {
+            nameMaskingCache[item.subreddit_id] = {
+                subreddit_setting: item.subreddit_setting,
+                teacher_global_setting: item.teacher_global_setting,
+                last_change: item.last_change
+            };
+        });
+        lastPollTime = new Date();
+        loadPosts();
+    } catch (error) {
+        console.error('Name masking check error:', error);
+    }
 }
 
 function getEffectiveNameSetting(subredditId) {
     const cached = nameMaskingCache[subredditId];
     if (!cached) return false;
-    if (cached.subreddit_setting !== null && cached.subreddit_setting !== undefined) return cached.subreddit_setting;
+    if (cached.subreddit_setting !== null && cached.subreddit_setting !== undefined) {
+        return cached.subreddit_setting;
+    }
     return cached.teacher_global_setting || false;
 }
 
-function generateAnonName(userId) {
-    if (!userId) return "Anonymous user";
-    let hash = 0; for (let i = 0; i < userId.length; i++) hash = ((hash << 5) - hash) + userId.charCodeAt(i);
-    return `${ADJECTIVES[Math.abs(hash) % ADJECTIVES.length]} ${ANIMALS[Math.abs(hash >> 8) % ANIMALS.length]}`;
-}
-
-function formatTimestamp(timestamp) {
-    const diffMs = new Date() - new Date(timestamp);
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    if (diffMins < 60) return diffMins <= 1 ? 'just now' : `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
+    } else {
+        if (!pollingInterval) {
+            fetchNameMaskingSettings();
+            pollingInterval = setInterval(checkForNameChanges, 5000);
+        }
+    }
+});
