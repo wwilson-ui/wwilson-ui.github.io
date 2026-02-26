@@ -283,6 +283,8 @@
                 <h1 style="margin-bottom: 20px;">⚙️ Sub-Spark Management</h1>
                 
                 <!-- Global Name Control -->
+                <!--
+                
                 <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ccc;">
                     <h3 style="margin-bottom: 15px;">🎭 Global Name Display</h3>
                     <p style="color: #666; margin-bottom: 15px;">This setting applies to ALL your sub-sparks by default. Individual sub-sparks can override this.</p>
@@ -297,6 +299,21 @@
                         <span id="globalNameStatusText" style="color: #0079D3; font-weight: 600;">Loading...</span>
                     </div>
                 </div>
+                -->
+
+                <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ccc;">
+                    <h3 style="margin-bottom: 10px; color: #c62828;">🛡️ Global Override: Mask ALL Names</h3>
+                    <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">If this is ON, all student names are hidden everywhere, ignoring individual sub-spark settings. If OFF, the system defers to your individual Sub-Spark switches below.</p>
+                    
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <label class="toggle-switch" title="Toggle Global Mask">
+                            <input type="checkbox" id="globalNameToggle" onchange="toggleGlobalNames(this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span id="globalOverrideStatus" style="font-weight: 600; color: #666;">Override OFF (Deferring to Sub-Sparks)</span>
+                    </div>
+                </div>
+
                 
                 <!-- Sub-Sparks List -->
                 <div id="subsparksList"></div>
