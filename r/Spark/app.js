@@ -580,10 +580,6 @@ window.vote = async function(id, typeValue, itemType = 'post') { // typeValue is
     console.log('Current vote state:', currentVote);
     
     // DECIDE ACTION:
-    // If clicking the same button -> DELETE vote (toggle off)
-    // If clicking different button -> UPSERT (change vote)
-    // If no previous vote -> UPSERT (add vote)
-    
     let action = 'upsert';
     if (currentVote === typeValue) action = 'delete';
     console.log('Action:', action);
@@ -591,9 +587,10 @@ window.vote = async function(id, typeValue, itemType = 'post') { // typeValue is
     // Optimistic UI Update (Instant feedback)
     updateVoteUI(id, action === 'delete' ? 0 : typeValue, itemType);
 
+    let voteSuccess = false; // <-- Tracks if DB update worked for Aura Math
+
     if (action === 'delete') {
         // DELETE VOTE
-        // We match user_id AND the specific post/comment id
         let query = sb.from('votes').delete().eq('user_id', currentUser.id);
         if (itemType === 'post') query = query.eq('post_id', id);
         else query = query.eq('comment_id', id);
@@ -604,11 +601,12 @@ window.vote = async function(id, typeValue, itemType = 'post') { // typeValue is
         if (error) {
             console.error('❌ Delete vote failed:', error);
             alert('Error deleting vote: ' + error.message);
+        } else {
+            voteSuccess = true;
+            // Update local state
+            if (itemType === 'post') delete myVotes.posts[id];
+            else delete myVotes.comments[id];
         }
-        
-        // Update local state
-        if (itemType === 'post') delete myVotes.posts[id];
-        else delete myVotes.comments[id];
 
     } else {
         // INSERT/UPDATE VOTE
@@ -640,6 +638,8 @@ window.vote = async function(id, typeValue, itemType = 'post') { // typeValue is
             // Revert UI if needed
         } else {
             console.log('✅ Vote successful');
+            voteSuccess = true;
+            
             // Update local state
             if (itemType === 'post') myVotes.posts[id] = typeValue;
             else myVotes.comments[id] = typeValue;
@@ -671,6 +671,36 @@ window.vote = async function(id, typeValue, itemType = 'post') { // typeValue is
             }
         }
     }
+
+    // --- NEW: AURA MATH ---
+    if (voteSuccess) {
+        const previousVoteForAura = currentVote || 0;
+        const newVoteForAura = action === 'delete' ? 0 : typeValue;
+        
+        const table = itemType === 'post' ? 'posts' : 'comments';
+        const { data: targetRecord } = await sb.from(table).select('user_id').eq('id', id).single();
+        
+        if (targetRecord && targetRecord.user_id) {
+            // Voter gets +1 for participating (if they hadn't voted yet)
+            if (previousVoteForAura === 0 && newVoteForAura !== 0) {
+                await updateAura(currentUser.id, 1);
+            }
+            
+            // Calculate author's Aura change
+            let authorChange = 0;
+            if (previousVoteForAura === 0 && newVoteForAura === 1) authorChange = 2;
+            else if (previousVoteForAura === 0 && newVoteForAura === -1) authorChange = -1;
+            else if (previousVoteForAura === 1 && newVoteForAura === 0) authorChange = -2;
+            else if (previousVoteForAura === -1 && newVoteForAura === 0) authorChange = 1;
+            else if (previousVoteForAura === 1 && newVoteForAura === -1) authorChange = -3;
+            else if (previousVoteForAura === -1 && newVoteForAura === 1) authorChange = 3;
+            
+            if (authorChange !== 0) {
+                await updateAura(targetRecord.user_id, authorChange);
+            }
+        }
+    }
+    // ----------------------
 }
 
 // 3. Helper to update colors/numbers instantly
