@@ -689,7 +689,7 @@ window.saveAuraSettings = async function() {
     };
 
     // Upsert means "Update if it exists, Insert if it doesn't"
-    const { error } = await sb.from('aura_settings').upsert(payload, { onConflict: 'teacher_id' });
+    const { error } = await sb.from('teacher_scoring_config').upsert(payload, { onConflict: 'teacher_id' });
 
     btn.textContent = 'Save Aura Settings';
     btn.disabled = false;
