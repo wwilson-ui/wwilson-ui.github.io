@@ -1308,54 +1308,66 @@ async function updateAura(userId, amount) {
 }
 
 
-// ================= AURA LEADERBOARD =================
+// ================= AURA LEADERBOARD (UPGRADED) =================
 window.openLeaderboard = async function() {
     document.getElementById('leaderboardModal').style.display = 'flex';
     const list = document.getElementById('leaderboardList');
-    list.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">Loading champions...</div>';
+    const rankBanner = document.getElementById('currentUserRankBanner');
+    
+    list.innerHTML = '<div style="text-align: center; color: #666; padding: 20px; font-size: 1.2rem;">Loading champions...</div>';
+    rankBanner.style.display = 'none';
 
     try {
-        // Fetch top 10 users by aura_score
+        // Fetch ALL users sorted by aura so we can find the current user's specific rank
         const { data, error } = await sb.from('profiles')
             .select('id, email, aura_score')
-            .order('aura_score', { ascending: false })
-            .limit(10);
+            .order('aura_score', { ascending: false });
 
         if (error) throw error;
 
         if (!data || data.length === 0) {
-            list.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No Aura scores yet! Be the first to earn points.</div>';
+            list.innerHTML = '<div style="text-align: center; color: #666; padding: 20px; font-size: 1.1rem;">No Aura scores yet! Be the first to earn points.</div>';
             return;
         }
 
-        let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+        // Determine and display current user's rank
+        if (currentUser) {
+            const myIndex = data.findIndex(user => user.id === currentUser.id);
+            if (myIndex !== -1) {
+                const myRank = myIndex + 1;
+                const myScore = data[myIndex].aura_score || 0;
+                rankBanner.innerHTML = `✨ Your Current Rank: #${myRank} <span style="font-size: 0.85em; opacity: 0.9;">(${myScore} Aura)</span>`;
+                rankBanner.style.display = 'block';
+            }
+        }
+
+        // Render Top 10 List
+        const top10 = data.slice(0, 10);
+        let html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
         
-        data.forEach((user, index) => {
-            // Determine name to display based on teacher status & global toggle
+        top10.forEach((user, index) => {
             let displayName = getAnonName(user.id);
             if (isTeacher || (typeof showRealNames !== 'undefined' && showRealNames)) {
                 displayName = user.email ? user.email.split('@')[0] : displayName;
             }
 
-            // Assign medals to Top 3
-            let rankDisplay = `<span style="color: #777; font-weight: bold;">#${index + 1}</span>`;
-            if (index === 0) rankDisplay = '<span style="font-size: 1.4rem;" title="1st Place">🥇</span>';
-            if (index === 1) rankDisplay = '<span style="font-size: 1.4rem;" title="2nd Place">🥈</span>';
-            if (index === 2) rankDisplay = '<span style="font-size: 1.4rem;" title="3rd Place">🥉</span>';
+            let rankDisplay = `<span style="color: #777; font-weight: bold; width: 35px; display: inline-block;">#${index + 1}</span>`;
+            if (index === 0) rankDisplay = '<span style="font-size: 1.8rem;" title="1st Place">🥇</span>';
+            if (index === 1) rankDisplay = '<span style="font-size: 1.8rem;" title="2nd Place">🥈</span>';
+            if (index === 2) rankDisplay = '<span style="font-size: 1.8rem;" title="3rd Place">🥉</span>';
 
-            // Highlight the row if it belongs to the currently logged-in user
             const isMe = currentUser && currentUser.id === user.id;
             const bgClass = isMe ? 'background: #fff8e1; border-color: #ffe082;' : 'background: #f8f9fa; border-color: #eee;';
 
             html += `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 8px; border: 1px solid transparent; ${bgClass}">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <div style="width: 30px; text-align: center;">${rankDisplay}</div>
-                        <span style="font-weight: 600; color: #333; font-size: 1.05rem;">
-                            ${displayName} ${isMe ? '<span style="color: #FF8C00; font-size: 0.8rem;">(You)</span>' : ''}
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-radius: 8px; border: 2px solid transparent; ${bgClass}">
+                    <div style="display: flex; align-items: center; gap: 20px;">
+                        <div style="width: 40px; text-align: center; font-size: 1.2rem;">${rankDisplay}</div>
+                        <span style="font-weight: 600; color: #333; font-size: 1.2rem;">
+                            ${displayName} ${isMe ? '<span style="color: #FF8C00; font-size: 0.9rem; margin-left: 8px;">(You)</span>' : ''}
                         </span>
                     </div>
-                    <span style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.9rem; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <span style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: white; padding: 8px 16px; border-radius: 20px; font-size: 1.1rem; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                         ✨ ${user.aura_score || 0}
                     </span>
                 </div>
@@ -1367,6 +1379,6 @@ window.openLeaderboard = async function() {
 
     } catch (err) {
         console.error("Leaderboard Error:", err);
-        list.innerHTML = '<div style="color: red; padding: 20px; text-align: center;">Failed to load leaderboard.</div>';
+        list.innerHTML = '<div style="color: red; padding: 20px; text-align: center; font-size: 1.1rem;">Failed to load leaderboard.</div>';
     }
 };
