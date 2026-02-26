@@ -1200,3 +1200,25 @@ document.addEventListener('visibilitychange', () => {
         }
     }
 });
+
+
+// ================= AURA SCORE ENGINE =================
+async function updateAura(userId, amount) {
+    if (!userId || amount === 0) return;
+    try {
+        const { data } = await sb.from('profiles').select('aura_score').eq('id', userId).single();
+        if (data) {
+            const newScore = (data.aura_score || 0) + amount;
+            await sb.from('profiles').update({ aura_score: newScore }).eq('id', userId);
+            
+            // If the logged-in user got points, update their badge live!
+            if (currentUser && currentUser.id === userId) {
+                currentUser.aura_score = newScore;
+                const el = document.getElementById('auraScoreValue');
+                if (el) el.innerText = newScore;
+            }
+        }
+    } catch(err) { console.error("Aura DB Error:", err); }
+}
+
+
