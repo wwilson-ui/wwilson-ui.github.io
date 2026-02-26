@@ -232,6 +232,10 @@ window.switchAdminTab = function(tab) {
     // NEW: Show Aura Section
     const auraSection = document.getElementById('auraSection');
     if (auraSection) auraSection.style.display = tab === 'aura' ? 'block' : 'none';
+
+    // Add this in the section where tabs are shown/hidden:
+    const auralogSection = document.getElementById('auralogSection');
+    if (auralogSection) auralogSection.style.display = tab === 'auralog' ? 'block' : 'none';
     
     // Trigger loading functions
     if (tab === 'assignments') {
@@ -240,7 +244,10 @@ window.switchAdminTab = function(tab) {
         loadSubsparks();
     } else if (tab === 'aura') {
         loadAuraSettings(); // NEW: Load sliders when tab is clicked
+    } else if (tab === 'auralog') {
+        loadAuraLogStudents();
     }
+
 };
 
 async function loadAssignmentBuilder() {
@@ -476,46 +483,64 @@ function generateShortId() {
 }
 
 // ========================================
-// NAME MASKING CONTROLS
+// NAME MASKING & SUB-SPARK CONTROLS
 // ========================================
 
-window.toggleGlobalNames = async function(showReal) {
-    const { error } = await sb.from('teacher_scoring_config').upsert({
-        teacher_id: currentUser.id,
-        global_show_real_names: showReal
-    }, { onConflict: 'teacher_id' });
-    
-    if (error) {
-        alert('Error: ' + error.message);
-        return;
+// 1. Global Override Toggle
+window.toggleGlobalNames = async function(isMasked) {
+    const statusText = document.getElementById('globalOverrideStatus');
+    if (statusText) {
+        statusText.innerText = isMasked ? 'Override ON (All Names Masked)' : 'Override OFF (Deferring to Sub-Sparks)';
+        statusText.style.color = isMasked ? '#c62828' : '#666';
     }
-    
-    document.getElementById('globalNameStatusText').textContent = showReal ? 'Real names visible' : 'Anonymous names';
-    alert('✅ Setting updated! Students will see changes within 5 seconds.');
+
+    const { error } = await sb.from('teacher_settings')
+        .upsert({ setting_key: 'mask_all_names', setting_value: isMasked }, { onConflict: 'setting_key' });
+        
+    if (error) alert("Error updating global setting: " + error.message);
 };
 
-window.toggleSubredditNames = async function(subredditId, showReal) {
-    const { error } = await sb.from('subreddits').update({ show_real_names: showReal }).eq('id', subredditId);
-    if (error) {
-        alert('Error: ' + error.message);
-        return;
-    }
-    alert('✅ Updated!');
-    loadSubsparks();
+// 2. Individual Sub-Spark Name Toggle
+window.toggleSubredditNames = async function(subId, showReal) {
+    const { error } = await sb.from('subreddits').update({ show_real_names: showReal }).eq('id', subId);
+    if (error) alert("Error updating name settings: " + error.message);
+    loadSubsparks(); // Refresh UI instantly
 };
+
+// 3. Sub-Spark Lock/Unlock Toggle
+window.toggleSubredditLock = async function(subId, isOpen) {
+    const isLocked = !isOpen; // If switch is ON (Open), locked is false.
+    const { error } = await sb.from('subreddits').update({ is_locked: isLocked }).eq('id', subId);
+    if (error) alert("Error updating lock status: " + error.message);
+    loadSubsparks(); // Refresh UI instantly
+};
+
+
 
 // ================= SUB-SPARKS MANAGEMENT =================
 
 async function loadSubsparks() {
-    
-    
     const container = document.getElementById('subsparksList');
     container.innerHTML = '<div style="text-align:center; padding: 20px; color: #666;">Loading communities...</div>';
     
-    // Fetch global name setting
-    const { data: globalData } = await sb.from('teacher_settings').select('setting_value').eq('setting_key', 'show_real_names').single();
-    const globalSetting = globalData ? globalData.setting_value : false;
+    // Fetch Global Override
+    const { data: globalData } = await sb.from('teacher_settings')
+        .select('setting_value')
+        .eq('setting_key', 'mask_all_names')
+        .single();
     
+    const globalMaskAll = globalData ? (globalData.setting_value === 'true' || globalData.setting_value === true) : false;
+    
+    const globalToggle = document.getElementById('globalNameToggle');
+    if (globalToggle) {
+        globalToggle.checked = globalMaskAll;
+        const statusText = document.getElementById('globalOverrideStatus');
+        if (statusText) {
+            statusText.innerText = globalMaskAll ? 'Override ON (All Names Masked)' : 'Override OFF (Deferring to Sub-Sparks)';
+            statusText.style.color = globalMaskAll ? '#c62828' : '#666';
+        }
+    }
+
     // Fetch all sub-sparks
     const { data: subs, error } = await sb.from('subreddits').select('*').order('name');
     if (error) {
@@ -528,7 +553,6 @@ async function loadSubsparks() {
         return;
     }
     
-    // Build the Grid Header
     let html = `
         <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; background: #f0f7ff; padding: 15px 20px; border-radius: 8px 8px 0 0; border: 1px solid #ccc; border-bottom: none; font-weight: 700; color: #333; align-items: center;">
             <div>Community Name</div>
@@ -538,10 +562,9 @@ async function loadSubsparks() {
         <div style="border: 1px solid #ccc; border-radius: 0 0 8px 8px; background: white; overflow: hidden;">
     `;
     
-    // Build the Rows
     subs.forEach((sub, index) => {
-        // Evaluate toggles
-        const effectiveSetting = sub.show_real_names !== null ? sub.show_real_names : globalSetting;
+        // Individual toggle logic
+        const effectiveSetting = sub.show_real_names !== null ? sub.show_real_names : false;
         const isLocked = sub.is_locked || false; 
         const borderBottom = index < subs.length - 1 ? 'border-bottom: 1px solid #eee;' : '';
         
@@ -666,7 +689,7 @@ window.saveAuraSettings = async function() {
     };
 
     // Upsert means "Update if it exists, Insert if it doesn't"
-    const { error } = await sb.from('aura_settings').upsert(payload, { onConflict: 'teacher_id' });
+    const { error } = await sb.from('teacher_scoring_config').upsert(payload, { onConflict: 'teacher_id' });
 
     btn.textContent = 'Save Aura Settings';
     btn.disabled = false;
@@ -680,4 +703,111 @@ window.saveAuraSettings = async function() {
 };
 
 
+// ========================================
+// AURA LOG VIEWER
+// ========================================
+
+// Load all students for aura log dropdown
+async function loadAuraLogStudents() {
+    const select = document.getElementById('auraLogStudentSelect');
+    if (!select) return;
+    
+    // Get all students who have user_stats
+    const { data: students } = await sb
+        .from('user_stats')
+        .select('id, profiles!inner(email)')
+        .order('profiles(email)');
+    
+    select.innerHTML = '<option value="">-- Select a Student --</option>';
+    
+    if (students) {
+        students.forEach(s => {
+            const option = document.createElement('option');
+            option.value = s.id;
+            option.textContent = s.profiles.email.split('@')[0];
+            select.appendChild(option);
+        });
+    }
+}
+
+// Load selected student's aura log
+window.loadStudentAuraLog = async function() {
+    const studentId = document.getElementById('auraLogStudentSelect').value;
+    const container = document.getElementById('auraLogList');
+    const totalDisplay = document.getElementById('auraTotalPoints');
+    
+    if (!studentId) {
+        container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Select a student to view their aura history</p>';
+        totalDisplay.textContent = '0';
+        return;
+    }
+    
+    container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">Loading...</p>';
+    
+    // Get aura log for this student
+    const { data: logs, error } = await sb
+        .from('aura_log')
+        .select('*')
+        .eq('user_id', studentId)
+        .order('created_at', { ascending: false });
+    
+    if (error) {
+        container.innerHTML = '<p style="color: red; text-align: center;">Error loading log: ' + error.message + '</p>';
+        console.error(error);
+        return;
+    }
+    
+    if (!logs || logs.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">No actions recorded yet</p>';
+        totalDisplay.textContent = '0';
+        return;
+    }
+    
+    // Calculate total
+    const total = logs.reduce((sum, log) => sum + (log.points_awarded || 0), 0);
+    totalDisplay.textContent = total;
+    
+    // Render log entries
+    container.innerHTML = '';
+    logs.forEach(log => {
+        const div = document.createElement('div');
+        const pointsColor = log.points_awarded > 0 ? '#4caf50' : '#f44336';
+        const pointsPrefix = log.points_awarded > 0 ? '+' : '';
+        const borderColor = log.points_awarded > 0 ? '#4caf50' : '#f44336';
+        
+        div.style.cssText = `padding: 15px; margin-bottom: 10px; background: #f8f9fa; border-left: 4px solid ${borderColor}; border-radius: 4px;`;
+        
+        const actionLabel = formatActionType(log.action_type);
+        
+        div.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="flex: 1;">
+                    <strong style="font-size: 1.05rem; color: #333;">${actionLabel}</strong>
+                    <div style="font-size: 0.85rem; color: #666; margin-top: 3px;">
+                        ${new Date(log.created_at).toLocaleString()}
+                    </div>
+                    ${log.notes ? `<div style="margin-top: 5px; font-size: 0.9rem; color: #555; font-style: italic;">${log.notes}</div>` : ''}
+                </div>
+                <div style="font-size: 1.4rem; font-weight: 700; color: ${pointsColor}; margin-left: 20px;">
+                    ${pointsPrefix}${log.points_awarded}
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+};
+
+function formatActionType(type) {
+    const labels = {
+        'post_created': '📝 Created a Post',
+        'comment_created': '💬 Posted a Comment',
+        'vote_cast': '👍 Cast a Vote',
+        'upvote_received': '⬆️ Received an Upvote',
+        'downvote_received': '⬇️ Received a Downvote',
+        'flag_upheld': '🏆 Flag Upheld',
+        'flagged_content': '⚠️ Content Flagged',
+        'false_flag': '❌ False Flag Penalty'
+    };
+    return labels[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
 
