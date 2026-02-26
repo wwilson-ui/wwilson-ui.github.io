@@ -10,7 +10,6 @@ let showRealNames = false; // DEPRECATED - now using per-subreddit system
 let currentSort = 'hot'; // hot, new, or top
 let currentView = 'all'; // 'all' or 'mine'
 let unreadNotifications = 0; // Count of posts with new comments
-let globalMaskAll = false; // Add this near the top of your file with your other variables
 
 // Name masking state
 let nameMaskingCache = {};
@@ -764,47 +763,67 @@ async function loadPosts() {
     const feed = document.getElementById('postsFeed');
     feed.innerHTML = '<div style="padding:20px; text-align:center;">Loading...</div>';
     
-    // Fetch Global Override BEFORE rendering posts
-    try {
-        const { data: globalData } = await sb.from('teacher_settings')
-            .select('setting_value')
-            .eq('setting_key', 'mask_all_names')
-            .single();
-        if (globalData) {
-            globalMaskAll = (globalData.setting_value === 'true' || globalData.setting_value === true);
-        }
-    } catch (e) {
-        console.error("Failed to load global mask setting:", e);
-    }
-
-    let query = sb.from('posts').select(`*, subreddits(name), profiles(email)`);
+    // FIXED: Explicitly select comment_count and is_pinned
+    let query = sb.from('posts').select(`
+        id, title, content, image_url, link_url, user_id, subreddit_id, 
+        vote_count, comment_count, created_at, is_pinned,
+        subreddits(name), 
+        profiles(email)
+    `);
     
+    // Filter by user if in "My Posts" view
     if (currentView === 'mine' && currentUser) {
         query = query.eq('user_id', currentUser.id);
     }
     
-    // Sort Pinned posts to the very top!
+    // Apply sorting
     if (currentSort === 'new') {
-        query = query.order('is_pinned', { ascending: false }).order('created_at', { ascending: false });
+        query = query.order('created_at', { ascending: false });
     } else if (currentSort === 'top') {
-        query = query.order('is_pinned', { ascending: false }).order('vote_count', { ascending: false });
+        query = query.order('vote_count', { ascending: false });
     } else if (currentSort === 'controversial') {
-        query = query.order('is_pinned', { ascending: false }).order('created_at', { ascending: false });
-    } else { 
-        query = query.order('is_pinned', { ascending: false }).order('vote_count', { ascending: false }).order('created_at', { ascending: false });
+        query = query.order('created_at', { ascending: false });
+    } else { // hot (default)
+        query = query.order('vote_count', { ascending: false }).order('created_at', { ascending: false });
     }
     
     if (currentSubFilter !== 'all') query = query.eq('subreddit_id', currentSubFilter);
 
     const { data: posts, error } = await query;
-    if (error) return console.error(error);
-    
+    if (error) { feed.innerHTML = 'Error loading posts'; return; }
+
+    // FIXED: Sort pinned posts to the top first
+    if (posts && posts.length > 0) {
+        posts.sort((a, b) => {
+            // Pinned posts always come first
+            if (a.is_pinned && !b.is_pinned) return -1;
+            if (!a.is_pinned && b.is_pinned) return 1;
+            return 0; // Maintain existing sort order for non-pinned
+        });
+    }
+
+    // Client-side sort for controversial
+    if (currentSort === 'controversial' && posts) {
+        posts.sort((a, b) => {
+            // Controversial = lots of comments but low/divided vote score
+            // Formula: comment_count / (abs(vote_count) + 1)
+            // Higher = more controversial (many comments, low score)
+            
+            const aControversy = (a.comment_count || 0) / (Math.abs(a.vote_count || 0) + 1);
+            const bControversy = (b.comment_count || 0) / (Math.abs(b.vote_count || 0) + 1);
+            
+            return bControversy - aControversy;
+        });
+    }
+
     feed.innerHTML = '';
     if (posts.length === 0) {
-        feed.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">No posts yet. Be the first!</div>';
+        const message = currentView === 'mine' ? 
+            'You haven\'t created any posts yet!' : 
+            'No posts yet. Be the first!';
+        feed.innerHTML = `<div style="padding:40px; text-align:center; color:#777;">${message}</div>`;
         return;
     }
-    
     posts.forEach(post => feed.appendChild(createPostElement(post)));
 }
 
@@ -830,21 +849,15 @@ function createPostElement(post) {
         else if (isTeacher) displayName += ` <span style="color:#999; font-size:0.75em;">(${authorEmail})</span>`;
     }
 
-    // NEW: Pinned badge to display next to the author's name
-    const pinnedBadge = post.is_pinned ? `<span style="background: #e8f5e9; color: #2e7d32; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; margin-left: 10px; font-weight: bold;">📌 Pinned</span>` : '';
-
-    div.onclick = (e) => {
+div.onclick = (e) => {
         if (e.target.closest('button')) return;
         openPostPage(post, authorName, authorEmail);
     };
-    
     // Action buttons
     const deleteBtn = (isTeacher || isAuthor) ? `<button class="delete-icon" onclick="deletePost('${post.id}')" title="Delete post">🗑️</button>` : '';
     const editBtn = isAuthor ? `<button class="delete-icon" onclick="editPost('${post.id}')" title="Edit post" style="color:#0079D3;">✏️</button>` : '';
     const flagBtn = currentUser && !isAuthor ? `<button class="delete-icon" onclick="flagContent('${post.id}', 'post')" title="Flag for teacher" style="color:#ff8800;">🚩</button>` : '';
-    
-    // NEW: Pin button for teachers
-    const pinBtn = isTeacher ? `<button class="delete-icon" onclick="togglePin('${post.id}', ${post.is_pinned})" title="${post.is_pinned ? 'Unpin' : 'Pin to Top'}" style="color: ${post.is_pinned ? '#2e7d32' : '#999'}; font-size: 1.1rem; margin-right: 10px;">📌</button>` : '';
+    const pinBtn = isTeacher ? `<button class="delete-icon" onclick="togglePin('${post.id}', ${post.is_pinned || false})" title="${post.is_pinned ? 'Unpin post' : 'Pin post'}" style="color:${post.is_pinned ? '#FFD700' : '#888'};">📌</button>` : '';
     
     // Get current user's vote for this post
     const userVote = myVotes.posts[post.id] || 0;
@@ -858,11 +871,12 @@ function createPostElement(post) {
         <div class="post-header">
             <strong>r/${post.subreddits ? post.subreddits.name : 'Unknown'}</strong>
             <span>•</span>
-            <span>Posted by ${displayName}${pinnedBadge}</span>
+            <span>Posted by ${displayName}</span>
             <span>•</span>
             <span style="color: #999; font-size: 0.85em;">${timestamp}</span>
+            ${post.is_pinned ? '<span style="margin-left:10px; background:#FFD700; color:#000; padding:2px 8px; border-radius:12px; font-size:0.75em; font-weight:600;">📌 PINNED</span>' : ''}
             <span style="flex-grow:1"></span>
-            ${pinBtn}${editBtn}${flagBtn}${deleteBtn}
+            ${editBtn}${pinBtn}${flagBtn}${deleteBtn}
         </div>
         <div class="post-title" style="font-size: 1.1rem; margin-bottom: 5px;">${escapeHtml(post.title)}</div>
         
@@ -1273,16 +1287,17 @@ async function checkForNameChanges() {
 }
 
 function getEffectiveNameSetting(subredditId) {
-    if (globalMaskAll === true) {
-        return false; // Global Override is ON: Force Masking (false = mask)
+    // Override: If the teacher checked the global 'Show Real Names' box, reveal everyone.
+    if (typeof showRealNames !== 'undefined' && showRealNames === true) {
+        return true;
     }
 
     const cached = nameMaskingCache[subredditId];
     if (!cached) return false;
     if (cached.subreddit_setting !== null && cached.subreddit_setting !== undefined) {
-        return cached.subreddit_setting; 
+        return cached.subreddit_setting;
     }
-    return false;
+    return cached.teacher_global_setting || false;
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -1392,14 +1407,26 @@ window.openLeaderboard = async function() {
     }
 };
 
+// ========================================
+// PIN/UNPIN POSTS (TEACHER ONLY)
+// ========================================
 
-window.togglePin = async function(postId, currentState) {
-    if (!isTeacher) return;
-    const newState = !currentState;
-    const { error } = await sb.from('posts').update({ is_pinned: newState }).eq('id', postId);
-    if (error) {
-        alert("Error pinning post: " + error.message);
-    } else {
-        loadPosts(); // Reload instantly to sort the feed!
+window.togglePin = async function(postId, currentPinState) {
+    if (!isTeacher) {
+        alert('Only teachers can pin posts');
+        return;
     }
+    
+    const newPinState = !currentPinState;
+    const { error } = await sb
+        .from('posts')
+        .update({ is_pinned: newPinState })
+        .eq('id', postId);
+    
+    if (error) {
+        alert('Error updating pin: ' + error.message);
+        return;
+    }
+    
+    loadPosts(); // Reload to show new pin status
 };
