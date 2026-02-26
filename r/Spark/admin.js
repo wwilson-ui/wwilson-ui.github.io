@@ -225,13 +225,21 @@ window.switchAdminTab = function(tab) {
     // Show/hide sections
     document.getElementById('flagsSection').style.display = tab === 'flags' ? 'block' : 'none';
     document.getElementById('assignmentsSection').style.display = tab === 'assignments' ? 'block' : 'none';
+    
     const subsparksSection = document.getElementById('subsparksSection');
     if (subsparksSection) subsparksSection.style.display = tab === 'subsparks' ? 'block' : 'none';
     
+    // NEW: Show Aura Section
+    const auraSection = document.getElementById('auraSection');
+    if (auraSection) auraSection.style.display = tab === 'aura' ? 'block' : 'none';
+    
+    // Trigger loading functions
     if (tab === 'assignments') {
         loadAssignmentBuilder();
     } else if (tab === 'subsparks') {
         loadSubsparks();
+    } else if (tab === 'aura') {
+        loadAuraSettings(); // NEW: Load sliders when tab is clicked
     }
 };
 
@@ -547,3 +555,90 @@ async function loadSubsparks() {
         container.appendChild(card);
     });
 }
+
+
+// ========================================
+// AURA GAMIFICATION SETTINGS
+// ========================================
+
+async function loadAuraSettings() {
+    if (!currentUser) return;
+    
+    // Fetch settings from Supabase
+    const { data, error } = await sb.from('aura_settings').select('*').eq('teacher_id', currentUser.id).single();
+    
+    if (error && error.code !== 'PGRST116') { // PGRST116 just means no rows exist yet, which is fine!
+        console.error('Error loading Aura settings:', error);
+        return;
+    }
+
+    if (data) {
+        // Set Positive Factors
+        setSliderValue('aura_post', 'val_post', data.points_per_post, '+');
+        setSliderValue('aura_comment', 'val_comment', data.points_per_comment, '+');
+        setSliderValue('aura_vote_cast', 'val_vote_cast', data.points_per_vote_cast, '+');
+        setSliderValue('aura_upvote_rec', 'val_upvote_rec', data.points_per_upvote_received, '+');
+        setSliderValue('aura_flag_upheld', 'val_flag_upheld', data.points_for_flag_upheld, '+');
+        
+        // Set Negative Factors
+        setSliderValue('aura_downvote_rec', 'val_downvote_rec', data.points_per_downvote_received, '');
+        setSliderValue('aura_flagged', 'val_flagged', data.points_for_flagged_content, '');
+        setSliderValue('aura_false_flag', 'val_false_flag', data.points_for_false_flag, '');
+        
+        // Set Inactivity Mechanics
+        document.getElementById('aura_inactivity_days').value = data.inactivity_days_threshold || 7;
+        setSliderValue('aura_inactivity_pen', 'val_inactivity_pen', data.points_inactivity_penalty, '');
+        document.getElementById('aura_max_penalty').value = data.max_inactivity_penalty || -50;
+    }
+}
+
+// Helper to update slider UI
+function setSliderValue(sliderId, textId, value, prefix) {
+    if (value === undefined || value === null) return;
+    const slider = document.getElementById(sliderId);
+    const text = document.getElementById(textId);
+    if (slider && text) {
+        slider.value = value;
+        text.innerText = prefix + value;
+    }
+}
+
+window.saveAuraSettings = async function() {
+    if (!currentUser) return;
+    
+    const btn = document.getElementById('saveAuraBtn');
+    const status = document.getElementById('auraSaveStatus');
+    btn.textContent = 'Saving...';
+    btn.disabled = true;
+
+    // Gather all values
+    const payload = {
+        teacher_id: currentUser.id,
+        points_per_post: parseInt(document.getElementById('aura_post').value),
+        points_per_comment: parseInt(document.getElementById('aura_comment').value),
+        points_per_vote_cast: parseInt(document.getElementById('aura_vote_cast').value),
+        points_per_upvote_received: parseInt(document.getElementById('aura_upvote_rec').value),
+        points_for_flag_upheld: parseInt(document.getElementById('aura_flag_upheld').value),
+        
+        points_per_downvote_received: parseInt(document.getElementById('aura_downvote_rec').value),
+        points_for_flagged_content: parseInt(document.getElementById('aura_flagged').value),
+        points_for_false_flag: parseInt(document.getElementById('aura_false_flag').value),
+        
+        inactivity_days_threshold: parseInt(document.getElementById('aura_inactivity_days').value),
+        points_inactivity_penalty: parseInt(document.getElementById('aura_inactivity_pen').value),
+        max_inactivity_penalty: parseInt(document.getElementById('aura_max_penalty').value)
+    };
+
+    // Upsert means "Update if it exists, Insert if it doesn't"
+    const { error } = await sb.from('aura_settings').upsert(payload, { onConflict: 'teacher_id' });
+
+    btn.textContent = 'Save Aura Settings';
+    btn.disabled = false;
+
+    if (error) {
+        alert('Error saving settings: ' + error.message);
+    } else {
+        status.style.display = 'inline';
+        setTimeout(() => { status.style.display = 'none'; }, 3000); // Hide success message after 3 seconds
+    }
+};
