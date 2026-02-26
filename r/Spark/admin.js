@@ -476,33 +476,39 @@ function generateShortId() {
 }
 
 // ========================================
-// NAME MASKING CONTROLS
+// NAME MASKING & SUB-SPARK CONTROLS
 // ========================================
 
-window.toggleGlobalNames = async function(showReal) {
-    const { error } = await sb.from('teacher_scoring_config').upsert({
-        teacher_id: currentUser.id,
-        global_show_real_names: showReal
-    }, { onConflict: 'teacher_id' });
-    
-    if (error) {
-        alert('Error: ' + error.message);
-        return;
+// 1. Global Override Toggle
+window.toggleGlobalNames = async function(isMasked) {
+    const statusText = document.getElementById('globalOverrideStatus');
+    if (statusText) {
+        statusText.innerText = isMasked ? 'Override ON (All Names Masked)' : 'Override OFF (Deferring to Sub-Sparks)';
+        statusText.style.color = isMasked ? '#c62828' : '#666';
     }
-    
-    document.getElementById('globalNameStatusText').textContent = showReal ? 'Real names visible' : 'Anonymous names';
-    alert('✅ Setting updated! Students will see changes within 5 seconds.');
+
+    const { error } = await sb.from('teacher_settings')
+        .upsert({ setting_key: 'mask_all_names', setting_value: isMasked }, { onConflict: 'setting_key' });
+        
+    if (error) alert("Error updating global setting: " + error.message);
 };
 
-window.toggleSubredditNames = async function(subredditId, showReal) {
-    const { error } = await sb.from('subreddits').update({ show_real_names: showReal }).eq('id', subredditId);
-    if (error) {
-        alert('Error: ' + error.message);
-        return;
-    }
-    alert('✅ Updated!');
-    loadSubsparks();
+// 2. Individual Sub-Spark Name Toggle
+window.toggleSubredditNames = async function(subId, showReal) {
+    const { error } = await sb.from('subreddits').update({ show_real_names: showReal }).eq('id', subId);
+    if (error) alert("Error updating name settings: " + error.message);
+    loadSubsparks(); // Refresh UI instantly
 };
+
+// 3. Sub-Spark Lock/Unlock Toggle
+window.toggleSubredditLock = async function(subId, isOpen) {
+    const isLocked = !isOpen; // If switch is ON (Open), locked is false.
+    const { error } = await sb.from('subreddits').update({ is_locked: isLocked }).eq('id', subId);
+    if (error) alert("Error updating lock status: " + error.message);
+    loadSubsparks(); // Refresh UI instantly
+};
+
+
 
 // ================= SUB-SPARKS MANAGEMENT =================
 
