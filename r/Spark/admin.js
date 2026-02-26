@@ -232,6 +232,10 @@ window.switchAdminTab = function(tab) {
     // NEW: Show Aura Section
     const auraSection = document.getElementById('auraSection');
     if (auraSection) auraSection.style.display = tab === 'aura' ? 'block' : 'none';
+
+    // Add this in the section where tabs are shown/hidden:
+    const auralogSection = document.getElementById('auralogSection');
+    if (auralogSection) auralogSection.style.display = tab === 'auralog' ? 'block' : 'none';
     
     // Trigger loading functions
     if (tab === 'assignments') {
@@ -241,6 +245,10 @@ window.switchAdminTab = function(tab) {
     } else if (tab === 'aura') {
         loadAuraSettings(); // NEW: Load sliders when tab is clicked
     }
+    } else if (tab === 'auralog') {
+        loadAuraLogStudents();
+    }
+}
 };
 
 async function loadAssignmentBuilder() {
