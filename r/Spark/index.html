@@ -153,6 +153,15 @@
                     <label>Name</label>
                     <input type="text" id="subName" placeholder="e.g. History_Period_1" required>
                 </div>
+
+                <div class="form-group" id="rosterSelectionGroup" style="display: none;">
+                    <label>Assign to Classes (Hold Ctrl/Cmd to select multiple)</label>
+                    <p style="font-size: 0.8rem; color: #666; margin-bottom: 5px;">Only students in selected rosters will see this community.</p>
+                    <select id="subRosters" multiple style="width: 100%; height: 100px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit;">
+                        <option value="none" disabled>Loading your classes...</option>
+                    </select>
+                </div>
+                
                 <button type="submit" class="submit-btn">Create</button>
             </form>
         </div>
