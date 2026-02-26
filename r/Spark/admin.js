@@ -244,11 +244,10 @@ window.switchAdminTab = function(tab) {
         loadSubsparks();
     } else if (tab === 'aura') {
         loadAuraSettings(); // NEW: Load sliders when tab is clicked
-    }
     } else if (tab === 'auralog') {
         loadAuraLogStudents();
     }
-}
+
 };
 
 async function loadAssignmentBuilder() {
