@@ -676,3 +676,15 @@ window.saveAuraSettings = async function() {
         setTimeout(() => { status.style.display = 'none'; }, 3000); // Hide success message after 3 seconds
     }
 };
+
+
+window.toggleGlobalNames = async function(isMasked) {
+    const statusText = document.getElementById('globalOverrideStatus');
+    statusText.innerText = isMasked ? 'Override ON (All Names Masked)' : 'Override OFF (Deferring to Sub-Sparks)';
+    statusText.style.color = isMasked ? '#c62828' : '#666';
+
+    const { error } = await sb.from('teacher_settings')
+        .upsert({ setting_key: 'mask_all_names', setting_value: isMasked }, { onConflict: 'setting_key' });
+        
+    if (error) alert("Error updating global setting: " + error.message);
+};
