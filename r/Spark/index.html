@@ -168,15 +168,20 @@
     </div>
 
 
-    <div id="leaderboardModal" class="modal">
-        <div class="modal-content" style="max-width: 450px;">
-            <div class="modal-header">
-                <h2 style="display: flex; align-items: center; gap: 10px;">🏆 Aura Leaderboard</h2>
-                <button class="close-modal-btn" onclick="closeModal('leaderboardModal')">&times;</button>
+    <div id="leaderboardModal" class="modal" style="z-index: 1000;">
+        <div class="modal-content" style="max-width: 800px; width: 90%; position: relative; padding: 30px;">
+            <button onclick="document.getElementById('leaderboardModal').style.display='none'" style="position: absolute; top: 15px; right: 20px; font-size: 2rem; background: none; border: none; cursor: pointer; color: #888; line-height: 1;">&times;</button>
+            
+            <div class="modal-header" style="border-bottom: none; padding-bottom: 0; justify-content: center;">
+                <h2 style="display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 2.2rem; margin-top: 0;">🏆 Aura Leaderboard</h2>
             </div>
-            <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px; text-align: center;">The top 10 most helpful Sparks in the community.</p>
-            <div id="leaderboardList" style="margin-top: 10px; max-height: 60vh; overflow-y: auto; padding-right: 5px;">
-                <div style="text-align: center; color: #666; padding: 20px;">Loading champions...</div>
+            <p style="color: #666; font-size: 1.1rem; margin-bottom: 25px; text-align: center;">The top 10 most helpful Sparks in the community.</p>
+
+            <div id="currentUserRankBanner" style="background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); padding: 15px; border-radius: 12px; text-align: center; color: white; font-weight: bold; font-size: 1.3rem; margin-bottom: 25px; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                </div>
+
+            <div id="leaderboardList" style="margin-top: 10px; max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+                <div style="text-align: center; color: #666; padding: 20px; font-size: 1.2rem;">Loading champions...</div>
             </div>
         </div>
     </div>
