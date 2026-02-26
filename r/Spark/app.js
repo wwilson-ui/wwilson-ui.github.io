@@ -497,6 +497,14 @@ if (!profile || !profile.username) {
 }
 
         currentUser = profile;
+        
+        // --- NEW: REVEAL AURA BADGE ---
+        const auraDisplay = document.getElementById('auraDisplay');
+        const auraScoreValue = document.getElementById('auraScoreValue');
+        if (auraDisplay) auraDisplay.style.display = 'flex';
+        if (auraScoreValue) auraScoreValue.innerText = currentUser.aura_score || 0;
+        // ------------------------------
+        
         isTeacher = currentUser.role === 'teacher';
         
         await loadMyVotes();
@@ -859,6 +867,8 @@ async function submitNewComment() {
         post_id: currentOpenPostId, user_id: currentUser.id, content: content
     }]);
 
+    await updateAura(currentUser.id, 5); // +5 Aura for Engagement
+
     if (error) {
         alert(error.message);
     } else {
@@ -978,28 +988,54 @@ window.submitReply = async function(pid) {
 // (These are unchanged, just including so the file is complete)
 async function loadSubreddits() {
     const list = document.getElementById('subredditList');
-    const postSelect = document.getElementById('postSubreddit');
-    const { data: subs } = await sb.from('subreddits').select('*').order('name');
-    list.innerHTML = ''; postSelect.innerHTML = '';
+    list.innerHTML = '<li><a href="#" style="color:#666;">Loading classes...</a></li>';
     
-    const allLi = document.createElement('li');
-    allLi.className = `sub-item ${currentSubFilter === 'all' ? 'active' : ''}`;
-    allLi.innerHTML = `<span>r/All</span>`;
-    allLi.onclick = () => { currentSubFilter = 'all'; showFeed(); loadSubreddits(); loadPosts(); };
-    list.appendChild(allLi);
+    let { data: subs, error } = await sb.from('subreddits').select('*').order('name');
+    if (error) return console.error(error);
+    
+    let allowedSubs = [];
+    
+    if (isTeacher) {
+        // Teacher logic: See subs assigned to my classes, or subs I made
+        const { data: myClasses } = await sb.from('classcast_classes').select('class_name').contains('teacher_emails', `["${currentUser.email.toLowerCase()}"]`);
+        const myClassNames = myClasses ? myClasses.map(c => c.class_name) : [];
+        
+        allowedSubs = subs.filter(s => {
+            if (s.created_by === currentUser.id) return true;
+            let targets = [];
+            try { targets = typeof s.target_classes === 'string' ? JSON.parse(s.target_classes) : (s.target_classes || []); } catch(e){}
+            if (!targets || targets.length === 0) return true; 
+            return targets.some(c => myClassNames.includes(c));
+        });
+    } else if (currentUser) {
+        // Student logic: Only see subs assigned to enrolled classes
+        const { data: myRosters } = await sb.from('classcast_roster').select('class_id').eq('student_email', currentUser.email.toLowerCase());
+        const myClassIds = myRosters ? myRosters.map(r => r.class_id) : [];
+        let myClassNames = [];
+        if (myClassIds.length > 0) {
+            const { data: classData } = await sb.from('classcast_classes').select('class_name').in('id', myClassIds);
+            if (classData) myClassNames = classData.map(c => c.class_name);
+        }
+        
+        allowedSubs = subs.filter(s => {
+            let targets = [];
+            try { targets = typeof s.target_classes === 'string' ? JSON.parse(s.target_classes) : (s.target_classes || []); } catch(e){}
+            if (!targets || targets.length === 0) return true; 
+            return targets.some(c => myClassNames.includes(c));
+        });
+    }
 
-    if (subs) subs.forEach(sub => {
-        const li = document.createElement('li');
-        li.className = `sub-item ${currentSubFilter === sub.id ? 'active' : ''}`;
-        let html = `<span onclick="selectSub('${sub.id}')">r/${sub.name}</span>`;
-        if (isTeacher) html += `<span class="delete-sub-x" onclick="deleteSub('${sub.id}', '${sub.name}')">✕</span>`;
-        li.innerHTML = html;
-        list.appendChild(li);
-
-        const opt = document.createElement('option');
-        opt.value = sub.id; opt.textContent = sub.name;
-        postSelect.appendChild(opt);
+    list.innerHTML = `<li><a href="#" class="${currentSubFilter === 'all' ? 'active' : ''}" onclick="selectSub('all')"><span class="sub-icon">⚡</span> All Sparks</a></li>`;
+    
+    allowedSubs.forEach(sub => {
+        list.innerHTML += `<li><a href="#" class="${currentSubFilter === sub.id ? 'active' : ''}" onclick="selectSub('${sub.id}')"><span class="sub-icon">💬</span> r/${escapeHtml(sub.name)}</a></li>`;
     });
+    
+    const postSubSelect = document.getElementById('postSubreddit');
+    if(postSubSelect) {
+        postSubSelect.innerHTML = '<option value="" disabled selected>Choose Community</option>';
+        allowedSubs.forEach(sub => postSubSelect.innerHTML += `<option value="${sub.id}">r/${escapeHtml(sub.name)}</option>`);
+    }
 }
 
 window.selectSub = function(id) { 
@@ -1076,6 +1112,7 @@ function setupFormListeners() {
             // Create new post
             postData.user_id = currentUser.id;
             ({ error } = await sb.from('posts').insert([postData]));
+            await updateAura(currentUser.id, 10); // +10 Aura for Initiative/Posting
         }
         
         if (!error) { 
