@@ -1018,7 +1018,7 @@ window.submitReply = async function(pid) {
 // (These are unchanged, just including so the file is complete)
 async function loadSubreddits() {
     const list = document.getElementById('subredditList');
-    list.innerHTML = '<li><a href="#" style="color:#666;">Loading classes...</a></li>';
+    list.innerHTML = '<li><a href="#" style="color:#666;">Loading...</a></li>';
     
     let { data: subs, error } = await sb.from('subreddits').select('*').order('name');
     if (error) return console.error(error);
@@ -1055,16 +1055,18 @@ async function loadSubreddits() {
         });
     }
 
-    list.innerHTML = `<li><a href="#" class="${currentSubFilter === 'all' ? 'active' : ''}" onclick="selectSub('all')"><span class="sub-icon">⚡</span> All Sparks</a></li>`;
+    // --- THE FIX: Removed the custom emojis and span tags that broke your layout ---
+    list.innerHTML = `<li><a href="#" class="${currentSubFilter === 'all' ? 'active' : ''}" onclick="selectSub('all')">All Sparks</a></li>`;
     
     allowedSubs.forEach(sub => {
-        list.innerHTML += `<li><a href="#" class="${currentSubFilter === sub.id ? 'active' : ''}" onclick="selectSub('${sub.id}')"><span class="sub-icon">💬</span> r/${escapeHtml(sub.name)}</a></li>`;
+        list.innerHTML += `<li><a href="#" class="${currentSubFilter === sub.id ? 'active' : ''}" onclick="selectSub('${sub.id}')">${escapeHtml(sub.name)}</a></li>`;
     });
+    // -------------------------------------------------------------------------------
     
     const postSubSelect = document.getElementById('postSubreddit');
     if(postSubSelect) {
         postSubSelect.innerHTML = '<option value="" disabled selected>Choose Community</option>';
-        allowedSubs.forEach(sub => postSubSelect.innerHTML += `<option value="${sub.id}">r/${escapeHtml(sub.name)}</option>`);
+        allowedSubs.forEach(sub => postSubSelect.innerHTML += `<option value="${sub.id}">${escapeHtml(sub.name)}</option>`);
     }
 }
 
