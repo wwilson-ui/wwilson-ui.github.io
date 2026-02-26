@@ -266,6 +266,108 @@
                 <!-- Sub-Sparks List -->
                 <div id="subsparksList"></div>
             </div>
+
+            <div id="auraSection" style="display: none;">
+                <h1 style="margin-bottom: 20px;">✨ Aura Gamification Mechanics</h1>
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 20px;">Adjust the points awarded or deducted for student actions. Changes apply immediately to all future actions.</p>
+            
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                    
+                    <div class="aura-section" style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ccc;">
+                        <h3 style="color: #2e7d32; border-bottom: 2px solid #2e7d32; padding-bottom: 5px; margin-top: 0;">Positive Factors (0 to 10)</h3>
+                        
+                        <div class="slider-group" style="margin-bottom: 15px; margin-top: 15px;">
+                            <label style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 5px;">
+                                Posts Made <span id="val_post" style="color: #2e7d32;">+10</span>
+                            </label>
+                            <input type="range" id="aura_post" min="0" max="10" value="10" style="width: 100%;" oninput="document.getElementById('val_post').innerText = '+' + this.value">
+                        </div>
+            
+                        <div class="slider-group" style="margin-bottom: 15px;">
+                            <label style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 5px;">
+                                Comments Made <span id="val_comment" style="color: #2e7d32;">+5</span>
+                            </label>
+                            <input type="range" id="aura_comment" min="0" max="10" value="5" style="width: 100%;" oninput="document.getElementById('val_comment').innerText = '+' + this.value">
+                        </div>
+            
+                        <div class="slider-group" style="margin-bottom: 15px;">
+                            <label style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 5px;">
+                                Votes Cast (Participation) <span id="val_vote_cast" style="color: #2e7d32;">+1</span>
+                            </label>
+                            <input type="range" id="aura_vote_cast" min="0" max="10" value="1" style="width: 100%;" oninput="document.getElementById('val_vote_cast').innerText = '+' + this.value">
+                        </div>
+            
+                        <div class="slider-group" style="margin-bottom: 15px;">
+                            <label style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 5px;">
+                                Upvotes Received <span id="val_upvote_rec" style="color: #2e7d32;">+2</span>
+                            </label>
+                            <input type="range" id="aura_upvote_rec" min="0" max="10" value="2" style="width: 100%;" oninput="document.getElementById('val_upvote_rec').innerText = '+' + this.value">
+                        </div>
+            
+                        <div class="slider-group" style="margin-bottom: 15px;">
+                            <label style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 5px;">
+                                Teacher Upholds Your Flag <span id="val_flag_upheld" style="color: #2e7d32;">+5</span>
+                            </label>
+                            <input type="range" id="aura_flag_upheld" min="0" max="10" value="5" style="width: 100%;" oninput="document.getElementById('val_flag_upheld').innerText = '+' + this.value">
+                        </div>
+                    </div>
+            
+                    <div class="aura-section" style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ccc;">
+                        <h3 style="color: #c62828; border-bottom: 2px solid #c62828; padding-bottom: 5px; margin-top: 0;">Negative Factors (-10 to 0)</h3>
+                        
+                        <div class="slider-group" style="margin-bottom: 15px; margin-top: 15px;">
+                            <label style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 5px;">
+                                Downvotes Received <span id="val_downvote_rec" style="color: #c62828;">-1</span>
+                            </label>
+                            <input type="range" id="aura_downvote_rec" min="-10" max="0" value="-1" style="width: 100%;" oninput="document.getElementById('val_downvote_rec').innerText = this.value">
+                        </div>
+            
+                        <div class="slider-group" style="margin-bottom: 15px;">
+                            <label style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 5px;">
+                                Your Content is Flagged & Upheld <span id="val_flagged" style="color: #c62828;">-5</span>
+                            </label>
+                            <input type="range" id="aura_flagged" min="-10" max="0" value="-5" style="width: 100%;" oninput="document.getElementById('val_flagged').innerText = this.value">
+                        </div>
+            
+                        <div class="slider-group" style="margin-bottom: 15px;">
+                            <label style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 5px;">
+                                Teacher Overturns Your Flag <span id="val_false_flag" style="color: #c62828;">-2</span>
+                            </label>
+                            <input type="range" id="aura_false_flag" min="-10" max="0" value="-2" style="width: 100%;" oninput="document.getElementById('val_false_flag').innerText = this.value">
+                        </div>
+                    </div>
+                </div>
+            
+                <div style="margin-top: 30px; padding: 20px; background: white; border: 1px solid #ccc; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #333; font-size: 1.1rem; border-bottom: 2px solid #555; padding-bottom: 5px;">⏳ Inactivity Penalty</h3>
+                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px;">Automatically deduct points when a student logs in if they haven't posted or commented recently.</p>
+                    
+                    <div style="display: flex; gap: 30px; align-items: center; flex-wrap: wrap;">
+                        <div>
+                            <label style="display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 5px;">Days Without Activity</label>
+                            <input type="number" id="aura_inactivity_days" min="1" max="30" value="7" style="padding: 8px; width: 100px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem;">
+                        </div>
+                        
+                        <div style="flex-grow: 1; min-width: 250px;">
+                            <label style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 600; margin-bottom: 5px;">
+                                Penalty Amount <span id="val_inactivity_pen" style="color: #c62828;">-5</span>
+                            </label>
+                            <input type="range" id="aura_inactivity_pen" min="-20" max="0" value="-5" style="width: 100%;" oninput="document.getElementById('val_inactivity_pen').innerText = this.value">
+                        </div>
+            
+                        <div>
+                            <label style="display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 5px;">Max Penalty Cap</label>
+                            <input type="number" id="aura_max_penalty" min="-500" max="0" value="-50" style="padding: 8px; width: 100px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem;">
+                        </div>
+                    </div>
+                </div>
+            
+                <div style="margin-top: 25px; text-align: right;">
+                    <span id="auraSaveStatus" style="margin-right: 15px; color: #2e7d32; font-weight: 600; display: none;">✅ Settings Saved!</span>
+                    <button id="saveAuraBtn" onclick="saveAuraSettings()" style="background: #0079D3; color: white; border: none; padding: 12px 24px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 1rem;">Save Aura Settings</button>
+                </div>
+            </div>
+
         </main>
     </div>
 
