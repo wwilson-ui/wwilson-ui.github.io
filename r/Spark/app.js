@@ -1018,7 +1018,7 @@ window.submitReply = async function(pid) {
 // (These are unchanged, just including so the file is complete)
 async function loadSubreddits() {
     const list = document.getElementById('subredditList');
-    list.innerHTML = '<li><a href="#" style="color:#666;">Loading...</a></li>';
+    const postSelect = document.getElementById('postSubreddit');
     
     let { data: subs, error } = await sb.from('subreddits').select('*').order('name');
     if (error) return console.error(error);
@@ -1055,19 +1055,31 @@ async function loadSubreddits() {
         });
     }
 
-    // --- THE FIX: Removed the custom emojis and span tags that broke your layout ---
-    list.innerHTML = `<li><a href="#" class="${currentSubFilter === 'all' ? 'active' : ''}" onclick="selectSub('all')">All Sparks</a></li>`;
+    // --- RESTORED ORIGINAL LAYOUT ---
+    list.innerHTML = ''; 
+    if(postSelect) postSelect.innerHTML = '';
     
+    const allLi = document.createElement('li');
+    allLi.className = `sub-item ${currentSubFilter === 'all' ? 'active' : ''}`;
+    allLi.innerHTML = `<span>r/All</span>`;
+    allLi.onclick = () => { currentSubFilter = 'all'; showFeed(); loadSubreddits(); loadPosts(); };
+    list.appendChild(allLi);
+
     allowedSubs.forEach(sub => {
-        list.innerHTML += `<li><a href="#" class="${currentSubFilter === sub.id ? 'active' : ''}" onclick="selectSub('${sub.id}')">${escapeHtml(sub.name)}</a></li>`;
+        const li = document.createElement('li');
+        li.className = `sub-item ${currentSubFilter === sub.id ? 'active' : ''}`;
+        
+        let html = `<span onclick="selectSub('${sub.id}')">r/${sub.name}</span>`;
+        if (isTeacher) html += `<span class="delete-sub-x" onclick="deleteSub('${sub.id}', '${sub.name}')">✕</span>`;
+        li.innerHTML = html;
+        list.appendChild(li);
+
+        if(postSelect) {
+            const opt = document.createElement('option');
+            opt.value = sub.id; opt.textContent = sub.name;
+            postSelect.appendChild(opt);
+        }
     });
-    // -------------------------------------------------------------------------------
-    
-    const postSubSelect = document.getElementById('postSubreddit');
-    if(postSubSelect) {
-        postSubSelect.innerHTML = '<option value="" disabled selected>Choose Community</option>';
-        allowedSubs.forEach(sub => postSubSelect.innerHTML += `<option value="${sub.id}">${escapeHtml(sub.name)}</option>`);
-    }
 }
 
 window.selectSub = function(id) { 
