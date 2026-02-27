@@ -554,7 +554,7 @@ async function loadSubsparks() {
     }
     
     let html = `
-        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; background: #f0f7ff; padding: 15px 20px; border-radius: 8px 8px 0 0; border: 1px solid #ccc; border-bottom: none; font-weight: 700; color: #333; align-items: center;">
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 15px; background: #f0f7ff; padding: 15px 20px; border-radius: 8px 8px 0 0; border: 1px solid #ccc; border-bottom: none; font-weight: 700; color: #333; align-items: center;">
             <div>Community Name</div>
             <div style="text-align: center;">Allow New Posts</div>
             <div style="text-align: center;">Name Display</div>
@@ -569,7 +569,7 @@ async function loadSubsparks() {
         const borderBottom = index < subs.length - 1 ? 'border-bottom: 1px solid #eee;' : '';
         
         html += `
-            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; padding: 15px 20px; align-items: center; ${borderBottom} transition: background 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 15px; padding: 15px 20px; align-items: center; ${borderBottom} transition: background 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='white'">
                 <div style="font-weight: 600; font-size: 1.1rem; color: #0079D3;">r/${escapeHtml(sub.name)}</div>
                 
                 <div style="display: flex; justify-content: center; align-items: center; gap: 12px;">
@@ -586,6 +586,10 @@ async function loadSubsparks() {
                         <span class="toggle-slider"></span>
                     </label>
                     <span style="font-size: 0.9rem; font-weight: 600; width: 50px; color: ${effectiveSetting ? '#2e7d32' : '#666'};">${effectiveSetting ? 'Real' : 'Anon'}</span>
+                </div>
+
+                <div style="text-align: center;">
+                    <button onclick="exportSubsparkPosts('${sub.id}', '${escapeHtml(sub.name)}')" style="background: #2e7d32; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold;">📥 Export to Sheet</button>
                 </div>
             </div>
         `;
@@ -811,3 +815,60 @@ function formatActionType(type) {
     return labels[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 }
 
+
+
+
+window.exportSubsparkPosts = async function(subId, subName) {
+    alert(`Gathering posts for r/${subName}... This may take a moment.`);
+    
+    const { data: posts, error } = await sb.from('posts')
+        .select(`title, content, created_at, vote_count, profiles(email)`)
+        .eq('subreddit_id', subId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        alert("Error pulling data: " + error.message);
+        return;
+    }
+    if (!posts || posts.length === 0) {
+        alert("There are no posts in this community yet.");
+        return;
+    }
+
+    // Reusable name formatter for the CSV
+    const formatExportName = (email) => {
+        if (!email) return 'Unknown';
+        const username = email.split('@')[0];
+        if (username.includes('.')) {
+            const parts = username.split('.');
+            return `${parts[0].charAt(0).toUpperCase() + parts[0].slice(1)} ${parts[1].charAt(0).toUpperCase()}.`;
+        }
+        return username.charAt(0).toUpperCase() + username.slice(1);
+    };
+
+    // Set up the CSV Headers
+    let csvContent = "Author (Name),Author (Email),Post Title,Post Body,Date Created,Vote Count\n";
+
+    posts.forEach(post => {
+        const email = post.profiles?.email || 'Unknown';
+        const name = formatExportName(email);
+        
+        // Wrap text in quotes and escape internal quotes to prevent commas from breaking columns
+        const title = `"${(post.title || '').replace(/"/g, '""')}"`;
+        const body = `"${(post.content || '').replace(/"/g, '""')}"`;
+        const date = new Date(post.created_at).toLocaleString();
+        const votes = post.vote_count || 0;
+        
+        csvContent += `${name},${email},${title},${body},${date},${votes}\n`;
+    });
+
+    // Create a hidden link to trigger the file download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `r_${subName}_Posts_Export.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
