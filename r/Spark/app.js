@@ -10,6 +10,7 @@ let showRealNames = false; // DEPRECATED - now using per-subreddit system
 let currentSort = 'hot'; // hot, new, or top
 let currentView = 'all'; // 'all' or 'mine'
 let unreadNotifications = 0; // Count of posts with new comments
+let rosterCache = {}; // Store real names mapped to emails
 
 // Name masking state
 let nameMaskingCache = {};
@@ -35,7 +36,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await checkUser();
     await loadTeacherSettings(); 
-    await fetchNameMaskingSettings(); 
+    await fetchNameMaskingSettings();
+    await loadRoster();
     pollingInterval = setInterval(checkForNameChanges, 5000); 
 
     // --- NEW: CATCH DYNAMIC LINKS FROM CLASSCAST ---
@@ -815,6 +817,35 @@ async function loadPosts() {
     posts.forEach(post => feed.appendChild(createPostElement(post)));
 }
 
+
+// Fetches the roster and formats names to "Firstname L."
+async function loadRoster() {
+    try {
+        const { data, error } = await sb.from('classcast_roster').select('student_email, student_name');
+        if (error) throw error;
+        
+        if (data) {
+            data.forEach(student => {
+                if (student.student_email && student.student_name) {
+                    const parts = student.student_name.trim().split(' ');
+                    if (parts.length > 1) {
+                        const first = parts[0];
+                        // Get the first letter of the last word in the name
+                        const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase() + '.';
+                        rosterCache[student.student_email] = `${first} ${lastInitial}`;
+                    } else {
+                        // Fallback if they only have one name listed
+                        rosterCache[student.student_email] = student.student_name;
+                    }
+                }
+            });
+        }
+    } catch (err) {
+        console.error("Failed to load student roster:", err);
+    }
+}
+
+
 function createPostElement(post) {
     const div = document.createElement('div');
     div.className = 'post-card clickable-card';
@@ -835,7 +866,8 @@ function createPostElement(post) {
     
     let displayName;
     if (showReal) {
-        displayName = authorEmail.split('@')[0] || 'Unknown';
+        // Look up the formatted name in our roster cache
+        displayName = rosterCache[authorEmail] || authorEmail.split('@')[0] || 'Unknown';
         if (isAuthor) displayName += ' (you)';
     } else {
         displayName = authorName;
