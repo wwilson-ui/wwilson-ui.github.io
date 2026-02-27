@@ -865,7 +865,7 @@ window.exportSubsparkPosts = async function(subId, subName) {
         // Wrap text in quotes and escape internal quotes to prevent commas from breaking columns
         const title = `"${(post.title || '').replace(/"/g, '""')}"`;
         const body = `"${(post.content || '').replace(/"/g, '""')}"`;
-        const date = new Date(post.created_at).toLocaleString();
+        const date = `"${new Date(post.created_at).toLocaleString()}"`;
         const votes = post.vote_count || 0;
         
         csvContent += `${name},${email},${title},${body},${date},${votes}\n`;
