@@ -821,6 +821,7 @@ function formatActionType(type) {
 window.exportSubsparkPosts = async function(subId, subName) {
     alert(`Gathering posts for r/${subName}... This may take a moment.`);
     
+    // 1. Fetch Posts
     const { data: posts, error } = await sb.from('posts')
         .select(`title, content, created_at, vote_count, profiles(email)`)
         .eq('subreddit_id', subId)
@@ -835,23 +836,31 @@ window.exportSubsparkPosts = async function(subId, subName) {
         return;
     }
 
-    // Reusable name formatter for the CSV
-    const formatExportName = (email) => {
-        if (!email) return 'Unknown';
-        const username = email.split('@')[0];
-        if (username.includes('.')) {
-            const parts = username.split('.');
-            return `${parts[0].charAt(0).toUpperCase() + parts[0].slice(1)} ${parts[1].charAt(0).toUpperCase()}.`;
-        }
-        return username.charAt(0).toUpperCase() + username.slice(1);
-    };
+    // 2. Fetch Roster for Names
+    const { data: rosterData } = await sb.from('classcast_roster').select('student_email, student_name');
+    const rosterMap = {};
+    if (rosterData) {
+        rosterData.forEach(student => {
+            if (student.student_email && student.student_name) {
+                const parts = student.student_name.trim().split(' ');
+                if (parts.length > 1) {
+                    rosterMap[student.student_email] = `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`;
+                } else {
+                    rosterMap[student.student_email] = student.student_name;
+                }
+            }
+        });
+    }
 
-    // Set up the CSV Headers
+    // 3. Set up the CSV Headers
     let csvContent = "Author (Name),Author (Email),Post Title,Post Body,Date Created,Vote Count\n";
 
+    // 4. Build the rows
     posts.forEach(post => {
         const email = post.profiles?.email || 'Unknown';
-        const name = formatExportName(email);
+        
+        // Use roster map, fallback to email prefix if not found
+        const name = rosterMap[email] || email.split('@')[0] || 'Unknown';
         
         // Wrap text in quotes and escape internal quotes to prevent commas from breaking columns
         const title = `"${(post.title || '').replace(/"/g, '""')}"`;
@@ -862,7 +871,7 @@ window.exportSubsparkPosts = async function(subId, subName) {
         csvContent += `${name},${email},${title},${body},${date},${votes}\n`;
     });
 
-    // Create a hidden link to trigger the file download
+    // 5. Download the file
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
