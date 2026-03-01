@@ -203,6 +203,21 @@
                             
                             <div id="audioUploadContainer"><input type="file" id="newAssignAudioFile" accept="audio/mpeg, audio/wav, audio/ogg" style="margin-bottom: 15px;"></div>
                             <div id="audioDropboxContainer" class="hidden"><input type="url" id="newAssignAudioUrl" placeholder="https://www.dropbox.com/s/..." style="margin-bottom: 15px;"></div>
+
+                            
+                            <div style="margin-top: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: #fafafa;">
+                                <h4 style="margin-top: 0; margin-bottom: 10px; color: #333;">✂️ Trim Audio (Skip Zones)</h4>
+                                <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">Set timestamps for ads or intros you want students to automatically skip. Format: MM:SS</p>
+                                
+                                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                                    <input type="text" id="skipStart" placeholder="Start (e.g., 01:15)" style="width: 120px; padding: 8px;">
+                                    <span>to</span>
+                                    <input type="text" id="skipEnd" placeholder="End (e.g., 03:00)" style="width: 120px; padding: 8px;">
+                                    <button type="button" class="action-btn" onclick="addSkipZone()" style="background: #2e7d32; padding: 8px 15px;">Add Cut</button>
+                                </div>
+                                <ul id="skipZonesList" style="list-style: none; padding: 0; margin: 0;"></ul>
+                            </div>
+
                             
                             <label style="font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 15px 0; background: #f0f2f5; padding: 10px; border-radius: 4px;">
                                 <input type="checkbox" id="newAssignAllowSpeed" checked> Allow students to adjust playback speed
