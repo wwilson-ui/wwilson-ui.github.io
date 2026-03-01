@@ -1455,3 +1455,59 @@ window.selectPodcastEpisode = function(audioUrl, title) {
         setTimeout(() => { titleInput.style.backgroundColor = ''; }, 1500);
     }
 };
+
+
+
+// ==========================================
+// AUDIO TRIMMER / SKIP ZONES LOGIC
+// ==========================================
+
+let currentSkipZones = []; // Holds the cuts before saving
+
+window.addSkipZone = function() {
+    const startStr = document.getElementById('skipStart').value.trim();
+    const endStr = document.getElementById('skipEnd').value.trim();
+
+    const startSec = parseTimeToSeconds(startStr);
+    const endSec = parseTimeToSeconds(endStr);
+
+    if (startSec === null || endSec === null || startSec >= endSec) {
+        alert("Invalid times. Use MM:SS format, and ensure Start is before End.");
+        return;
+    }
+
+    currentSkipZones.push({ start: startSec, end: endSec, label: `${startStr} - ${endStr}` });
+    document.getElementById('skipStart').value = '';
+    document.getElementById('skipEnd').value = '';
+    renderSkipZones();
+};
+
+window.renderSkipZones = function() {
+    const list = document.getElementById('skipZonesList');
+    if(!list) return;
+    list.innerHTML = '';
+    currentSkipZones.forEach((zone, index) => {
+        const li = document.createElement('li');
+        li.style.cssText = "display: flex; justify-content: space-between; background: #fff; padding: 8px 12px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem;";
+        li.innerHTML = `
+            <span>⏭️ Skip: <b>${zone.label}</b></span>
+            <button type="button" onclick="removeSkipZone(${index})" style="color: red; border: none; background: none; cursor: pointer; font-weight: bold;">✖</button>
+        `;
+        list.appendChild(li);
+    });
+};
+
+window.removeSkipZone = function(index) {
+    currentSkipZones.splice(index, 1);
+    renderSkipZones();
+};
+
+function parseTimeToSeconds(timeStr) {
+    if (!timeStr) return null;
+    const parts = timeStr.split(':');
+    if (parts.length !== 2) return null;
+    const m = parseInt(parts[0], 10);
+    const s = parseInt(parts[1], 10);
+    if (isNaN(m) || isNaN(s)) return null;
+    return (m * 60) + s;
+}
