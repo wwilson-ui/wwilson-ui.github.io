@@ -912,7 +912,12 @@ window.startAssignment = async function(assignId) {
         }
     }
 
-    if(!assignData) return; activeQuestions = qData || [];
+    if(!assignData) return; 
+
+    // FIXED: Store assignment data globally so skip zones can access it
+    window.currentAssignment = assignData;
+
+    activeQuestions = qData || [];
     
     document.getElementById('activeAssignmentTitle').innerText = assignData.title;
     document.getElementById('transcriptText').innerText = assignData.transcript || "No transcript provided.";
