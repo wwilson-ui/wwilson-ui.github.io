@@ -1420,13 +1420,38 @@ window.searchPodcasts = async function() {
 };
 
 window.selectPodcastEpisode = function(audioUrl, title) {
-    // Fill in your existing Create Assignment inputs!
-    document.getElementById('audioUrl').value = audioUrl;
-    document.getElementById('assignmentTitle').value = title;
+    // 1. Fill in the Assignment Title
+    const titleInput = document.getElementById('newAssignTitle');
+    if (titleInput) {
+        titleInput.value = title;
+    }
     
-    // Close the studio
+    // 2. Switch the Audio Source radio button to "Dropbox/Link" mode
+    const linkRadioBtn = document.querySelector('input[name="audioSourceType"][value="dropbox"]');
+    if (linkRadioBtn) {
+        linkRadioBtn.checked = true;
+        
+        // Trigger your existing UI toggle to show the URL box
+        if (typeof toggleAudioSourceUI === 'function') {
+            toggleAudioSourceUI();
+        }
+    }
+
+    // 3. Fill in the newly revealed Audio URL box
+    const urlInput = document.getElementById('newAssignAudioUrl');
+    if (urlInput) {
+        urlInput.value = audioUrl;
+    }
+    
+    // 4. Close the Studio Overlay
     document.getElementById('classcastStudio').style.display = 'none';
     
-    // Scroll to the form so the teacher sees the fields are filled
-    document.getElementById('createAssignmentForm').scrollIntoView({ behavior: 'smooth' });
+    // 5. Scroll the teacher smoothly back to the Create Assignment section
+    if (titleInput) {
+        titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Optional: Briefly flash the title box green so they see what changed
+        titleInput.style.transition = 'background-color 0.5s';
+        titleInput.style.backgroundColor = '#e8f5e9'; // Light green
+        setTimeout(() => { titleInput.style.backgroundColor = ''; }, 1500);
+    }
 };
