@@ -954,17 +954,23 @@ window.startAssignment = async function(assignId) {
 function handleAudioTimeUpdate() {
     if(!currentAssignmentId) return; const player = document.getElementById('audioPlayer');
 
-    // --- START AUTO-SKIP LOGIC ---
-    // Check if the current assignment has any skip zones saved
+    // --- ADD THIS BLOCK FOR AUTO-SKIPPING ---
     if (window.currentAssignment && window.currentAssignment.skip_zones) {
         window.currentAssignment.skip_zones.forEach(zone => {
-            // If the player enters a skip zone, jump to the end of it
             if (player.currentTime >= zone.start && player.currentTime < zone.end) {
-                player.currentTime = zone.end;
+                player.currentTime = zone.end; // Jump to the end of the trimmed section
             }
         });
     }
-    // --- END AUTO-SKIP LOGIC ---
+    // ----------------------------------------
+
+    if (player.currentTime > maxReachedTime + 1) {
+        player.currentTime = maxReachedTime;
+    } else {
+        maxReachedTime = Math.max(maxReachedTime, player.currentTime);
+    }
+    
+    // ... rest of your code (scrubber/timeDisplay updates)
     
     
     if (player.currentTime > maxReachedTime + 1) player.currentTime = maxReachedTime; else maxReachedTime = Math.max(maxReachedTime, player.currentTime);
