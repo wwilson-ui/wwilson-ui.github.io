@@ -1342,3 +1342,91 @@ window.exportStudentData = async function() {
     link.setAttribute("download", `ClassCast_${assignName.replace(/[^a-z0-9]/gi, '_')}.csv`);
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
 };
+
+
+
+// ==========================================
+// CLASSCAST: PODCAST SEARCH ENGINE
+// ==========================================
+
+window.searchPodcasts = async function() {
+    const query = document.getElementById('podcastSearchInput').value.trim();
+    const resultsContainer = document.getElementById('podcastSearchResults');
+    
+    if (!query) return;
+    
+    resultsContainer.innerHTML = '<div style="text-align: center; font-size: 1.2rem; color: #666; padding: 40px;">Searching database... 🎧</div>';
+    
+    try {
+        const url = `https://itunes.apple.com/search?media=podcast&entity=podcastEpisode&term=${encodeURIComponent(query)}&limit=15`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (!data.results || data.results.length === 0) {
+            resultsContainer.innerHTML = '<div style="text-align: center; font-size: 1.2rem; color: #666; padding: 40px;">No episodes found. Try a different search term.</div>';
+            return;
+        }
+        
+        let html = '';
+        data.results.forEach(ep => {
+            const title = ep.trackName || 'Unknown Episode';
+            const podcastName = ep.collectionName || 'Unknown Podcast';
+            const audioUrl = ep.episodeUrl; 
+            const artwork = ep.artworkUrl160 || ep.artworkUrl600 || '';
+            
+            let durationStr = 'Unknown Length';
+            if (ep.trackTimeMillis) {
+                const totalSeconds = Math.floor(ep.trackTimeMillis / 1000);
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                durationStr = hours > 0 ? `${hours} hr ${minutes} min` : `${minutes} min`;
+            }
+            
+            if (!audioUrl) return; 
+            
+            const safeTitle = title.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+            const safeAudioUrl = audioUrl.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+            
+            html += `
+                <div style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; display: flex; gap: 25px; align-items: center; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 6px 15px rgba(0,0,0,0.1)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='none'; this.style.transform='translateY(0)'">
+                    
+                    ${artwork ? `<img src="${artwork}" style="width: 120px; height: 120px; border-radius: 8px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">` : ''}
+                    
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 0.85rem; color: #673ab7; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">${podcastName}</div>
+                        <h3 style="margin: 5px 0 10px 0; color: #333; font-size: 1.3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${title}</h3>
+                        <div style="font-size: 0.9rem; color: #888; margin-bottom: 15px; font-weight: 600;">⏱️ ${durationStr}</div>
+                        
+                        <audio controls style="width: 100%; height: 35px; outline: none;" preload="none">
+                            <source src="${audioUrl}" type="audio/mpeg">
+                        </audio>
+                    </div>
+                    
+                    <div style="padding-left: 10px;">
+                        <button onclick="selectPodcastEpisode('${safeAudioUrl}', '${safeTitle}')" style="background: #2e7d32; color: white; border: none; padding: 15px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1rem; white-space: nowrap; box-shadow: 0 2px 5px rgba(46,125,50,0.3);">
+                            Select Episode ➔
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        resultsContainer.innerHTML = html;
+        
+    } catch (err) {
+        console.error("Search error:", err);
+        resultsContainer.innerHTML = '<div style="text-align: center; font-size: 1.2rem; color: #d32f2f; padding: 40px;">Error connecting to search database. Please try again.</div>';
+    }
+};
+
+window.selectPodcastEpisode = function(audioUrl, title) {
+    // Fill in your existing Create Assignment inputs!
+    document.getElementById('audioUrl').value = audioUrl;
+    document.getElementById('assignmentTitle').value = title;
+    
+    // Close the studio
+    document.getElementById('classcastStudio').style.display = 'none';
+    
+    // Scroll to the form so the teacher sees the fields are filled
+    document.getElementById('createAssignmentForm').scrollIntoView({ behavior: 'smooth' });
+};
