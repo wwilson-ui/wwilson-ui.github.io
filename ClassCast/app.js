@@ -376,6 +376,23 @@ window.editAssignment = async function(id) {
     document.getElementById('questionsBuilderList').innerHTML = '';
     if (qData) qData.forEach(q => addQuestionRow(q.question_type || 'open', q));
 
+    // FIXED: Load skip zones when editing
+    currentSkipZones = [];
+    if (assignData.skip_zones) {
+        try {
+            // Handle if it's stored as a string
+            if (typeof assignData.skip_zones === 'string') {
+                currentSkipZones = JSON.parse(assignData.skip_zones);
+            } else if (Array.isArray(assignData.skip_zones)) {
+                currentSkipZones = assignData.skip_zones;
+            }
+        } catch(e) {
+            console.error('Error loading skip zones:', e);
+            currentSkipZones = [];
+        }
+    }
+    renderSkipZones(); // Display the loaded skip zones
+
     document.getElementById('publishBtn').innerText = 'Update Assignment';
     document.getElementById('cancelEditBtn').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -913,10 +930,10 @@ window.startAssignment = async function(assignId) {
     }
 
     if(!assignData) return; 
-
-    // FIXED: Store assignment data globally so skip zones can access it
+    
+    // FIXED: Store assignment globally so skip zones work during playback
     window.currentAssignment = assignData;
-
+    
     activeQuestions = qData || [];
     
     document.getElementById('activeAssignmentTitle').innerText = assignData.title;
@@ -959,13 +976,30 @@ window.startAssignment = async function(assignId) {
 function handleAudioTimeUpdate() {
     if(!currentAssignmentId) return; const player = document.getElementById('audioPlayer');
 
-    // --- ADD THIS BLOCK FOR AUTO-SKIPPING ---
+    // --- SKIP ZONES CHECK (IMPROVED) ---
     if (window.currentAssignment && window.currentAssignment.skip_zones) {
-        window.currentAssignment.skip_zones.forEach(zone => {
-            if (player.currentTime >= zone.start && player.currentTime < zone.end) {
-                player.currentTime = zone.end; // Jump to the end of the trimmed section
+        let zones = window.currentAssignment.skip_zones;
+        
+        // Handle if stored as string (shouldn't be, but be defensive)
+        if (typeof zones === 'string') {
+            try {
+                zones = JSON.parse(zones);
+            } catch(e) {
+                console.error('Failed to parse skip zones:', e);
+                zones = [];
             }
-        });
+        }
+        
+        // Ensure it's an array
+        if (Array.isArray(zones)) {
+            zones.forEach(zone => {
+                // Check if we're in a skip zone
+                if (player.currentTime >= zone.start && player.currentTime < zone.end) {
+                    console.log(`⏭️ Skipping from ${player.currentTime.toFixed(2)} to ${zone.end}`);
+                    player.currentTime = zone.end; // Jump to end of skip zone
+                }
+            });
+        }
     }
     // ----------------------------------------
 
