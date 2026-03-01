@@ -22,6 +22,7 @@ let studentSessionAnswers = {};
 let currentActiveQuestionId = null; 
 let previousTotalTime = 0; 
 let realtimeSubscription = null; 
+let lastSkipTime = -999; // Track last skip to prevent infinite loops
 
 // Progress View State
 let filterNeedsGrading = false;
@@ -910,9 +911,18 @@ window.loadStudentAssignments = async function() {
 
 window.startAssignment = async function(assignId) {
     if(!assignId) return;
-    currentAssignmentId = assignId; answeredCheckpoints = []; sessionStartTime = null; maxReachedTime = 0; rewindCount = 0; studentSessionAnswers = {}; currentActiveQuestionId = null; previousTotalTime = 0; 
+    currentAssignmentId = assignId; 
+    answeredCheckpoints = []; 
+    sessionStartTime = null; 
+    maxReachedTime = 0; 
+    rewindCount = 0; 
+    studentSessionAnswers = {}; 
+    currentActiveQuestionId = null; 
+    previousTotalTime = 0; 
+    lastSkipTime = -999; // Reset skip tracking
     
-    document.getElementById('studentDashboard').classList.add('hidden'); document.getElementById('activeAssignmentCard').classList.remove('hidden');
+    document.getElementById('studentDashboard').classList.add('hidden'); 
+    document.getElementById('activeAssignmentCard').classList.remove('hidden');
     document.getElementById('subsparkLinkContainer').classList.add('hidden');
     document.getElementById('studentLinksDisplayArea').classList.add('hidden');
 
@@ -974,13 +984,15 @@ window.startAssignment = async function(assignId) {
 };
 
 function handleAudioTimeUpdate() {
-    if(!currentAssignmentId) return; const player = document.getElementById('audioPlayer');
+    if(!currentAssignmentId) return; 
+    const player = document.getElementById('audioPlayer');
+    const currentTime = player.currentTime;
 
-    // --- SKIP ZONES CHECK (IMPROVED) ---
+    // --- SKIP ZONES CHECK (FIXED - NO INFINITE LOOPS) ---
     if (window.currentAssignment && window.currentAssignment.skip_zones) {
         let zones = window.currentAssignment.skip_zones;
         
-        // Handle if stored as string (shouldn't be, but be defensive)
+        // Handle if stored as string
         if (typeof zones === 'string') {
             try {
                 zones = JSON.parse(zones);
@@ -990,32 +1002,37 @@ function handleAudioTimeUpdate() {
             }
         }
         
-        // Ensure it's an array
+        // Check each zone
         if (Array.isArray(zones)) {
-            zones.forEach(zone => {
-                // Check if we're in a skip zone
-                if (player.currentTime >= zone.start && player.currentTime < zone.end) {
-                    console.log(`⏭️ Skipping from ${player.currentTime.toFixed(2)} to ${zone.end}`);
-                    player.currentTime = zone.end; // Jump to end of skip zone
+            for (let zone of zones) {
+                // Check if we're inside a skip zone AND haven't just skipped this zone
+                if (currentTime >= zone.start && currentTime < zone.end) {
+                    // Only skip if we haven't just done this skip (prevent infinite loop)
+                    if (Math.abs(currentTime - lastSkipTime) > 0.5) {
+                        console.log(`⏭️ Skipping from ${currentTime.toFixed(2)} to ${zone.end}`);
+                        player.currentTime = zone.end;
+                        lastSkipTime = zone.end; // Remember this skip
+                        maxReachedTime = Math.max(maxReachedTime, zone.end); // Update max time
+                        return; // Exit early, let next timeupdate handle the new position
+                    }
                 }
-            });
+            }
         }
     }
     // ----------------------------------------
 
-    if (player.currentTime > maxReachedTime + 1) {
+    // Prevent scrubbing ahead (but allow skip zone jumps)
+    if (currentTime > maxReachedTime + 1) {
         player.currentTime = maxReachedTime;
     } else {
-        maxReachedTime = Math.max(maxReachedTime, player.currentTime);
+        maxReachedTime = Math.max(maxReachedTime, currentTime);
     }
     
-    // ... rest of your code (scrubber/timeDisplay updates)
-    
-    
-    if (player.currentTime > maxReachedTime + 1) player.currentTime = maxReachedTime; else maxReachedTime = Math.max(maxReachedTime, player.currentTime);
-
-    const scrubber = document.getElementById('audioScrubber'); const timeDisplay = document.getElementById('currentTimeDisplay');
-    if(scrubber) scrubber.value = Math.floor(player.currentTime); if(timeDisplay) timeDisplay.innerText = formatTime(player.currentTime);
+    // Update UI
+    const scrubber = document.getElementById('audioScrubber'); 
+    const timeDisplay = document.getElementById('currentTimeDisplay');
+    if(scrubber) scrubber.value = Math.floor(currentTime); 
+    if(timeDisplay) timeDisplay.innerText = formatTime(currentTime);
 
     const passedQuestion = activeQuestions.find(q => player.currentTime >= q.trigger_second && !answeredCheckpoints.includes(q.id));
     if (passedQuestion) {
