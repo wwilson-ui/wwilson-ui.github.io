@@ -479,12 +479,12 @@ window.saveNewAssignment = async function() {
             title: title, 
             target_class: JSON.stringify(selectedClasses), 
             target_students: JSON.stringify(selectedStudents), 
-            skip_zones: currentSkipZones, // <--- This saves your cuts!
             audio_url: finalAudioUrl, 
             subspark_url: finalSubSparkUrl, 
             transcript: transcript, 
             allow_speed: document.getElementById('newAssignAllowSpeed').checked,
-            additional_links: JSON.stringify(finalLinks)
+            additional_links: JSON.stringify(finalLinks),
+            skip_zones: currentSkipZones // <--- This saves your cuts!
         };
 
         if (editingAssignmentId) {
@@ -519,6 +519,7 @@ window.saveNewAssignment = async function() {
 
         if(questionsToInsert.length > 0) await sb.from('classcast_questions').insert(questionsToInsert);
         alert("Assignment saved!"); cancelEdit(); loadTeacherAssignments();
+        currentSkipZones = []; renderSkipZones(); // Add this line to clear the cuts
 
     } catch (error) { alert("Error: " + error.message); } 
     finally { publishBtn.disabled = false; publishBtn.innerText = 'Publish Assignment'; }
