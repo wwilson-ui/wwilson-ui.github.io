@@ -479,6 +479,7 @@ window.saveNewAssignment = async function() {
             title: title, 
             target_class: JSON.stringify(selectedClasses), 
             target_students: JSON.stringify(selectedStudents), 
+            skip_zones: currentSkipZones, // <--- This saves your cuts!
             audio_url: finalAudioUrl, 
             subspark_url: finalSubSparkUrl, 
             transcript: transcript, 
@@ -951,6 +952,20 @@ window.startAssignment = async function(assignId) {
 
 function handleAudioTimeUpdate() {
     if(!currentAssignmentId) return; const player = document.getElementById('audioPlayer');
+
+    // --- START AUTO-SKIP LOGIC ---
+    // Check if the current assignment has any skip zones saved
+    if (window.currentAssignment && window.currentAssignment.skip_zones) {
+        window.currentAssignment.skip_zones.forEach(zone => {
+            // If the player enters a skip zone, jump to the end of it
+            if (player.currentTime >= zone.start && player.currentTime < zone.end) {
+                player.currentTime = zone.end;
+            }
+        });
+    }
+    // --- END AUTO-SKIP LOGIC ---
+    
+    
     if (player.currentTime > maxReachedTime + 1) player.currentTime = maxReachedTime; else maxReachedTime = Math.max(maxReachedTime, player.currentTime);
 
     const scrubber = document.getElementById('audioScrubber'); const timeDisplay = document.getElementById('currentTimeDisplay');
