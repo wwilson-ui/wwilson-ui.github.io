@@ -1098,8 +1098,9 @@ function handleAudioTimeUpdate() {
             };
         } else { if (!player.paused) player.pause(); }
     }
-    const currentTime = Math.floor(player.currentTime);
-    if(currentTime > 0 && currentTime % 10 === 0) logProgress(currentTime, 'in_progress');
+    // Log progress every 10 seconds
+    const progressCheckTime = Math.floor(player.currentTime);
+    if(progressCheckTime > 0 && progressCheckTime % 10 === 0) logProgress(progressCheckTime, 'in_progress');
 }
 
 function handleAudioComplete() {
