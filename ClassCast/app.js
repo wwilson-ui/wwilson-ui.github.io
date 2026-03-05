@@ -203,9 +203,8 @@ async function checkUser() {
 
             const { data: teacherRecord } = await sb.from('classcast_teachers').select('*').eq('email', safeEmail).single();
             
-            // FIXED: Check role from database, not hardcoded email
-            userPerms.isSuperAdmin = teacherRecord?.role === 'super_admin';
-            userPerms.isTeacher = !!teacherRecord; // Anyone in classcast_teachers is a teacher
+            userPerms.isSuperAdmin = (safeEmail === MAIN_ADMIN);
+            userPerms.isTeacher = !!teacherRecord || userPerms.isSuperAdmin;
             
             if (superAdminBtn) {
                 if (userPerms.isSuperAdmin) {
@@ -747,8 +746,16 @@ async function loadManageClasses() {
             </div>
             
             <div style="margin-top: 10px; font-size: 0.85rem; color: #555;">
-                <strong>Co-Teachers:</strong> ${tEmails.join(', ')} 
-                <button onclick="addCoTeacherPrompt(${cls.id})" style="margin-left: 10px; background: none; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">+ Add Co-Teacher</button>
+                <strong>Co-Teachers:</strong>
+                <div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px;">
+                    ${tEmails.map(email => `
+                        <span style="background: #e3f2fd; color: #0079D3; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px;">
+                            ${email}
+                            ${tEmails.length > 1 ? `<button onclick="removeCoTeacher(${cls.id}, '${email}')" style="background: none; border: none; color: #d32f2f; cursor: pointer; font-weight: bold; padding: 0; margin: 0; line-height: 1;" title="Remove co-teacher">✕</button>` : ''}
+                        </span>
+                    `).join('')}
+                </div>
+                <button onclick="addCoTeacherPrompt(${cls.id})" style="margin-top: 10px; background: none; border: 1px solid #0079D3; color: #0079D3; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">+ Add Co-Teacher</button>
             </div>
 
             <div style="margin-top: 15px; display:flex; gap:10px;">
@@ -792,6 +799,26 @@ window.addCoTeacherPrompt = async function(classId) {
     loadManageClasses();
 };
 
+// NEW: Remove co-teacher from class
+window.removeCoTeacher = async function(classId, emailToRemove) {
+    if (!confirm(`Remove ${emailToRemove} as a co-teacher from this class?`)) return;
+    
+    const { data: cls } = await sb.from('classcast_classes').select('teacher_emails').eq('id', classId).single();
+    let emails = Array.isArray(cls.teacher_emails) ? cls.teacher_emails : [cls.teacher_emails];
+    
+    // Filter out the email to remove
+    emails = emails.filter(e => e !== emailToRemove);
+    
+    // Ensure at least one teacher remains
+    if (emails.length === 0) {
+        alert("Cannot remove the last teacher from a class!");
+        return;
+    }
+    
+    await sb.from('classcast_classes').update({ teacher_emails: emails }).eq('id', classId);
+    loadManageClasses();
+};
+
 async function loadManageFiles() {
     const tbody = document.getElementById('teacherFilesTable');
     tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Loading...</td></tr>';
@@ -805,63 +832,32 @@ window.deleteFile = async function(n) { if(confirm(`Delete ${n}?`)) { await sb.s
 // ================= SUPER ADMIN PANEL =================
 async function loadSuperAdminTeachers() {
     const tbody = document.getElementById('superAdminTeachersTable');
-    tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
-    const { data } = await sb.from('classcast_teachers').select('*').order('role', { ascending: false }).order('email');
-    if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="3">No authorized teachers found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="2">Loading...</td></tr>';
+    const { data } = await sb.from('classcast_teachers').select('*').order('email');
+    if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="2">No authorized teachers found.</td></tr>';
     
-    tbody.innerHTML = data.map(t => {
-        const isSuperAdmin = t.role === 'super_admin';
-        const badge = isSuperAdmin 
-            ? '<span style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; margin-left: 8px;">👑 SUPER ADMIN</span>'
-            : '<span style="background: #e3f2fd; color: #0079D3; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: 8px;">👩‍🏫 Teacher</span>';
-        
-        const roleButton = isSuperAdmin
-            ? `<button class="action-btn" style="background: #666; padding: 4px 10px; font-size: 0.8rem;" onclick="demoteToTeacher('${t.email}')">Demote to Teacher</button>`
-            : `<button class="action-btn" style="background: #ff6b6b; padding: 4px 10px; font-size: 0.8rem;" onclick="promoteToSuperAdmin('${t.email}')">Promote to Super Admin</button>`;
-        
-        const removeButton = `<button class="danger-btn" onclick="removeTeacher('${t.email}')">Remove Access</button>`;
-        
-        return `
-            <tr>
-                <td><strong>${t.email}</strong>${badge}</td>
-                <td style="text-align:center;">${roleButton}</td>
-                <td style="text-align:center;">${removeButton}</td>
-            </tr>
-        `;
-    }).join('');
+    tbody.innerHTML = data.map(t => `
+        <tr>
+            <td><strong>${t.email}</strong> ${t.email === MAIN_ADMIN ? '<span style="color:red; font-size:0.8rem;">(Super Admin)</span>' : ''}</td>
+            <td style="text-align:center;">
+                ${t.email !== MAIN_ADMIN ? `<button class="danger-btn" onclick="removeTeacher('${t.email}')">Revoke Access</button>` : '<span style="color:#666; font-size: 0.8rem;">System Linked</span>'}
+            </td>
+        </tr>
+    `).join('');
 }
 window.addAuthorizedTeacher = async function() {
     const email = document.getElementById('newTeacherEmail').value.trim().toLowerCase();
     if (!email) return;
-    await sb.from('classcast_teachers').insert([{ email: email, role: 'teacher' }]);
+    await sb.from('classcast_teachers').insert([{ email: email }]);
     document.getElementById('newTeacherEmail').value = '';
     loadSuperAdminTeachers();
 };
-
 window.removeTeacher = async function(email) {
-    if (confirm(`Remove ${email} from ClassCast? They will lose all teacher access.`)) {
+    if (confirm(`Revoke admin dashboard access for ${email}?`)) {
         await sb.from('classcast_teachers').delete().eq('email', email);
         loadSuperAdminTeachers();
     }
-};
-
-// NEW: Promote teacher to super admin
-window.promoteToSuperAdmin = async function(email) {
-    if (confirm(`Promote ${email} to Super Admin? They will have full access to manage all teachers and classes.`)) {
-        await sb.from('classcast_teachers').update({ role: 'super_admin' }).eq('email', email);
-        alert(`${email} is now a Super Admin!`);
-        loadSuperAdminTeachers();
-    }
-};
-
-// NEW: Demote super admin to regular teacher
-window.demoteToTeacher = async function(email) {
-    if (confirm(`Demote ${email} to regular Teacher? They will lose Super Admin privileges.`)) {
-        await sb.from('classcast_teachers').update({ role: 'teacher' }).eq('email', email);
-        alert(`${email} is now a regular Teacher.`);
-        loadSuperAdminTeachers();
-    }
-};
+}
 
 
 // ================= STUDENT PORTAL =================
