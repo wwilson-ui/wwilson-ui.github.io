@@ -583,6 +583,9 @@ async function loadTeacherAssignments() {
             statusBadge = '<span style="background: #4caf50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px;">✅ Open</span>';
         }
         
+        // FIXED: Define isOpen variable
+        const isOpen = !isClosed;
+        
         // IMPROVED: Better toggle switch with proper state management
         const toggleSwitch = `
             <div style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f5f5f5; border-radius: 4px; border: 1px solid #ddd;">
