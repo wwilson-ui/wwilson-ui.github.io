@@ -912,8 +912,7 @@ window.showStudentDashboard = function() {
 window.loadStudentAssignments = async function() {
     const selectedValue = document.getElementById('studentClassFilter').value || 'all'; 
     const dash = document.getElementById('studentDashboard');
-    document.getElementById('activeAssignmentCard').classList.add('hidden'); 
-    dash.classList.remove('hidden');
+    document.getElementById('activeAssignmentCard').classList.add('hidden'); dash.classList.remove('hidden');
 
     const names = await getStudentClassNames();
     if (names.length === 0) return dash.innerHTML = '<h2 style="margin-top:0;">My Dashboard</h2><p>You are not currently enrolled in any classes.</p>';
@@ -922,7 +921,7 @@ window.loadStudentAssignments = async function() {
     const { data: assignments } = await sb.from('classcast_assignments').select('*').order('created_at', { ascending: false });
     const { data: progressData } = await sb.from('classcast_progress').select('*').eq('student_email', currentUser?.email || '');
 
-    // 1. ADDED A NEW BUCKET FOR CLOSED ASSIGNMENTS: let closedAssigns = '';
+    // We added the closedAssigns bucket here!
     let assigned='', inProg='', comp='', closedAssigns='';
 
     if(assignments) {
@@ -938,28 +937,28 @@ window.loadStudentAssignments = async function() {
             } catch (e) {}
 
             if (isTarget) {
+                // FEATURE 4: Check if assignment is available
                 const now = new Date();
                 const openDate = d.open_date ? new Date(d.open_date) : null;
                 const closeDate = d.close_date ? new Date(d.close_date) : null;
                 const isClosed = d.is_manually_closed || (closeDate && now > closeDate);
                 const isScheduled = openDate && now < openDate;
                 
-                // 2. ONLY HIDE FUTURE ASSIGNMENTS. WE NO LONGER 'return' (HIDE) CLOSED ONES!
-                if (isScheduled) return; 
+                // THE FIX IS HERE: We only return (throw away) if it is Scheduled. 
+                // We let Closed assignments continue down the code!
+                if (isScheduled) return;
                 
                 const prog = progressData ? progressData.find(p => p.assignment_id === d.id) : null;
                 
                 let btnText = 'Start Listening'; 
                 let btnColor = 'var(--primary)';
                 let btnAction = `onclick="startAssignment(${d.id})"`;
-                let btnStyle = 'cursor: pointer;';
 
-                // 3. IF CLOSED, CHANGE THE BUTTON SO IT CANNOT BE CLICKED
                 if (isClosed) { 
+                    // Make the button unclickable and grey
                     btnText = 'Closed'; 
-                    btnColor = '#cccccc'; // Grey out the button
-                    btnAction = 'disabled'; // Disable clicking
-                    btnStyle = 'cursor: not-allowed; color: #666;';
+                    btnColor = '#cccccc'; 
+                    btnAction = 'disabled style="cursor: not-allowed; color: #666;"'; 
                 }
                 else if (prog && prog.status === 'completed') { 
                     btnText = 'Review'; btnColor = 'var(--success)'; 
@@ -970,12 +969,13 @@ window.loadStudentAssignments = async function() {
 
                 let badge = selectedValue === 'all' ? `<span style="background:#eee; color:#555; padding:2px 6px; border-radius:4px; font-size:0.75rem; margin-right:10px;">${aClasses.filter(c=>names.includes(c)).join(', ')}</span>` : '';
                 
-                const card = `<div style="border: 1px solid #dee2e6; padding: 15px; border-radius: 6px; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center; background: #fff; ${isClosed ? 'opacity: 0.7;' : ''}">
+                // We add a slight fade effect to closed cards using opacity
+                const card = `<div style="border: 1px solid #dee2e6; padding: 15px; border-radius: 6px; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center; background: #fff; ${isClosed ? 'opacity: 0.6;' : ''}">
                                 <div>${badge} <strong style="font-size: 1.1rem; color: #333;">${d.title}</strong></div>
-                                <button class="action-btn" style="background: ${btnColor}; ${btnColor==='#f4b400'?'color: #000;':''} ${btnStyle}" ${btnAction}>${btnText}</button>
+                                <button class="action-btn" style="background: ${btnColor}; ${btnColor==='#f4b400'?'color: #000;':''}" ${btnAction}>${btnText}</button>
                               </div>`;
 
-                // 4. PUT THE ASSIGNMENT IN THE RIGHT BUCKET
+                // Sort the card into the correct list
                 if (isClosed) {
                     closedAssigns += card;
                 } else if (!prog) {
@@ -989,7 +989,6 @@ window.loadStudentAssignments = async function() {
         });
     }
 
-    // 5. RENDER THE DASHBOARD WITH THE NEW "CLOSED ASSIGNMENTS" SECTION AT THE BOTTOM
     dash.innerHTML = `<h2 style="margin-top:0;">${selectedValue === 'all' ? "My Assignments (All Classes)" : `Assignments: ${escapeHTML(selectedValue)}`}</h2>
                       <h3 style="color:#444; border-bottom:2px solid #eee; margin-top:20px;">🔴 Not Started</h3> ${assigned || '<p style="color:#888;">No new assignments.</p>'}
                       <h3 style="color:#f4b400; border-bottom:2px solid #eee; margin-top:25px;">🟡 In Progress</h3> ${inProg || '<p style="color:#888;">No assignments in progress.</p>'}
