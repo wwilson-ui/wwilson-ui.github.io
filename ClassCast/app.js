@@ -394,6 +394,10 @@ window.editAssignment = async function(id) {
     }
     renderSkipZones(); // Display the loaded skip zones
 
+    // FEATURE 4: Load dates when editing
+    document.getElementById('newAssignOpenDate').value = assignData.open_date ? assignData.open_date.slice(0, 16) : '';
+    document.getElementById('newAssignCloseDate').value = assignData.close_date ? assignData.close_date.slice(0, 16) : '';
+
     document.getElementById('publishBtn').innerText = 'Update Assignment';
     document.getElementById('cancelEditBtn').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -502,7 +506,10 @@ window.saveNewAssignment = async function() {
             transcript: transcript, 
             allow_speed: document.getElementById('newAssignAllowSpeed').checked,
             additional_links: JSON.stringify(finalLinks),
-            skip_zones: currentSkipZones // <--- This saves your cuts!
+            skip_zones: currentSkipZones,
+            open_date: document.getElementById('newAssignOpenDate').value || null,
+            close_date: document.getElementById('newAssignCloseDate').value || null,
+            is_manually_closed: false
         };
 
         if (editingAssignmentId) {
@@ -559,15 +566,38 @@ async function loadTeacherAssignments() {
 
     if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No assignments.</td></tr>'; return; }
     
-    tbody.innerHTML = data.map(a => `
+    tbody.innerHTML = data.map(a => {
+        // FEATURE 4: Check assignment status
+        const now = new Date();
+        const openDate = a.open_date ? new Date(a.open_date) : null;
+        const closeDate = a.close_date ? new Date(a.close_date) : null;
+        const isClosed = a.is_manually_closed || (closeDate && now > closeDate);
+        const isScheduled = openDate && now < openDate;
+        
+        let statusBadge = '';
+        if (isClosed) {
+            statusBadge = '<span style="background: #f44336; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px;">🔒 Closed</span>';
+        } else if (isScheduled) {
+            statusBadge = '<span style="background: #ff9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px;">📅 Scheduled</span>';
+        } else {
+            statusBadge = '<span style="background: #4caf50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px;">✅ Open</span>';
+        }
+        
+        const closeButton = isClosed 
+            ? `<button class="action-btn" style="padding: 6px 12px; font-size: 0.8rem; background: #4caf50; margin-right: 5px;" onclick="reopenAssignment(${a.id})">Reopen</button>`
+            : `<button class="action-btn" style="padding: 6px 12px; font-size: 0.8rem; background: #f44336; margin-right: 5px;" onclick="closeAssignmentNow(${a.id})">Close Now</button>`;
+        
+        return `
         <tr>
-            <td><strong>${a.title}</strong></td>
+            <td><strong>${a.title}</strong>${statusBadge}</td>
             <td>${a.target_class}</td>
             <td>
+                ${closeButton}
                 <button class="action-btn" style="padding: 6px 12px; font-size: 0.8rem; background: #555; margin-right: 5px;" onclick="editAssignment(${a.id})">Edit</button>
                 <button class="danger-btn" onclick="deleteAssignment(${a.id})">Delete</button>
             </td>
-        </tr>`).join('');
+        </tr>`;
+    }).join('');
 }
 
 window.deleteAssignment = async function(id) { if(confirm("Delete this assignment?")) { await sb.from('classcast_assignments').delete().eq('id', id); loadTeacherAssignments(); } };
@@ -746,16 +776,8 @@ async function loadManageClasses() {
             </div>
             
             <div style="margin-top: 10px; font-size: 0.85rem; color: #555;">
-                <strong>Co-Teachers:</strong>
-                <div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px;">
-                    ${tEmails.map(email => `
-                        <span style="background: #e3f2fd; color: #0079D3; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px;">
-                            ${email}
-                            ${tEmails.length > 1 ? `<button onclick="removeCoTeacher(${cls.id}, '${email}')" style="background: none; border: none; color: #d32f2f; cursor: pointer; font-weight: bold; padding: 0; margin: 0; line-height: 1;" title="Remove co-teacher">✕</button>` : ''}
-                        </span>
-                    `).join('')}
-                </div>
-                <button onclick="addCoTeacherPrompt(${cls.id})" style="margin-top: 10px; background: none; border: 1px solid #0079D3; color: #0079D3; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 0.8rem; font-weight: 600;">+ Add Co-Teacher</button>
+                <strong>Co-Teachers:</strong> ${tEmails.join(', ')} 
+                <button onclick="addCoTeacherPrompt(${cls.id})" style="margin-left: 10px; background: none; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">+ Add Co-Teacher</button>
             </div>
 
             <div style="margin-top: 15px; display:flex; gap:10px;">
@@ -795,26 +817,6 @@ window.addCoTeacherPrompt = async function(classId) {
     const { data: cls } = await sb.from('classcast_classes').select('teacher_emails').eq('id', classId).single();
     let emails = Array.isArray(cls.teacher_emails) ? cls.teacher_emails : [cls.teacher_emails];
     if (!emails.includes(email)) emails.push(email.toLowerCase());
-    await sb.from('classcast_classes').update({ teacher_emails: emails }).eq('id', classId);
-    loadManageClasses();
-};
-
-// NEW: Remove co-teacher from class
-window.removeCoTeacher = async function(classId, emailToRemove) {
-    if (!confirm(`Remove ${emailToRemove} as a co-teacher from this class?`)) return;
-    
-    const { data: cls } = await sb.from('classcast_classes').select('teacher_emails').eq('id', classId).single();
-    let emails = Array.isArray(cls.teacher_emails) ? cls.teacher_emails : [cls.teacher_emails];
-    
-    // Filter out the email to remove
-    emails = emails.filter(e => e !== emailToRemove);
-    
-    // Ensure at least one teacher remains
-    if (emails.length === 0) {
-        alert("Cannot remove the last teacher from a class!");
-        return;
-    }
-    
     await sb.from('classcast_classes').update({ teacher_emails: emails }).eq('id', classId);
     loadManageClasses();
 };
@@ -915,6 +917,16 @@ window.loadStudentAssignments = async function() {
             } catch (e) {}
 
             if (isTarget) {
+                // FEATURE 4: Check if assignment is available
+                const now = new Date();
+                const openDate = d.open_date ? new Date(d.open_date) : null;
+                const closeDate = d.close_date ? new Date(d.close_date) : null;
+                const isClosed = d.is_manually_closed || (closeDate && now > closeDate);
+                const isScheduled = openDate && now < openDate;
+                
+                // Skip closed or scheduled assignments
+                if (isClosed || isScheduled) return;
+                
                 const prog = progressData ? progressData.find(p => p.assignment_id === d.id) : null;
                 let btnText = 'Start Listening'; let btnColor = 'var(--primary)';
                 if (prog && prog.status === 'completed') { btnText = 'Review'; btnColor = 'var(--success)'; }
@@ -968,6 +980,26 @@ window.startAssignment = async function(assignId) {
     }
 
     if(!assignData) return; 
+    
+    // FEATURE 4: Check if assignment is available
+    const now = new Date();
+    const openDate = assignData.open_date ? new Date(assignData.open_date) : null;
+    const closeDate = assignData.close_date ? new Date(assignData.close_date) : null;
+    const isClosed = assignData.is_manually_closed || (closeDate && now > closeDate);
+    const isScheduled = openDate && now < openDate;
+    
+    if (isClosed) {
+        alert('This assignment is closed and no longer available.');
+        showStudentDashboard();
+        return;
+    }
+    
+    if (isScheduled) {
+        const openStr = openDate.toLocaleString();
+        alert(`This assignment is not yet available. It opens on ${openStr}`);
+        showStudentDashboard();
+        return;
+    }
     
     // FIXED: Store assignment globally so skip zones work during playback
     window.currentAssignment = assignData;
@@ -1297,6 +1329,35 @@ function renderProgressGrid() {
         });
     }
 
+    // FEATURE 2: Apply sorting
+    const sortBy = window.currentProgressSort || 'name-asc';
+    displayData.sort((a, b) => {
+        const aEmail = a.student_email || '';
+        const bEmail = b.student_email || '';
+        const aName = window.currentRosterMap[aEmail] || aEmail.split('@')[0] || '';
+        const bName = window.currentRosterMap[bEmail] || bEmail.split('@')[0] || '';
+
+        if (sortBy === 'name-asc') return aName.localeCompare(bName);
+        if (sortBy === 'name-desc') return bName.localeCompare(aName);
+        if (sortBy === 'status') return (b.status === 'completed' ? 1 : 0) - (a.status === 'completed' ? 1 : 0);
+        
+        if (sortBy === 'score-high' || sortBy === 'score-low') {
+            let aAnswers = typeof a.student_answers === 'string' ? JSON.parse(a.student_answers || '{}') : (a.student_answers || {});
+            let bAnswers = typeof b.student_answers === 'string' ? JSON.parse(b.student_answers || '{}') : (b.student_answers || {});
+            let aCorrect = 0, bCorrect = 0;
+            currentProgressQuestions.forEach(q => {
+                if (aAnswers[q.id]?.isCorrect === true) aCorrect++;
+                if (bAnswers[q.id]?.isCorrect === true) bCorrect++;
+            });
+            const totalQ = currentProgressQuestions.length || 1;
+            const aScore = (aCorrect / totalQ) * 100;
+            const bScore = (bCorrect / totalQ) * 100;
+            return sortBy === 'score-high' ? bScore - aScore : aScore - bScore;
+        }
+        
+        return 0;
+    });
+
     let headerHtml = `<tr>
         <th style="position: sticky; left: 0; background: #f8f9fa; z-index: 2; border-right: 2px solid #ccc;">Student</th>
         <th>Status</th>
@@ -1307,7 +1368,11 @@ function renderProgressGrid() {
     
     currentProgressQuestions.forEach((q, i) => {
         let typeLabel = q.question_type ? q.question_type.toUpperCase() : 'OPEN';
-        headerHtml += `<th style="min-width: 200px;">Q${i+1} (${typeLabel})<br><span style="font-size:0.75rem; font-weight:normal; color:#666;">@ ${q.trigger_second}s</span></th>`;
+        headerHtml += `<th style="min-width: 200px;">
+            Q${i+1} (${typeLabel})<br>
+            <span style="font-size:0.75rem; font-weight:normal; color:#666;">@ ${q.trigger_second}s</span>
+            <button onclick="showQuestionPreview(${i})" style="margin-left: 6px; background: none; border: 1px solid #0079D3; color: #0079D3; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 0.75rem; line-height: 1; padding: 0;" title="View full question">?</button>
+        </th>`;
     });
     headerHtml += `</tr>`;
     thead.innerHTML = headerHtml;
@@ -1402,7 +1467,7 @@ window.exportStudentData = async function() {
     const assignDropdown = document.getElementById('progressAssignmentSelect');
     const assignName = assignDropdown.options[assignDropdown.selectedIndex].text;
 
-    let csv = "Student Name,Student Email,Status,Audio Reached,Total Time Spent,Rewind Count,Score";
+    let csv = "Student Name,Student Email,Raw Score,Percentage,Status,Audio Reached,Total Time Spent,Rewind Count";
     currentProgressQuestions.forEach((q, i) => { csv += `,Q${i+1} (${q.question_type || 'open'})`; });
     csv += "\n";
 
@@ -1415,14 +1480,15 @@ window.exportStudentData = async function() {
             if (ansData && ansData.isCorrect === true) correctCount++;
         });
         
-        let scoreText = totalQuestions > 0 ? `${Math.round((correctCount/totalQuestions)*100)}%` : 'N/A';
+        let rawScore = totalQuestions > 0 ? `${correctCount}/${totalQuestions}` : 'N/A';
+        let percentScore = totalQuestions > 0 ? `${Math.round((correctCount/totalQuestions)*100)}%` : 'N/A';
         let reachedText = formatTime(p.furthest_second || 0);
         let timeSpentText = formatTime(p.total_session_seconds || 0);
 
         let safeEmail = p.student_email || '';
         let displayName = window.currentRosterMap[safeEmail] || safeEmail.split('@')[0] || 'Unknown';
 
-        csv += `"${displayName}","${safeEmail}","${p.status}","${reachedText}","${timeSpentText}","${p.rewind_count || 0}","${scoreText}"`;
+        csv += `"${displayName}","${safeEmail}","${rawScore}","${percentScore}","${p.status}","${reachedText}","${timeSpentText}","${p.rewind_count || 0}"`;
         
         currentProgressQuestions.forEach(q => {
             let ansData = answers[q.id];
@@ -1618,3 +1684,108 @@ function parseTimeToSeconds(timeStr) {
     if (isNaN(m) || isNaN(s)) return null;
     return (m * 60) + s;
 }
+
+// ==========================================
+// FEATURE 1: Question Preview Modal
+// ==========================================
+window.showQuestionPreview = function(questionIndex) {
+    const q = currentProgressQuestions[questionIndex];
+    if (!q) return;
+    
+    let optionsHtml = '';
+    if (q.question_type === 'mc') {
+        const opts = typeof q.options === 'string' ? JSON.parse(q.options || '{}') : (q.options || {});
+        optionsHtml = `
+            <div style="margin-top: 15px;">
+                <strong>Answer Choices:</strong>
+                <ul style="margin-top: 8px; padding-left: 20px;">
+                    <li><strong>A:</strong> ${escapeHTML(opts.a || '')}</li>
+                    <li><strong>B:</strong> ${escapeHTML(opts.b || '')}</li>
+                    <li><strong>C:</strong> ${escapeHTML(opts.c || '')}</li>
+                    <li><strong>D:</strong> ${escapeHTML(opts.d || '')}</li>
+                </ul>
+                <div style="margin-top: 10px; padding: 10px; background: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 4px;">
+                    <strong>Correct Answer:</strong> ${String(q.correct_answer).toUpperCase()}
+                </div>
+            </div>
+        `;
+    } else if (q.question_type === 'tf') {
+        optionsHtml = `
+            <div style="margin-top: 15px; padding: 10px; background: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 4px;">
+                <strong>Correct Answer:</strong> ${q.correct_answer === 'true' ? 'True' : 'False'}
+            </div>
+        `;
+    } else if (q.question_type === 'match') {
+        const opts = typeof q.options === 'string' ? JSON.parse(q.options || '{}') : (q.options || {});
+        const pairs = opts.pairs || [];
+        optionsHtml = `
+            <div style="margin-top: 15px;">
+                <strong>Matching Pairs:</strong>
+                <ul style="margin-top: 8px; padding-left: 20px;">
+                    ${pairs.map(p => `<li><strong>${escapeHTML(p.t)}</strong> = ${escapeHTML(p.m)}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    } else {
+        optionsHtml = '<div style="margin-top: 15px; color: #666; font-style: italic;">Open-ended question - no specific correct answer required.</div>';
+    }
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    modal.innerHTML = `
+        <div style="background: white; padding: 30px; border-radius: 8px; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 15px;">
+                <h3 style="margin: 0; color: #0079D3;">Question ${questionIndex + 1} Preview</h3>
+                <button onclick="this.closest('div[style*=fixed]').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666;">&times;</button>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <span style="background: #e3f2fd; color: #0079D3; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">
+                    ${q.question_type ? q.question_type.toUpperCase() : 'OPEN'}
+                </span>
+                <span style="margin-left: 10px; color: #666; font-size: 0.9rem;">@ ${q.trigger_second}s</span>
+            </div>
+            <div style="font-size: 1.1rem; font-weight: 600; margin: 15px 0; line-height: 1.5;">
+                ${escapeHTML(q.question_text)}
+            </div>
+            ${optionsHtml}
+            <button onclick="this.closest('div[style*=fixed]').remove()" style="margin-top: 20px; background: #0079D3; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: 600;">Close</button>
+        </div>
+    `;
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
+};
+
+// ==========================================
+// FEATURE 2: Sort Function
+// ==========================================
+window.currentProgressSort = 'name-asc';
+window.changeProgressSort = function(sortValue) {
+    window.currentProgressSort = sortValue;
+    renderProgressGrid();
+};
+
+// ==========================================
+// FEATURE 4: Assignment Dates & Close
+// ==========================================
+window.closeAssignmentNow = async function(assignId) {
+    if (!confirm('Close this assignment now? Students will no longer be able to access it.')) return;
+    
+    await sb.from('classcast_assignments').update({ 
+        is_manually_closed: true,
+        close_date: new Date().toISOString()
+    }).eq('id', assignId);
+    
+    alert('Assignment closed successfully!');
+    loadTeacherAssignments();
+};
+
+window.reopenAssignment = async function(assignId) {
+    if (!confirm('Reopen this assignment? Students will be able to access it again.')) return;
+    
+    await sb.from('classcast_assignments').update({ 
+        is_manually_closed: false
+    }).eq('id', assignId);
+    
+    alert('Assignment reopened!');
+    loadTeacherAssignments();
+};
