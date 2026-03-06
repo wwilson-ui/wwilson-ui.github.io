@@ -223,6 +223,25 @@
                                 <input type="checkbox" id="newAssignAllowSpeed" checked> Allow students to adjust playback speed
                             </label>
 
+                            <!-- FEATURE 4: Assignment Dates -->
+                            <div style="background: #fff3e0; padding: 15px; border-radius: 4px; margin: 15px 0; border: 1px solid #ffb74d;">
+                                <h3 style="margin-top: 0; font-size: 1.1rem; color: #e65100;">📅 Assignment Availability (Optional)</h3>
+                                <p style="font-size: 0.85rem; color: #555; margin-bottom: 15px;">Control when students can access this assignment.</p>
+                                
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                    <div>
+                                        <label style="font-size: 0.9rem; font-weight: 600;">Open Date & Time</label>
+                                        <input type="datetime-local" id="newAssignOpenDate" style="width: 100%; padding: 8px; margin-top: 5px;">
+                                        <p style="font-size: 0.75rem; color: #666; margin: 3px 0 0 0;">Leave blank to open immediately</p>
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 0.9rem; font-weight: 600;">Close Date & Time</label>
+                                        <input type="datetime-local" id="newAssignCloseDate" style="width: 100%; padding: 8px; margin-top: 5px;">
+                                        <p style="font-size: 0.75rem; color: #666; margin: 3px 0 0 0;">Leave blank to never close</p>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div style="background: #e3f2fd; padding: 15px; border-radius: 4px; margin: 15px 0; border: 1px solid #b3d9ff;">
                                 <h3 style="margin-top: 0; font-size: 1.1rem; color: var(--primary);">📎 Additional Links & PDFs (Optional)</h3>
                                 <p style="font-size: 0.85rem; color: #555;">Add external readings or hosted PDFs for students to reference during the assignment.</p>
@@ -287,9 +306,26 @@
                                 </div>
                             </div>
                             
-                            <select id="progressAssignmentSelect" onchange="loadAssignmentProgress()" style="max-width: 400px; margin-bottom: 20px;">
-                                <option value="">-- Select an Assignment to View Data --</option>
-                            </select>
+                            <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
+                                <div style="flex: 1; max-width: 400px;">
+                                    <label style="font-size: 0.9rem; font-weight: 600; display: block; margin-bottom: 5px;">Select Assignment:</label>
+                                    <select id="progressAssignmentSelect" onchange="loadAssignmentProgress()" style="width: 100%;">
+                                        <option value="">-- Select an Assignment to View Data --</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- FEATURE 2: Sort Dropdown -->
+                                <div style="min-width: 200px;">
+                                    <label style="font-size: 0.9rem; font-weight: 600; display: block; margin-bottom: 5px;">Sort by:</label>
+                                    <select onchange="changeProgressSort(this.value)" style="width: 100%; padding: 8px;">
+                                        <option value="name-asc">Name (A-Z)</option>
+                                        <option value="name-desc">Name (Z-A)</option>
+                                        <option value="status">Status (Complete first)</option>
+                                        <option value="score-high">Score (High to Low)</option>
+                                        <option value="score-low">Score (Low to High)</option>
+                                    </select>
+                                </div>
+                            </div>
 
                             <div class="grid-wrapper" style="overflow-x: auto; max-height: 600px; border: 1px solid #dee2e6; border-radius: 4px;">
                                 <table style="width: 100%; white-space: nowrap; margin-top: 0;">
@@ -352,15 +388,9 @@
                             </div>
                             
                             <table style="margin-top: 25px;">
-                                <thead>
-                                    <tr>
-                                        <th>Teacher Email & Role</th>
-                                        <th style="width: 180px; text-align: center;">Role Management</th>
-                                        <th style="width: 120px; text-align: center;">Remove</th>
-                                    </tr>
-                                </thead>
+                                <thead><tr><th>Authorized Teacher Email</th><th style="width: 120px; text-align: center;">Actions</th></tr></thead>
                                 <tbody id="superAdminTeachersTable">
-                                    <tr><td colspan="3" style="text-align:center;">Loading...</td></tr>
+                                    <tr><td colspan="2" style="text-align:center;">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>
