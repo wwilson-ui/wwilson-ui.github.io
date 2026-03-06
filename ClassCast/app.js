@@ -583,16 +583,24 @@ async function loadTeacherAssignments() {
             statusBadge = '<span style="background: #4caf50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px;">✅ Open</span>';
         }
         
-        const closeButton = isClosed 
-            ? `<button class="action-btn" style="padding: 6px 12px; font-size: 0.8rem; background: #4caf50; margin-right: 5px;" onclick="reopenAssignment(${a.id})">Reopen</button>`
-            : `<button class="action-btn" style="padding: 6px 12px; font-size: 0.8rem; background: #f44336; margin-right: 5px;" onclick="closeAssignmentNow(${a.id})">Close Now</button>`;
+        // IMPROVED: Toggle switch instead of button
+        const isOpen = !isClosed;
+        const toggleSwitch = `
+            <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; margin-right: 10px;">
+                <span style="font-size: 0.85rem; font-weight: 600; color: #666;">${isOpen ? 'Open' : 'Closed'}</span>
+                <div style="position: relative; width: 50px; height: 26px; background: ${isOpen ? '#4caf50' : '#ccc'}; border-radius: 13px; transition: background 0.3s;">
+                    <input type="checkbox" ${isOpen ? 'checked' : ''} onchange="toggleAssignmentStatus(${a.id}, this.checked)" style="opacity: 0; width: 0; height: 0;">
+                    <span style="position: absolute; top: 3px; left: ${isOpen ? '26px' : '3px'}; width: 20px; height: 20px; background: white; border-radius: 50%; transition: left 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
+                </div>
+            </label>
+        `;
         
         return `
         <tr>
             <td><strong>${a.title}</strong>${statusBadge}</td>
             <td>${a.target_class}</td>
             <td>
-                ${closeButton}
+                ${toggleSwitch}
                 <button class="action-btn" style="padding: 6px 12px; font-size: 0.8rem; background: #555; margin-right: 5px;" onclick="editAssignment(${a.id})">Edit</button>
                 <button class="danger-btn" onclick="deleteAssignment(${a.id})">Delete</button>
             </td>
@@ -1291,15 +1299,25 @@ window.loadAssignmentProgress = async function(isSilentRefresh = false) {
     const { data: assignData } = await sb.from('classcast_assignments').select('target_class').eq('id', assignId).single();
     let targetClassNames = []; try { targetClassNames = JSON.parse(assignData.target_class || '[]'); } catch(e) { targetClassNames = [assignData.target_class]; }
     
-    const { data: classRecords } = await sb.from('classcast_classes').select('id').in('class_name', targetClassNames);
+    const { data: classRecords } = await sb.from('classcast_classes').select('id, class_name').in('class_name', targetClassNames);
     const cIds = classRecords ? classRecords.map(c => c.id) : [];
     
-    const { data: rosterData } = await sb.from('classcast_roster').select('student_email, student_name').in('class_id', cIds);
+    // Create map of class ID to class name
+    const classIdToName = {};
+    if (classRecords) {
+        classRecords.forEach(c => { classIdToName[c.id] = c.class_name; });
+    }
+    
+    const { data: rosterData } = await sb.from('classcast_roster').select('student_email, student_name, class_id').in('class_id', cIds);
     window.currentRosterMap = {};
+    window.currentClassMap = {}; // NEW: Map email to class name
     const validRosterEmails = new Set();
     if (rosterData) {
         rosterData.forEach(r => { 
-            if (r.student_name && r.student_email) window.currentRosterMap[r.student_email] = r.student_name; 
+            if (r.student_name && r.student_email) {
+                window.currentRosterMap[r.student_email] = r.student_name;
+                window.currentClassMap[r.student_email] = classIdToName[r.class_id] || 'Unknown Class';
+            }
             validRosterEmails.add(r.student_email);
         });
     }
@@ -1336,9 +1354,23 @@ function renderProgressGrid() {
         const bEmail = b.student_email || '';
         const aName = window.currentRosterMap[aEmail] || aEmail.split('@')[0] || '';
         const bName = window.currentRosterMap[bEmail] || bEmail.split('@')[0] || '';
+        const aClass = window.currentClassMap[aEmail] || '';
+        const bClass = window.currentClassMap[bEmail] || '';
+        
+        // Extract last names (word after last space, or entire name if no space)
+        const aLastName = aName.includes(' ') ? aName.split(' ').pop() : aName;
+        const bLastName = bName.includes(' ') ? bName.split(' ').pop() : bName;
 
         if (sortBy === 'name-asc') return aName.localeCompare(bName);
         if (sortBy === 'name-desc') return bName.localeCompare(aName);
+        if (sortBy === 'lastname-asc') return aLastName.localeCompare(bLastName);
+        if (sortBy === 'lastname-desc') return bLastName.localeCompare(aLastName);
+        if (sortBy === 'class') {
+            const classCompare = aClass.localeCompare(bClass);
+            if (classCompare !== 0) return classCompare;
+            // Secondary sort by last name within same class
+            return aLastName.localeCompare(bLastName);
+        }
         if (sortBy === 'status') return (b.status === 'completed' ? 1 : 0) - (a.status === 'completed' ? 1 : 0);
         
         if (sortBy === 'score-high' || sortBy === 'score-low') {
@@ -1360,6 +1392,7 @@ function renderProgressGrid() {
 
     let headerHtml = `<tr>
         <th style="position: sticky; left: 0; background: #f8f9fa; z-index: 2; border-right: 2px solid #ccc;">Student</th>
+        <th>Class</th>
         <th>Status</th>
         <th>Audio Reached</th>
         <th>Total Time Spent</th>
@@ -1400,12 +1433,14 @@ function renderProgressGrid() {
 
         let safeEmail = p.student_email || '';
         let displayName = window.currentRosterMap[safeEmail] || safeEmail.split('@')[0] || 'Unknown Student';
+        let className = window.currentClassMap[safeEmail] || 'Unknown Class';
 
         bodyHtml += `<tr>
             <td style="position: sticky; left: 0; background: #fff; z-index: 1; border-right: 2px solid #ccc;">
                 <strong>${displayName}</strong>
                 <div style="font-size: 0.75rem; color: #888;">${safeEmail}</div>
             </td>
+            <td><span style="background: #e3f2fd; color: #0079D3; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">${className}</span></td>
             <td>${p.status === 'completed' ? '✅ Complete' : '🔄 In Progress'}</td>
             <td style="font-family: monospace;">${reachedText}</td>
             <td style="font-family: monospace;">${timeSpentText}</td>
@@ -1467,7 +1502,7 @@ window.exportStudentData = async function() {
     const assignDropdown = document.getElementById('progressAssignmentSelect');
     const assignName = assignDropdown.options[assignDropdown.selectedIndex].text;
 
-    let csv = "Student Name,Student Email,Raw Score,Percentage,Status,Audio Reached,Total Time Spent,Rewind Count";
+    let csv = "Student Name,Student Email,Class,Raw Score,Percentage,Status,Audio Reached,Total Time Spent,Rewind Count";
     currentProgressQuestions.forEach((q, i) => { csv += `,Q${i+1} (${q.question_type || 'open'})`; });
     csv += "\n";
 
@@ -1487,8 +1522,9 @@ window.exportStudentData = async function() {
 
         let safeEmail = p.student_email || '';
         let displayName = window.currentRosterMap[safeEmail] || safeEmail.split('@')[0] || 'Unknown';
+        let className = window.currentClassMap[safeEmail] || 'Unknown Class';
 
-        csv += `"${displayName}","${safeEmail}","${rawScore}","${percentScore}","${p.status}","${reachedText}","${timeSpentText}","${p.rewind_count || 0}"`;
+        csv += `"${displayName}","${safeEmail}","${className}","${rawScore}","${percentScore}","${p.status}","${reachedText}","${timeSpentText}","${p.rewind_count || 0}"`;
         
         currentProgressQuestions.forEach(q => {
             let ansData = answers[q.id];
@@ -1758,34 +1794,21 @@ window.showQuestionPreview = function(questionIndex) {
 // ==========================================
 // FEATURE 2: Sort Function
 // ==========================================
-window.currentProgressSort = 'name-asc';
+window.currentProgressSort = 'class'; // Default to class sorting
 window.changeProgressSort = function(sortValue) {
     window.currentProgressSort = sortValue;
     renderProgressGrid();
 };
 
 // ==========================================
-// FEATURE 4: Assignment Dates & Close
+// FEATURE 4: Assignment Toggle (replaces close/reopen buttons)
 // ==========================================
-window.closeAssignmentNow = async function(assignId) {
-    if (!confirm('Close this assignment now? Students will no longer be able to access it.')) return;
+window.toggleAssignmentStatus = async function(assignId, shouldBeOpen) {
+    const action = shouldBeOpen ? 'open' : 'close';
     
     await sb.from('classcast_assignments').update({ 
-        is_manually_closed: true,
-        close_date: new Date().toISOString()
+        is_manually_closed: !shouldBeOpen
     }).eq('id', assignId);
     
-    alert('Assignment closed successfully!');
-    loadTeacherAssignments();
-};
-
-window.reopenAssignment = async function(assignId) {
-    if (!confirm('Reopen this assignment? Students will be able to access it again.')) return;
-    
-    await sb.from('classcast_assignments').update({ 
-        is_manually_closed: false
-    }).eq('id', assignId);
-    
-    alert('Assignment reopened!');
     loadTeacherAssignments();
 };
