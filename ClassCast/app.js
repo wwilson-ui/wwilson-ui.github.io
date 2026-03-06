@@ -583,26 +583,34 @@ async function loadTeacherAssignments() {
             statusBadge = '<span style="background: #4caf50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px;">✅ Open</span>';
         }
         
-        // IMPROVED: Toggle switch instead of button
-        const isOpen = !isClosed;
+        // IMPROVED: Better toggle switch with proper state management
         const toggleSwitch = `
-            <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; margin-right: 10px;">
-                <span style="font-size: 0.85rem; font-weight: 600; color: #666;">${isOpen ? 'Open' : 'Closed'}</span>
-                <div style="position: relative; width: 50px; height: 26px; background: ${isOpen ? '#4caf50' : '#ccc'}; border-radius: 13px; transition: background 0.3s;">
-                    <input type="checkbox" ${isOpen ? 'checked' : ''} onchange="toggleAssignmentStatus(${a.id}, this.checked)" style="opacity: 0; width: 0; height: 0;">
-                    <span style="position: absolute; top: 3px; left: ${isOpen ? '26px' : '3px'}; width: 20px; height: 20px; background: white; border-radius: 50%; transition: left 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
-                </div>
-            </label>
+            <div style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f5f5f5; border-radius: 4px; border: 1px solid #ddd;">
+                <span style="font-size: 0.8rem; font-weight: 600; color: ${isOpen ? '#4caf50' : '#999'}; min-width: 50px;">${isOpen ? 'Open' : 'Closed'}</span>
+                <label style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;">
+                    <input type="checkbox" ${isOpen ? 'checked' : ''} 
+                           onchange="toggleAssignmentStatus(${a.id}, this.checked)" 
+                           style="opacity: 0; width: 0; height: 0; position: absolute;">
+                    <span style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: ${isOpen ? '#4caf50' : '#ccc'}; border-radius: 12px; transition: 0.3s;"></span>
+                    <span style="position: absolute; content: ''; height: 18px; width: 18px; left: ${isOpen ? '23px' : '3px'}; bottom: 3px; background-color: white; border-radius: 50%; transition: 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
+                </label>
+            </div>
         `;
         
         return `
         <tr>
-            <td><strong>${a.title}</strong>${statusBadge}</td>
+            <td>
+                <strong>${a.title}</strong>${statusBadge}
+            </td>
             <td>${a.target_class}</td>
             <td>
-                ${toggleSwitch}
-                <button class="action-btn" style="padding: 6px 12px; font-size: 0.8rem; background: #555; margin-right: 5px;" onclick="editAssignment(${a.id})">Edit</button>
-                <button class="danger-btn" onclick="deleteAssignment(${a.id})">Delete</button>
+                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+                    ${toggleSwitch}
+                    <div style="display: flex; gap: 5px;">
+                        <button class="action-btn" style="padding: 6px 12px; font-size: 0.8rem; background: #555;" onclick="editAssignment(${a.id})">Edit</button>
+                        <button class="danger-btn" style="padding: 6px 12px; font-size: 0.8rem;" onclick="deleteAssignment(${a.id})">Delete</button>
+                    </div>
+                </div>
             </td>
         </tr>`;
     }).join('');
@@ -1348,7 +1356,7 @@ function renderProgressGrid() {
     }
 
     // FEATURE 2: Apply sorting
-    const sortBy = window.currentProgressSort || 'name-asc';
+    const sortBy = window.currentProgressSort || 'class';
     displayData.sort((a, b) => {
         const aEmail = a.student_email || '';
         const bEmail = b.student_email || '';
@@ -1357,9 +1365,17 @@ function renderProgressGrid() {
         const aClass = window.currentClassMap[aEmail] || '';
         const bClass = window.currentClassMap[bEmail] || '';
         
-        // Extract last names (word after last space, or entire name if no space)
-        const aLastName = aName.includes(' ') ? aName.split(' ').pop() : aName;
-        const bLastName = bName.includes(' ') ? bName.split(' ').pop() : bName;
+        // FIXED: Extract last name properly for compound names like "Van Der Berg"
+        // Assumes "FirstName LastName(s)" - everything after first word is last name
+        const extractLastName = (fullName) => {
+            if (!fullName) return '';
+            const parts = fullName.trim().split(' ');
+            if (parts.length === 1) return parts[0]; // Single name like "Ahmed"
+            return parts.slice(1).join(' '); // "Jane Van Der Berg" → "Van Der Berg"
+        };
+        
+        const aLastName = extractLastName(aName);
+        const bLastName = extractLastName(bName);
 
         if (sortBy === 'name-asc') return aName.localeCompare(bName);
         if (sortBy === 'name-desc') return bName.localeCompare(aName);
@@ -1801,14 +1817,20 @@ window.changeProgressSort = function(sortValue) {
 };
 
 // ==========================================
-// FEATURE 4: Assignment Toggle (replaces close/reopen buttons)
+// FEATURE 4: Assignment Toggle (improved)
 // ==========================================
 window.toggleAssignmentStatus = async function(assignId, shouldBeOpen) {
-    const action = shouldBeOpen ? 'open' : 'close';
-    
-    await sb.from('classcast_assignments').update({ 
-        is_manually_closed: !shouldBeOpen
-    }).eq('id', assignId);
-    
-    loadTeacherAssignments();
+    try {
+        await sb.from('classcast_assignments').update({ 
+            is_manually_closed: !shouldBeOpen
+        }).eq('id', assignId);
+        
+        // Force reload to update UI
+        await loadTeacherAssignments();
+    } catch (error) {
+        console.error('Toggle error:', error);
+        alert('Error updating assignment status. Please try again.');
+        // Reload anyway to restore correct state
+        await loadTeacherAssignments();
+    }
 };
