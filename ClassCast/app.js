@@ -1824,9 +1824,18 @@ window.changeProgressSort = function(sortValue) {
 // ==========================================
 window.toggleAssignmentStatus = async function(assignId, shouldBeOpen) {
     try {
-        await sb.from('classcast_assignments').update({ 
-            is_manually_closed: !shouldBeOpen
-        }).eq('id', assignId);
+        // Create the payload to update the database
+        const updatePayload = { 
+            is_manually_closed: !shouldBeOpen 
+        };
+
+        // THE FIX: If the teacher forces the assignment open, we MUST wipe out 
+        // the close_date, otherwise the system will instantly close it again!
+        if (shouldBeOpen) {
+            updatePayload.close_date = null;
+        }
+
+        await sb.from('classcast_assignments').update(updatePayload).eq('id', assignId);
         
         // Force reload to update UI
         await loadTeacherAssignments();
