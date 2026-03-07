@@ -1904,14 +1904,11 @@ window.loadAudioForTrimming = async function() {
     }
 };
 
+
 async function initializeWaveform(audioUrl) {
     // Destroy existing instance if any
     if (wavesurfer) {
-        try {
-            wavesurfer.destroy();
-        } catch (e) {
-            console.warn('Error destroying wavesurfer:', e);
-        }
+        try { wavesurfer.destroy(); } catch (e) { console.warn('Error destroying wavesurfer:', e); }
         wavesurfer = null;
     }
     
@@ -1926,37 +1923,27 @@ async function initializeWaveform(audioUrl) {
         height: 100,
         normalize: true,
         interact: true,
-        // Enable CORS
-        xhr: {
-            requestHeaders: [
-                {
-                    key: 'cache-control',
-                    value: 'no-cache'
-                }
-            ],
-            withCredentials: false
-        }
+        xhr: { requestHeaders: [{ key: 'cache-control', value: 'no-cache' }], withCredentials: false }
     });
     
     // Load regions plugin  
     regionsPlugin = wavesurfer.registerPlugin(WaveSurfer.Regions.create());
     
-    // Add error handler
-    wavesurfer.on('error', (error) => {
-        console.error('WaveSurfer error:', error);
-        throw error;
+    // --- SMART HANDLES ENABLED ---
+    // This allows you to click and drag on the waveform to create a skip zone!
+    regionsPlugin.enableDragSelection({
+        color: 'rgba(244, 67, 54, 0.3)'
     });
+    
+    wavesurfer.on('error', (error) => { console.error('WaveSurfer error:', error); throw error; });
     
     // Load audio
     await wavesurfer.load(audioUrl);
     
-    // Update time display
     wavesurfer.on('decode', () => {
         const duration = wavesurfer.getDuration();
         document.getElementById('waveformTime').innerText = `0:00 / ${formatTime(duration)}`;
-        
-        // Load existing skip zones as regions
-        loadExistingRegions();
+        loadExistingRegions(); // Load any previously saved cuts
     });
     
     wavesurfer.on('timeupdate', (currentTime) => {
@@ -1964,34 +1951,49 @@ async function initializeWaveform(audioUrl) {
         document.getElementById('waveformTime').innerText = `${formatTime(currentTime)} / ${formatTime(duration)}`;
     });
     
-    // Handle region updates
-    regionsPlugin.on('region-updated', (region) => {
-        updateSkipZoneFromRegion(region);
+    // When a region is created (either by dragging or clicking the button)
+    regionsPlugin.on('region-created', (region) => {
+        // Only add if it doesn't already exist in our array
+        const exists = currentSkipZones.find(z => z.regionId === region.id);
+        if (!exists) {
+            currentSkipZones.push({
+                start: region.start,
+                end: region.end,
+                label: `${formatTime(region.start)} - ${formatTime(region.end)}`,
+                regionId: region.id // Link the visual box to our data
+            });
+            window.originalRenderSkipZones(); // Use original to prevent loop
+        }
     });
-    
-    regionsPlugin.on('region-removed', (region) => {
-        removeSkipZoneFromRegion(region);
+
+    // When a user drags the edges to resize or move the cut
+    regionsPlugin.on('region-updated', (region) => {
+        const index = currentSkipZones.findIndex(z => z.regionId === region.id);
+        if (index !== -1) {
+            currentSkipZones[index].start = region.start;
+            currentSkipZones[index].end = region.end;
+            currentSkipZones[index].label = `${formatTime(region.start)} - ${formatTime(region.end)}`;
+            window.originalRenderSkipZones(); // Use original to prevent loop
+        }
     });
 }
 
 function loadExistingRegions() {
     if (!regionsPlugin || !wavesurfer) return;
-    
-    // Clear existing regions
     regionsPlugin.clearRegions();
     
-    // Add regions for current skip zones
-    currentSkipZones.forEach((zone, index) => {
+    currentSkipZones.forEach((zone) => {
         const duration = wavesurfer.getDuration();
         if (zone.start < duration && zone.end <= duration) {
-            regionsPlugin.addRegion({
-                id: `region-${index}`,
+            const region = regionsPlugin.addRegion({
                 start: zone.start,
                 end: zone.end,
-                color: 'rgba(244, 67, 54, 0.3)', // Red semi-transparent
+                color: 'rgba(244, 67, 54, 0.3)',
                 drag: true,
                 resize: true
             });
+            // Update the zone with the new visual region ID so they stay linked
+            zone.regionId = region.id; 
         }
     });
 }
@@ -2005,50 +2007,20 @@ window.addSkipZoneVisual = function() {
     const currentTime = wavesurfer.getCurrentTime();
     const duration = wavesurfer.getDuration();
     
-    // Add a 10-second region starting from current playback position
+    // Programmatically add a 10-second region starting from the playhead
     const start = currentTime;
     const end = Math.min(currentTime + 10, duration);
     
-    const regionId = `region-${Date.now()}`;
-    const region = regionsPlugin.addRegion({
-        id: regionId,
+    // This automatically triggers the 'region-created' event above!
+    regionsPlugin.addRegion({
         start: start,
         end: end,
         color: 'rgba(244, 67, 54, 0.3)',
         drag: true,
         resize: true
     });
-    
-    // Add to skip zones array
-    const zone = {
-        start: start,
-        end: end,
-        label: `${formatTime(start)} - ${formatTime(end)}`,
-        regionId: regionId
-    };
-    
-    currentSkipZones.push(zone);
-    renderSkipZones();
 };
 
-function updateSkipZoneFromRegion(region) {
-    // Find and update corresponding skip zone
-    const index = currentSkipZones.findIndex(z => z.regionId === region.id);
-    if (index !== -1) {
-        currentSkipZones[index].start = Math.floor(region.start);
-        currentSkipZones[index].end = Math.floor(region.end);
-        currentSkipZones[index].label = `${formatTime(region.start)} - ${formatTime(region.end)}`;
-        renderSkipZones();
-    }
-}
-
-function removeSkipZoneFromRegion(region) {
-    const index = currentSkipZones.findIndex(z => z.regionId === region.id);
-    if (index !== -1) {
-        currentSkipZones.splice(index, 1);
-        renderSkipZones();
-    }
-}
 
 window.togglePlayback = function() {
     if (!wavesurfer) {
