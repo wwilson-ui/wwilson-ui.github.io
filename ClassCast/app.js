@@ -1936,8 +1936,13 @@ async function initializeWaveform(audioUrl) {
     
     wavesurfer.on('error', (error) => { console.error('WaveSurfer error:', error); throw error; });
     
-    // Load audio
-    await wavesurfer.load(audioUrl);
+    // Use your personal Cloudflare Worker!
+    const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
+
+    // Load audio via proxy
+    await wavesurfer.load(myProxy + encodeURIComponent(audioUrl));    
+    
+
     
     wavesurfer.on('decode', () => {
         const duration = wavesurfer.getDuration();
