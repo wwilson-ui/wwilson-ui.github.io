@@ -6,6 +6,11 @@
     <title>ClassCast</title>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="https://wwilson-ui.github.io/ClassCast/favicon.png">
+    
+    <!-- WaveSurfer.js for visual audio trimming -->
+    <script src="https://unpkg.com/wavesurfer.js@7.7.15/dist/wavesurfer.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7.7.15/dist/plugins/regions.min.js"></script>
+    
     <style>
         :root { --primary: #0079D3; --bg-primary: #DAE0E6; --bg-card: #FFFFFF; --text-primary: #1A1A1B; --danger: #c62828; --sidebar-bg: #f8f9fa; --success: #1e8e3e; }
         body { font-family: 'IBM Plex Sans', sans-serif; background-color: var(--bg-primary); margin: 0; color: var(--text-primary); }
@@ -205,17 +210,50 @@
                             <div id="audioDropboxContainer" class="hidden"><input type="url" id="newAssignAudioUrl" placeholder="https://www.dropbox.com/s/..." style="margin-bottom: 15px;"></div>
 
                             
-                            <div style="margin-top: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: #fafafa;">
-                                <h4 style="margin-top: 0; margin-bottom: 10px; color: #333;">✂️ Trim Audio (Skip Zones)</h4>
-                                <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">Set timestamps for ads or intros you want students to automatically skip. Format: MM:SS</p>
+                            <div style="margin-top: 20px; border: 2px solid #0079D3; padding: 20px; border-radius: 8px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+                                <h4 style="margin-top: 0; margin-bottom: 5px; color: #0079D3; display: flex; align-items: center; gap: 8px; font-size: 1.2rem;">
+                                    <span>✂️</span> Audio Trimmer - Visual Editor
+                                </h4>
+                                <p style="font-size: 0.85rem; color: #555; margin-bottom: 15px;">Mark sections to skip (ads, intros, outros). Students won't hear marked sections.</p>
                                 
-                                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                                    <input type="text" id="skipStart" placeholder="Start (e.g., 01:15)" style="width: 120px; padding: 8px;">
-                                    <span>to</span>
-                                    <input type="text" id="skipEnd" placeholder="End (e.g., 03:00)" style="width: 120px; padding: 8px;">
-                                    <button type="button" class="action-btn" onclick="addSkipZone()" style="background: #2e7d32; padding: 8px 15px;">Add Cut</button>
+                                <!-- Audio Preview Player (hidden until audio loaded) -->
+                                <div id="waveformPreviewSection" style="display: none; background: white; padding: 15px; border-radius: 6px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <span style="font-weight: 600; color: #333;">Audio Preview:</span>
+                                        <button type="button" id="loadAudioBtn" class="action-btn" onclick="loadAudioForTrimming()" style="background: #0079D3; padding: 6px 15px; font-size: 0.85rem;">Load Audio</button>
+                                    </div>
+                                    
+                                    <!-- Waveform Container -->
+                                    <div id="waveform" style="width: 100%; min-height: 100px; background: #fafafa; border-radius: 4px; margin: 10px 0;"></div>
+                                    
+                                    <!-- Playback Controls -->
+                                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
+                                        <button type="button" id="playPauseWave" class="action-btn" onclick="togglePlayback()" style="padding: 8px 15px; background: #4caf50;">▶ Play</button>
+                                        <span id="waveformTime" style="font-family: monospace; font-size: 0.9rem; color: #666;">0:00 / 0:00</span>
+                                    </div>
                                 </div>
-                                <ul id="skipZonesList" style="list-style: none; padding: 0; margin: 0;"></ul>
+                                
+                                <!-- Skip Zones Control -->
+                                <div style="background: white; padding: 15px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <span style="font-weight: 600; color: #333;">Skip Zones:</span>
+                                        <button type="button" class="action-btn" onclick="addSkipZoneVisual()" style="background: #2e7d32; padding: 6px 15px; font-size: 0.85rem;">➕ Add Skip Zone</button>
+                                    </div>
+                                    
+                                    <!-- Manual Time Entry (fallback) -->
+                                    <details style="margin-bottom: 10px;">
+                                        <summary style="cursor: pointer; font-size: 0.85rem; color: #0079D3; user-select: none;">Or enter times manually (MM:SS)</summary>
+                                        <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                                            <input type="text" id="skipStart" placeholder="Start (e.g., 01:15)" style="width: 120px; padding: 8px;">
+                                            <span>to</span>
+                                            <input type="text" id="skipEnd" placeholder="End (e.g., 03:00)" style="width: 120px; padding: 8px;">
+                                            <button type="button" class="action-btn" onclick="addSkipZone()" style="background: #2e7d32; padding: 8px 15px;">Add</button>
+                                        </div>
+                                    </details>
+                                    
+                                    <!-- Skip Zones List -->
+                                    <ul id="skipZonesList" style="list-style: none; padding: 0; margin: 10px 0 0 0;"></ul>
+                                </div>
                             </div>
 
                             
