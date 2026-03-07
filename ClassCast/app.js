@@ -1962,7 +1962,8 @@ async function initializeWaveform(audioUrl) {
                 label: `${formatTime(region.start)} - ${formatTime(region.end)}`,
                 regionId: region.id // Link the visual box to our data
             });
-            window.originalRenderSkipZones(); // Use original to prevent loop
+            // Update text list, but tell it NOT to redraw the visual boxes to prevent a loop!
+            if (window.renderSkipZones) window.renderSkipZones(true); 
         }
     });
 
@@ -1973,7 +1974,8 @@ async function initializeWaveform(audioUrl) {
             currentSkipZones[index].start = region.start;
             currentSkipZones[index].end = region.end;
             currentSkipZones[index].label = `${formatTime(region.start)} - ${formatTime(region.end)}`;
-            window.originalRenderSkipZones(); // Use original to prevent loop
+            // Update text list, but tell it NOT to redraw the visual boxes
+            if (window.renderSkipZones) window.renderSkipZones(true);
         }
     });
 }
@@ -2040,24 +2042,37 @@ window.togglePlayback = function() {
     }
 };
 
-// Update renderSkipZones to handle visual regions
-const originalRenderSkipZones = window.renderSkipZones;
-window.renderSkipZones = function() {
-    originalRenderSkipZones();
+// ==========================================
+// VISUAL EDITOR SYNC LOGIC
+// ==========================================
+
+// 1. Safely backup the original render function
+if (!window.originalRenderSkipZones) {
+    window.originalRenderSkipZones = window.renderSkipZones;
+}
+
+// 2. Override the render function to sync with the visual editor
+window.renderSkipZones = function(skipVisualUpdate = false) {
+    // Run the normal text-list rendering
+    if (window.originalRenderSkipZones) window.originalRenderSkipZones();
     
-    // Update visual regions if waveform is loaded
-    if (wavesurfer && regionsPlugin) {
+    // Only update the visual boxes if we aren't actively dragging/creating them
+    if (!skipVisualUpdate && typeof wavesurfer !== 'undefined' && wavesurfer && typeof regionsPlugin !== 'undefined' && regionsPlugin) {
         loadExistingRegions();
     }
 };
 
-// Update removeSkipZone to also remove visual region
-const originalRemoveSkipZone = window.removeSkipZone;
+// 3. Safely backup the original remove function
+if (!window.originalRemoveSkipZone) {
+    window.originalRemoveSkipZone = window.removeSkipZone;
+}
+
+// 4. Override remove to delete the red box if the teacher clicks 'X' in the list
 window.removeSkipZone = function(index) {
     const zone = currentSkipZones[index];
     
-    // Remove visual region if it exists
-    if (zone.regionId && regionsPlugin) {
+    // Remove visual region from the waveform if it exists
+    if (zone && zone.regionId && typeof regionsPlugin !== 'undefined' && regionsPlugin) {
         const regions = regionsPlugin.getRegions();
         const region = regions.find(r => r.id === zone.regionId);
         if (region) {
@@ -2065,19 +2080,28 @@ window.removeSkipZone = function(index) {
         }
     }
     
-    originalRemoveSkipZone(index);
+    // Run the normal text-list removal
+    if (window.originalRemoveSkipZone) window.originalRemoveSkipZone(index);
 };
 
-// Clean up when canceling edit
-const originalCancelEdit = window.cancelEdit;
+// 5. Clean up when canceling edit
+if (!window.originalCancelEdit) {
+    window.originalCancelEdit = window.cancelEdit;
+}
+
 window.cancelEdit = function() {
-    if (wavesurfer) {
+    if (typeof wavesurfer !== 'undefined' && wavesurfer) {
         wavesurfer.destroy();
         wavesurfer = null;
         regionsPlugin = null;
-        document.getElementById('waveformPreviewSection').style.display = 'none';
-        document.getElementById('loadAudioBtn').innerHTML = '🎵 Load Audio';
-        document.getElementById('loadAudioBtn').style.background = '#0079D3';
+        const previewSec = document.getElementById('waveformPreviewSection');
+        if (previewSec) previewSec.style.display = 'none';
+        
+        const loadBtn = document.getElementById('loadAudioBtn');
+        if (loadBtn) {
+            loadBtn.innerHTML = '🎵 Load Audio';
+            loadBtn.style.background = '#0079D3';
+        }
     }
-    originalCancelEdit();
+    if (window.originalCancelEdit) window.originalCancelEdit();
 };
