@@ -1936,8 +1936,11 @@ async function initializeWaveform(audioUrl) {
     
     wavesurfer.on('error', (error) => { console.error('WaveSurfer error:', error); throw error; });
     
-    // Load audio
-    await wavesurfer.load(audioUrl);
+    // Route the audio through a free CORS proxy so WaveSurfer is allowed to read it
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(audioUrl);
+    
+    // Load audio via proxy
+    await wavesurfer.load(proxyUrl);
     
     wavesurfer.on('decode', () => {
         const duration = wavesurfer.getDuration();
