@@ -1873,14 +1873,14 @@ window.loadAudioForTrimming = async function() {
         currentAudioUrl = audioUrl;
         await initializeWaveform(audioUrl);
         
-        // Show preview section
+        // Show preview section and update button
         document.getElementById('waveformPreviewSection').style.display = 'block';
-        document.getElementById('loadAudioBtn').innerText = 'Reload Audio';
+        document.getElementById('loadAudioBtn').innerHTML = '🔄 Reload Audio';
         document.getElementById('loadAudioBtn').style.background = '#666';
         
     } catch (error) {
         console.error('Error loading audio:', error);
-        alert('Error loading audio. Make sure the file/URL is valid.');
+        alert('Error loading audio. Make sure the file/URL is valid and try again.');
     }
 };
 
@@ -2064,7 +2064,7 @@ window.cancelEdit = function() {
         wavesurfer = null;
         regionsPlugin = null;
         document.getElementById('waveformPreviewSection').style.display = 'none';
-        document.getElementById('loadAudioBtn').innerText = 'Load Audio';
+        document.getElementById('loadAudioBtn').innerHTML = '🎵 Load Audio';
         document.getElementById('loadAudioBtn').style.background = '#0079D3';
     }
     originalCancelEdit();
