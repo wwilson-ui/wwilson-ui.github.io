@@ -921,8 +921,7 @@ window.loadStudentAssignments = async function() {
     const { data: assignments } = await sb.from('classcast_assignments').select('*').order('created_at', { ascending: false });
     const { data: progressData } = await sb.from('classcast_progress').select('*').eq('student_email', currentUser?.email || '');
 
-    // We added the closedAssigns bucket here!
-    let assigned='', inProg='', comp='', closedAssigns='';
+    let assigned='', inProg='', comp='';
 
     if(assignments) {
         assignments.forEach(d => {
@@ -944,47 +943,21 @@ window.loadStudentAssignments = async function() {
                 const isClosed = d.is_manually_closed || (closeDate && now > closeDate);
                 const isScheduled = openDate && now < openDate;
                 
-                // THE FIX IS HERE: We only return (throw away) if it is Scheduled. 
-                // We let Closed assignments continue down the code!
-                if (isScheduled) return;
+                // Skip closed or scheduled assignments
+                if (isClosed || isScheduled) return;
                 
                 const prog = progressData ? progressData.find(p => p.assignment_id === d.id) : null;
-                
-                let btnText = 'Start Listening'; 
-                let btnColor = 'var(--primary)';
-                let btnAction = `onclick="startAssignment(${d.id})"`;
-
-                if (isClosed) { 
-                    // Make the button unclickable and grey
-                    btnText = 'Closed'; 
-                    btnColor = '#cccccc'; 
-                    btnAction = 'disabled style="cursor: not-allowed; color: #666;"'; 
-                }
-                else if (prog && prog.status === 'completed') { 
-                    btnText = 'Review'; btnColor = 'var(--success)'; 
-                }
-                else if (prog) { 
-                    btnText = 'Continue'; btnColor = '#f4b400'; 
-                }
+                let btnText = 'Start Listening'; let btnColor = 'var(--primary)';
+                if (prog && prog.status === 'completed') { btnText = 'Review'; btnColor = 'var(--success)'; }
+                else if (prog) { btnText = 'Continue'; btnColor = '#f4b400'; }
 
                 let badge = selectedValue === 'all' ? `<span style="background:#eee; color:#555; padding:2px 6px; border-radius:4px; font-size:0.75rem; margin-right:10px;">${aClasses.filter(c=>names.includes(c)).join(', ')}</span>` : '';
-                
-                // We add a slight fade effect to closed cards using opacity
-                const card = `<div style="border: 1px solid #dee2e6; padding: 15px; border-radius: 6px; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center; background: #fff; ${isClosed ? 'opacity: 0.6;' : ''}">
+                const card = `<div style="border: 1px solid #dee2e6; padding: 15px; border-radius: 6px; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center; background: #fff;">
                                 <div>${badge} <strong style="font-size: 1.1rem; color: #333;">${d.title}</strong></div>
-                                <button class="action-btn" style="background: ${btnColor}; ${btnColor==='#f4b400'?'color: #000;':''}" ${btnAction}>${btnText}</button>
+                                <button class="action-btn" style="background: ${btnColor}; ${btnColor==='#f4b400'?'color: #000;':''}" onclick="startAssignment(${d.id})">${btnText}</button>
                               </div>`;
 
-                // Sort the card into the correct list
-                if (isClosed) {
-                    closedAssigns += card;
-                } else if (!prog) {
-                    assigned += card; 
-                } else if (prog.status === 'in_progress') {
-                    inProg += card; 
-                } else {
-                    comp += card;
-                }
+                if (!prog) assigned += card; else if (prog.status === 'in_progress') inProg += card; else comp += card;
             }
         });
     }
@@ -992,8 +965,7 @@ window.loadStudentAssignments = async function() {
     dash.innerHTML = `<h2 style="margin-top:0;">${selectedValue === 'all' ? "My Assignments (All Classes)" : `Assignments: ${escapeHTML(selectedValue)}`}</h2>
                       <h3 style="color:#444; border-bottom:2px solid #eee; margin-top:20px;">🔴 Not Started</h3> ${assigned || '<p style="color:#888;">No new assignments.</p>'}
                       <h3 style="color:#f4b400; border-bottom:2px solid #eee; margin-top:25px;">🟡 In Progress</h3> ${inProg || '<p style="color:#888;">No assignments in progress.</p>'}
-                      <h3 style="color:var(--success); border-bottom:2px solid #eee; margin-top:25px;">🟢 Completed</h3> ${comp || '<p style="color:#888;">No completed assignments yet.</p>'}
-                      <h3 style="color:#f44336; border-bottom:2px solid #eee; margin-top:25px;">🔒 Closed Assignments</h3> ${closedAssigns || '<p style="color:#888;">No closed assignments.</p>'}`;
+                      <h3 style="color:var(--success); border-bottom:2px solid #eee; margin-top:25px;">🟢 Completed</h3> ${comp || '<p style="color:#888;">No completed assignments yet.</p>'}`;
 };
 
 window.startAssignment = async function(assignId) {
@@ -1852,18 +1824,9 @@ window.changeProgressSort = function(sortValue) {
 // ==========================================
 window.toggleAssignmentStatus = async function(assignId, shouldBeOpen) {
     try {
-        // Create the payload to update the database
-        const updatePayload = { 
-            is_manually_closed: !shouldBeOpen 
-        };
-
-        // THE FIX: If the teacher forces the assignment open, we MUST wipe out 
-        // the close_date, otherwise the system will instantly close it again!
-        if (shouldBeOpen) {
-            updatePayload.close_date = null;
-        }
-
-        await sb.from('classcast_assignments').update(updatePayload).eq('id', assignId);
+        await sb.from('classcast_assignments').update({ 
+            is_manually_closed: !shouldBeOpen
+        }).eq('id', assignId);
         
         // Force reload to update UI
         await loadTeacherAssignments();
@@ -1873,4 +1836,236 @@ window.toggleAssignmentStatus = async function(assignId, shouldBeOpen) {
         // Reload anyway to restore correct state
         await loadTeacherAssignments();
     }
+};
+
+// ==========================================
+// FEATURE 6: Visual Audio Waveform Trimmer
+// ==========================================
+
+let wavesurfer = null;
+let regionsPlugin = null;
+let currentAudioUrl = null;
+
+// Initialize WaveSurfer when audio is loaded
+window.loadAudioForTrimming = async function() {
+    const sourceType = document.querySelector('input[name="audioSourceType"]:checked').value;
+    let audioUrl = '';
+    
+    try {
+        if (sourceType === 'upload') {
+            const file = document.getElementById('newAssignAudioFile').files[0];
+            if (!file) {
+                alert('Please select an audio file first');
+                return;
+            }
+            // Create temporary URL for uploaded file
+            audioUrl = URL.createObjectURL(file);
+        } else {
+            audioUrl = document.getElementById('newAssignAudioUrl').value;
+            if (!audioUrl) {
+                alert('Please paste a Dropbox link first');
+                return;
+            }
+            // Convert Dropbox URL to direct link
+            audioUrl = audioUrl.replace('?dl=0', '').replace('?dl=1', '') + (audioUrl.includes('?') ? '&' : '?') + 'raw=1';
+        }
+        
+        currentAudioUrl = audioUrl;
+        await initializeWaveform(audioUrl);
+        
+        // Show preview section
+        document.getElementById('waveformPreviewSection').style.display = 'block';
+        document.getElementById('loadAudioBtn').innerText = 'Reload Audio';
+        document.getElementById('loadAudioBtn').style.background = '#666';
+        
+    } catch (error) {
+        console.error('Error loading audio:', error);
+        alert('Error loading audio. Make sure the file/URL is valid.');
+    }
+};
+
+async function initializeWaveform(audioUrl) {
+    // Destroy existing instance if any
+    if (wavesurfer) {
+        wavesurfer.destroy();
+    }
+    
+    // Create WaveSurfer instance
+    wavesurfer = WaveSurfer.create({
+        container: '#waveform',
+        waveColor: '#ddd',
+        progressColor: '#0079D3',
+        cursorColor: '#0079D3',
+        barWidth: 2,
+        barRadius: 3,
+        height: 100,
+        normalize: true,
+        backend: 'WebAudio',
+        interact: true
+    });
+    
+    // Load regions plugin
+    regionsPlugin = wavesurfer.registerPlugin(WaveSurfer.regions.create());
+    
+    // Load audio
+    await wavesurfer.load(audioUrl);
+    
+    // Update time display
+    wavesurfer.on('decode', () => {
+        const duration = wavesurfer.getDuration();
+        document.getElementById('waveformTime').innerText = `0:00 / ${formatTime(duration)}`;
+        
+        // Load existing skip zones as regions
+        loadExistingRegions();
+    });
+    
+    wavesurfer.on('timeupdate', (currentTime) => {
+        const duration = wavesurfer.getDuration();
+        document.getElementById('waveformTime').innerText = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+    });
+    
+    // Handle region updates
+    regionsPlugin.on('region-updated', (region) => {
+        updateSkipZoneFromRegion(region);
+    });
+    
+    regionsPlugin.on('region-removed', (region) => {
+        removeSkipZoneFromRegion(region);
+    });
+}
+
+function loadExistingRegions() {
+    if (!regionsPlugin || !wavesurfer) return;
+    
+    // Clear existing regions
+    regionsPlugin.clearRegions();
+    
+    // Add regions for current skip zones
+    currentSkipZones.forEach((zone, index) => {
+        const duration = wavesurfer.getDuration();
+        if (zone.start < duration && zone.end <= duration) {
+            regionsPlugin.addRegion({
+                id: `region-${index}`,
+                start: zone.start,
+                end: zone.end,
+                color: 'rgba(244, 67, 54, 0.3)', // Red semi-transparent
+                drag: true,
+                resize: true
+            });
+        }
+    });
+}
+
+window.addSkipZoneVisual = function() {
+    if (!wavesurfer) {
+        alert('Please load audio first using the "Load Audio" button');
+        return;
+    }
+    
+    const currentTime = wavesurfer.getCurrentTime();
+    const duration = wavesurfer.getDuration();
+    
+    // Add a 10-second region starting from current playback position
+    const start = currentTime;
+    const end = Math.min(currentTime + 10, duration);
+    
+    const regionId = `region-${Date.now()}`;
+    const region = regionsPlugin.addRegion({
+        id: regionId,
+        start: start,
+        end: end,
+        color: 'rgba(244, 67, 54, 0.3)',
+        drag: true,
+        resize: true
+    });
+    
+    // Add to skip zones array
+    const zone = {
+        start: start,
+        end: end,
+        label: `${formatTime(start)} - ${formatTime(end)}`,
+        regionId: regionId
+    };
+    
+    currentSkipZones.push(zone);
+    renderSkipZones();
+};
+
+function updateSkipZoneFromRegion(region) {
+    // Find and update corresponding skip zone
+    const index = currentSkipZones.findIndex(z => z.regionId === region.id);
+    if (index !== -1) {
+        currentSkipZones[index].start = Math.floor(region.start);
+        currentSkipZones[index].end = Math.floor(region.end);
+        currentSkipZones[index].label = `${formatTime(region.start)} - ${formatTime(region.end)}`;
+        renderSkipZones();
+    }
+}
+
+function removeSkipZoneFromRegion(region) {
+    const index = currentSkipZones.findIndex(z => z.regionId === region.id);
+    if (index !== -1) {
+        currentSkipZones.splice(index, 1);
+        renderSkipZones();
+    }
+}
+
+window.togglePlayback = function() {
+    if (!wavesurfer) {
+        alert('Please load audio first');
+        return;
+    }
+    
+    const btn = document.getElementById('playPauseWave');
+    if (wavesurfer.isPlaying()) {
+        wavesurfer.pause();
+        btn.innerHTML = '▶ Play';
+        btn.style.background = '#4caf50';
+    } else {
+        wavesurfer.play();
+        btn.innerHTML = '⏸ Pause';
+        btn.style.background = '#ff9800';
+    }
+};
+
+// Update renderSkipZones to handle visual regions
+const originalRenderSkipZones = window.renderSkipZones;
+window.renderSkipZones = function() {
+    originalRenderSkipZones();
+    
+    // Update visual regions if waveform is loaded
+    if (wavesurfer && regionsPlugin) {
+        loadExistingRegions();
+    }
+};
+
+// Update removeSkipZone to also remove visual region
+const originalRemoveSkipZone = window.removeSkipZone;
+window.removeSkipZone = function(index) {
+    const zone = currentSkipZones[index];
+    
+    // Remove visual region if it exists
+    if (zone.regionId && regionsPlugin) {
+        const regions = regionsPlugin.getRegions();
+        const region = regions.find(r => r.id === zone.regionId);
+        if (region) {
+            region.remove();
+        }
+    }
+    
+    originalRemoveSkipZone(index);
+};
+
+// Clean up when canceling edit
+const originalCancelEdit = window.cancelEdit;
+window.cancelEdit = function() {
+    if (wavesurfer) {
+        wavesurfer.destroy();
+        wavesurfer = null;
+        regionsPlugin = null;
+        document.getElementById('waveformPreviewSection').style.display = 'none';
+        document.getElementById('loadAudioBtn').innerText = 'Load Audio';
+        document.getElementById('loadAudioBtn').style.background = '#0079D3';
+    }
+    originalCancelEdit();
 };
