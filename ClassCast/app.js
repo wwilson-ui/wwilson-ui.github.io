@@ -1866,11 +1866,21 @@ window.loadAudioForTrimming = async function() {
                 alert('Please paste a Dropbox link first');
                 return;
             }
-            // Convert Dropbox URL to direct link
-            audioUrl = audioUrl.replace('?dl=0', '').replace('?dl=1', '') + (audioUrl.includes('?') ? '&' : '?') + 'raw=1';
+            
+            // Handle different URL types
+            if (audioUrl.includes('dropbox.com')) {
+                // Convert Dropbox URL to direct link
+                audioUrl = audioUrl.replace('www.dropbox.com', 'dl.dropboxusercontent.com');
+                audioUrl = audioUrl.replace('?dl=0', '').replace('?dl=1', '');
+                if (!audioUrl.includes('dl.dropboxusercontent.com')) {
+                    audioUrl = audioUrl.replace('dropbox.com', 'dl.dropboxusercontent.com');
+                }
+            }
         }
         
+        console.log('Loading audio from:', audioUrl);
         currentAudioUrl = audioUrl;
+        
         await initializeWaveform(audioUrl);
         
         // Show preview section and update button
@@ -1880,14 +1890,29 @@ window.loadAudioForTrimming = async function() {
         
     } catch (error) {
         console.error('Error loading audio:', error);
-        alert('Error loading audio. Make sure the file/URL is valid and try again.');
+        
+        // More detailed error message
+        let errorMsg = 'Error loading audio. ';
+        if (error.message && error.message.includes('CORS')) {
+            errorMsg += 'The audio URL may not allow cross-origin access. Try uploading the file directly instead.';
+        } else if (error.message) {
+            errorMsg += error.message;
+        } else {
+            errorMsg += 'Please check:\n1. File/URL is valid\n2. File is MP3, WAV, or OGG format\n3. Dropbox links are public\n\nOr use manual time entry instead.';
+        }
+        alert(errorMsg);
     }
 };
 
 async function initializeWaveform(audioUrl) {
     // Destroy existing instance if any
     if (wavesurfer) {
-        wavesurfer.destroy();
+        try {
+            wavesurfer.destroy();
+        } catch (e) {
+            console.warn('Error destroying wavesurfer:', e);
+        }
+        wavesurfer = null;
     }
     
     // Create WaveSurfer instance
@@ -1900,12 +1925,27 @@ async function initializeWaveform(audioUrl) {
         barRadius: 3,
         height: 100,
         normalize: true,
-        backend: 'WebAudio',
-        interact: true
+        interact: true,
+        // Enable CORS
+        xhr: {
+            requestHeaders: [
+                {
+                    key: 'cache-control',
+                    value: 'no-cache'
+                }
+            ],
+            withCredentials: false
+        }
     });
     
-    // Load regions plugin
-    regionsPlugin = wavesurfer.registerPlugin(WaveSurfer.regions.create());
+    // Load regions plugin  
+    regionsPlugin = wavesurfer.registerPlugin(WaveSurfer.Regions.create());
+    
+    // Add error handler
+    wavesurfer.on('error', (error) => {
+        console.error('WaveSurfer error:', error);
+        throw error;
+    });
     
     // Load audio
     await wavesurfer.load(audioUrl);
