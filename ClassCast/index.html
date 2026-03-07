@@ -216,11 +216,19 @@
                                 </h4>
                                 <p style="font-size: 0.85rem; color: #555; margin-bottom: 15px;">Mark sections to skip (ads, intros, outros). Students won't hear marked sections.</p>
                                 
+                                <!-- Load Audio Button - Always Visible -->
+                                <div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <span style="font-weight: 600; color: #333; display: block;">Step 1: Load Audio for Visual Editing</span>
+                                        <span style="font-size: 0.8rem; color: #666;">Make sure audio is selected/uploaded above first</span>
+                                    </div>
+                                    <button type="button" id="loadAudioBtn" class="action-btn" onclick="loadAudioForTrimming()" style="background: #0079D3; padding: 8px 20px; font-size: 0.9rem; font-weight: 700;">🎵 Load Audio</button>
+                                </div>
+                                
                                 <!-- Audio Preview Player (hidden until audio loaded) -->
                                 <div id="waveformPreviewSection" style="display: none; background: white; padding: 15px; border-radius: 6px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                        <span style="font-weight: 600; color: #333;">Audio Preview:</span>
-                                        <button type="button" id="loadAudioBtn" class="action-btn" onclick="loadAudioForTrimming()" style="background: #0079D3; padding: 6px 15px; font-size: 0.85rem;">Load Audio</button>
+                                    <div style="margin-bottom: 10px;">
+                                        <span style="font-weight: 600; color: #333;">Audio Waveform:</span>
                                     </div>
                                     
                                     <!-- Waveform Container -->
@@ -230,13 +238,14 @@
                                     <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
                                         <button type="button" id="playPauseWave" class="action-btn" onclick="togglePlayback()" style="padding: 8px 15px; background: #4caf50;">▶ Play</button>
                                         <span id="waveformTime" style="font-family: monospace; font-size: 0.9rem; color: #666;">0:00 / 0:00</span>
+                                        <button type="button" class="action-btn" onclick="loadAudioForTrimming()" style="padding: 6px 12px; background: #666; font-size: 0.8rem; margin-left: auto;">🔄 Reload</button>
                                     </div>
                                 </div>
                                 
                                 <!-- Skip Zones Control -->
                                 <div style="background: white; padding: 15px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                        <span style="font-weight: 600; color: #333;">Skip Zones:</span>
+                                        <span style="font-weight: 600; color: #333;">Step 2: Add Skip Zones</span>
                                         <button type="button" class="action-btn" onclick="addSkipZoneVisual()" style="background: #2e7d32; padding: 6px 15px; font-size: 0.85rem;">➕ Add Skip Zone</button>
                                     </div>
                                     
