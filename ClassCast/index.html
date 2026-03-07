@@ -278,22 +278,22 @@
                                 <p style="font-size: 0.85rem; color: #666; margin-bottom: 18px;">Control when students can access this assignment. Leave both blank for immediate and unlimited availability.</p>
                                 
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                                    <div style="background: white; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0;">
+                                    <div style="background: white; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0; box-sizing: border-box;">
                                         <label style="display: block; font-size: 0.85rem; font-weight: 700; color: #333; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
                                             🟢 Opens
                                         </label>
                                         <input type="datetime-local" id="newAssignOpenDate" 
-                                               style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 0.95rem; font-family: system-ui; transition: border-color 0.2s;"
+                                               style="width: 100%; max-width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 0.9rem; font-family: system-ui; transition: border-color 0.2s; box-sizing: border-box;"
                                                onfocus="this.style.borderColor='#4caf50'" 
                                                onblur="this.style.borderColor='#e0e0e0'">
                                         <p style="font-size: 0.75rem; color: #999; margin: 6px 0 0 0; font-style: italic;">Opens immediately if blank</p>
                                     </div>
-                                    <div style="background: white; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0;">
+                                    <div style="background: white; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0; box-sizing: border-box;">
                                         <label style="display: block; font-size: 0.85rem; font-weight: 700; color: #333; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
                                             🔴 Closes
                                         </label>
                                         <input type="datetime-local" id="newAssignCloseDate" 
-                                               style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 0.95rem; font-family: system-ui; transition: border-color 0.2s;"
+                                               style="width: 100%; max-width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 0.9rem; font-family: system-ui; transition: border-color 0.2s; box-sizing: border-box;"
                                                onfocus="this.style.borderColor='#f44336'" 
                                                onblur="this.style.borderColor='#e0e0e0'">
                                         <p style="font-size: 0.75rem; color: #999; margin: 6px 0 0 0; font-style: italic;">Never closes if blank</p>
