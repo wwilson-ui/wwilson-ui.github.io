@@ -233,6 +233,11 @@
                                     
                                     <!-- Waveform Container -->
                                     <div id="waveform" style="width: 100%; min-height: 100px; background: #fafafa; border-radius: 4px; margin: 10px 0;"></div>
+
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 15px; background: #f8f9fa; padding: 10px; border-radius: 6px; border: 1px solid #ddd;">
+                                            <label for="waveZoom" style="font-size: 0.9rem; font-weight: bold; color: #444;">🔍 Zoom:</label>
+                                            <input type="range" id="waveZoom" min="10" max="200" value="10" oninput="setWaveformZoom(this.value)" style="flex: 1; cursor: pointer;">
+                                        </div>
                                     
                                     <!-- Playback Controls -->
                                     <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
