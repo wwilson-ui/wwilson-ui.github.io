@@ -1930,7 +1930,6 @@ async function initializeWaveform(audioUrl) {
     regionsPlugin = wavesurfer.registerPlugin(WaveSurfer.Regions.create());
     
     // --- SMART HANDLES ENABLED ---
-    // This allows you to click and drag on the waveform to create a skip zone!
     regionsPlugin.enableDragSelection({
         color: 'rgba(244, 67, 54, 0.3)'
     });
@@ -1944,37 +1943,43 @@ async function initializeWaveform(audioUrl) {
         const duration = wavesurfer.getDuration();
         document.getElementById('waveformTime').innerText = `0:00 / ${formatTime(duration)}`;
         loadExistingRegions(); // Load any previously saved cuts
+        
+        // Reset zoom slider when new audio loads
+        const zoomSlider = document.getElementById('waveZoom');
+        if (zoomSlider) zoomSlider.value = 10;
     });
     
+    // --- FEATURE 2: PREVIEW SKIP ZONES ---
     wavesurfer.on('timeupdate', (currentTime) => {
         const duration = wavesurfer.getDuration();
         document.getElementById('waveformTime').innerText = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+        
+        // If the playhead enters a skip zone, jump immediately to the end of it!
+        const activeZone = currentSkipZones.find(z => currentTime >= z.start && currentTime < z.end);
+        if (activeZone) {
+            wavesurfer.setTime(activeZone.end);
+        }
     });
     
-    // When a region is created (either by dragging or clicking the button)
     regionsPlugin.on('region-created', (region) => {
-        // Only add if it doesn't already exist in our array
         const exists = currentSkipZones.find(z => z.regionId === region.id);
         if (!exists) {
             currentSkipZones.push({
                 start: region.start,
                 end: region.end,
                 label: `${formatTime(region.start)} - ${formatTime(region.end)}`,
-                regionId: region.id // Link the visual box to our data
+                regionId: region.id 
             });
-            // Update text list, but tell it NOT to redraw the visual boxes to prevent a loop!
             if (window.renderSkipZones) window.renderSkipZones(true); 
         }
     });
 
-    // When a user drags the edges to resize or move the cut
     regionsPlugin.on('region-updated', (region) => {
         const index = currentSkipZones.findIndex(z => z.regionId === region.id);
         if (index !== -1) {
             currentSkipZones[index].start = region.start;
             currentSkipZones[index].end = region.end;
             currentSkipZones[index].label = `${formatTime(region.start)} - ${formatTime(region.end)}`;
-            // Update text list, but tell it NOT to redraw the visual boxes
             if (window.renderSkipZones) window.renderSkipZones(true);
         }
     });
@@ -2021,6 +2026,14 @@ window.addSkipZoneVisual = function() {
         drag: true,
         resize: true
     });
+};
+
+
+// --- FEATURE 1: ZOOM CONTROLLER ---
+window.setWaveformZoom = function(minPxPerSec) {
+    if (wavesurfer) {
+        wavesurfer.zoom(Number(minPxPerSec));
+    }
 };
 
 
