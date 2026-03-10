@@ -2368,8 +2368,6 @@ window.loadAudioForTrimming = async function() {
     let audioUrl = '';
     
     // Show loading spinner
-    const originalBtnHTML = loadBtn.innerHTML;
-    const originalBtnBg = loadBtn.style.background;
     loadBtn.innerHTML = '⏳ Loading...';
     loadBtn.style.background = '#ff9800';
     loadBtn.disabled = true;
@@ -2378,17 +2376,29 @@ window.loadAudioForTrimming = async function() {
         if (sourceType === 'upload') {
             const file = document.getElementById('newAssignAudioFile').files[0];
             if (!file) {
+                loadBtn.innerHTML = '🎵 Load Audio';
+                loadBtn.style.background = '#0079D3';
+                loadBtn.disabled = false;
                 alert('Please select an audio file first');
                 return;
             }
             // Create temporary URL for uploaded file
             audioUrl = URL.createObjectURL(file);
         } else {
-            audioUrl = document.getElementById('newAssignAudioUrl').value.trim();
+            audioUrl = document.getElementById('newAssignAudioUrl').value;
             if (!audioUrl) {
-                alert('Please paste an audio URL first');
+                loadBtn.innerHTML = '🎵 Load Audio';
+                loadBtn.style.background = '#0079D3';
+                loadBtn.disabled = false;
+                alert('Please paste a Dropbox link first');
                 return;
             }
+
+            // --- ADD THIS FIX FOR BROKEN SSL SERVERS ---
+            if (audioUrl.includes('files.civiced.org')) {
+                audioUrl = audioUrl.replace('https://', 'http://');
+            }
+            // -------------------------------------------
                         
             // Handle different URL types
             if (audioUrl.includes('dropbox.com')) {
@@ -2401,53 +2411,36 @@ window.loadAudioForTrimming = async function() {
             }
         }
         
-        console.log('Loading audio from:', audioUrl);
+    console.log('Loading audio from:', audioUrl);
         currentAudioUrl = audioUrl; // Keeps the original URL safe for saving to your database
         
-        await initializeWaveform(audioUrl, sourceType);
+        // --- ADD THE PROXY FOR VISUAL EDITOR ---
+        const proxyBase = "https://classcastproxy.wkwilson19.workers.dev/?url=";
+        let finalUrlToLoad = audioUrl;
         
-        // Show preview section and update button
+        if (sourceType !== 'upload') {
+            // External links MUST use the proxy to bypass CORS and Mixed Content blockers
+            finalUrlToLoad = encodeURIComponent(audioUrl);
+        }
+        // ---------------------------------------
+        
+        await initializeWaveform(finalUrlToLoad);
+        
+        // Show preview section and update button - SUCCESS
         document.getElementById('waveformPreviewSection').style.display = 'block';
-        loadBtn.innerHTML = '✅ Loaded - Click to Reload';
+        loadBtn.innerHTML = '✅ Loaded - Reload';
         loadBtn.style.background = '#4caf50';
         loadBtn.disabled = false;
         
     } catch (error) {
         console.error('Error loading audio:', error);
         
-        // Reset button to allow retry
-        loadBtn.innerHTML = '❌ Failed - Click to Retry';
+        // Reset button to allow retry - FAILURE
+        loadBtn.innerHTML = '❌ Failed - Retry';
         loadBtn.style.background = '#d32f2f';
         loadBtn.disabled = false;
         
         // More detailed error message
-        let errorMsg = 'Error loading audio:\n\n';
-        if (error.message && error.message.includes('CORS')) {
-            errorMsg += '🔒 CORS Error: The audio source is blocking cross-origin access.\n\n';
-            errorMsg += '💡 Try:\n';
-            errorMsg += '1. Upload the file directly instead\n';
-            errorMsg += '2. Use manual time entry for skip zones/questions\n';
-            errorMsg += '3. Contact the podcast host about CORS headers';
-        } else if (error.message && error.message.includes('Failed to fetch')) {
-            errorMsg += '🌐 Network Error: Could not reach the audio source.\n\n';
-            errorMsg += '💡 Possible causes:\n';
-            errorMsg += '1. URL is incorrect or file doesn\'t exist\n';
-            errorMsg += '2. Source server is down\n';
-            errorMsg += '3. Firewall/network blocking the request\n\n';
-            errorMsg += 'Error: ' + error.message;
-        } else if (error.message) {
-            errorMsg += error.message;
-        } else {
-            errorMsg += 'Unknown error occurred.\n\n';
-            errorMsg += '💡 Please check:\n';
-            errorMsg += '1. File/URL is valid\n';
-            errorMsg += '2. File is MP3, WAV, or OGG format\n';
-            errorMsg += '3. URL is accessible (try opening in new tab)\n';
-        }
-        
-        alert(errorMsg);
-    }
-};
         let errorMsg = 'Error loading audio. ';
         if (error.message && error.message.includes('CORS')) {
             errorMsg += 'The audio URL may not allow cross-origin access. Try uploading the file directly instead.';
@@ -2461,7 +2454,7 @@ window.loadAudioForTrimming = async function() {
 };
 
 
-async function initializeWaveform(audioUrl, sourceType) {
+async function initializeWaveform(audioUrl) {
     // Destroy existing instance if any
     if (wavesurfer) {
         try { wavesurfer.destroy(); } catch (e) { console.warn('Error destroying wavesurfer:', e); }
@@ -2490,34 +2483,19 @@ async function initializeWaveform(audioUrl, sourceType) {
         color: 'rgba(244, 67, 54, 0.3)'
     });
     
-    wavesurfer.on('error', (error) => { 
-        console.error('WaveSurfer error:', error); 
-        throw error; 
-    });
+    wavesurfer.on('error', (error) => { console.error('WaveSurfer error:', error); throw error; });
     
-    // Determine how to load the audio
-    let finalUrl = audioUrl;
+    // Use your personal Cloudflare Worker!
+    const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
+
+
+    // Force HTTP for publishers with broken SSL certificates
+    if (audioUrl.includes('files.civiced.org')) {
+        audioUrl = audioUrl.replace('https://', 'http://');
+    }
     
-    if (sourceType === 'upload') {
-        // Uploaded files - use blob URL directly (no proxy needed)
-        console.log('[UPLOAD] Loading blob URL directly');
-        await wavesurfer.load(audioUrl);
-    } else {
-        // External URLs - use proxy for CORS
-        const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
-        
-        // Handle special cases
-        if (audioUrl.includes('files.civiced.org')) {
-            // Force HTTP for broken SSL certificates
-            finalUrl = audioUrl.replace('https://', 'http://');
-            console.log('[CIVICED] Converted to HTTP:', finalUrl);
-        }
-        
-        // Load via proxy
-        const proxiedUrl = myProxy + encodeURIComponent(finalUrl);
-        console.log('[PROXY] Loading via proxy:', proxiedUrl);
-        await wavesurfer.load(proxiedUrl);
-    }    
+    // Load audio via proxy
+    await wavesurfer.load(myProxy + encodeURIComponent(audioUrl));    
     
 
     
