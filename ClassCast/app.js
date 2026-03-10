@@ -2408,7 +2408,7 @@ window.loadAudioForTrimming = async function() {
         
         if (sourceType !== 'upload') {
             // External links MUST use the proxy to bypass CORS and Mixed Content blockers
-            finalUrlToLoad = proxyBase + encodeURIComponent(audioUrl);
+            finalUrlToLoad = encodeURIComponent(audioUrl);
         }
         // ---------------------------------------
         
