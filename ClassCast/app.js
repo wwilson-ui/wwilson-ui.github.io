@@ -2387,9 +2387,7 @@ window.loadAudioForTrimming = async function() {
                 audioUrl = audioUrl.replace('https://', 'http://');
             }
             // -------------------------------------------
-            
-            // Handle different URL types
-            
+                        
             // Handle different URL types
             if (audioUrl.includes('dropbox.com')) {
                 // Convert Dropbox URL to direct link
@@ -2401,10 +2399,20 @@ window.loadAudioForTrimming = async function() {
             }
         }
         
-        console.log('Loading audio from:', audioUrl);
-        currentAudioUrl = audioUrl;
+    console.log('Loading audio from:', audioUrl);
+        currentAudioUrl = audioUrl; // Keeps the original URL safe for saving to your database
         
-        await initializeWaveform(audioUrl);
+        // --- ADD THE PROXY FOR VISUAL EDITOR ---
+        const proxyBase = "https://classcastproxy.wkwilson19.workers.dev/?url=";
+        let finalUrlToLoad = audioUrl;
+        
+        if (sourceType !== 'upload') {
+            // External links MUST use the proxy to bypass CORS and Mixed Content blockers
+            finalUrlToLoad = proxyBase + encodeURIComponent(audioUrl);
+        }
+        // ---------------------------------------
+        
+        await initializeWaveform(finalUrlToLoad);
         
         // Show preview section and update button
         document.getElementById('waveformPreviewSection').style.display = 'block';
