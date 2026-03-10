@@ -1132,7 +1132,7 @@ async function loadStorageFiles() {
     
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>';
     
-    const { data, error } = await sb.storage.from('audio_files').list();
+    const { data, error } = await sb.storage.from('audio-files').list();
     if (error) {
         tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error: ${error.message}</td></tr>`;
         return;
@@ -1164,7 +1164,7 @@ async function loadStorageFiles() {
 window.deleteStorageFile = async function(fileName) {
     if (!confirm(`Delete "${fileName}" from storage?\n\nWarning: Any assignments using this file will break!`)) return;
     
-    const { error } = await sb.storage.from('audio_files').remove([fileName]);
+    const { error } = await sb.storage.from('audio-files').remove([fileName]);
     if (error) {
         alert('Error deleting file: ' + error.message);
     } else {
