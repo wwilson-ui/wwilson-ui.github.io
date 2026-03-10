@@ -2481,20 +2481,30 @@ async function initializeWaveform(audioUrl, sourceType) {
         // Uploaded files - use blob URL directly (no proxy)
         console.log('[UPLOAD] Loading blob URL directly');
         await wavesurfer.load(audioUrl);
-    } else {
-        // External URLs - use proxy
-        const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
-        let finalUrl = audioUrl;
+    } else if (audioUrl.includes('files.civiced.org')) {
+        // Special handling for civiced.org (broken SSL certificate)
+        // Try AllOrigins proxy which handles broken SSL better
+        const allOriginsProxy = 'https://api.allorigins.win/raw?url=';
+        console.log('[CIVICED] Using AllOrigins proxy for broken SSL');
+        console.log('[CIVICED] URL:', allOriginsProxy + encodeURIComponent(audioUrl));
         
-        // Force HTTP for publishers with broken SSL certificates
-        if (audioUrl.includes('files.civiced.org')) {
-            finalUrl = audioUrl.replace('https://', 'http://');
-            console.log('[CIVICED] Converted to HTTP:', finalUrl);
+        try {
+            await wavesurfer.load(allOriginsProxy + encodeURIComponent(audioUrl));
+            console.log('[CIVICED] ✅ Success with AllOrigins!');
+        } catch (error) {
+            // Fallback: try your Cloudflare proxy with HTTP
+            console.log('[CIVICED] AllOrigins failed, trying Cloudflare proxy with HTTP...');
+            const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
+            const httpUrl = audioUrl.replace('https://', 'http://');
+            await wavesurfer.load(myProxy + encodeURIComponent(httpUrl));
         }
+    } else {
+        // All other external URLs - use your Cloudflare proxy
+        const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
         
         // Load audio via proxy (encode ONCE here)
-        console.log('[PROXY] Loading via proxy:', myProxy + encodeURIComponent(finalUrl));
-        await wavesurfer.load(myProxy + encodeURIComponent(finalUrl));
+        console.log('[PROXY] Loading via proxy:', myProxy + encodeURIComponent(audioUrl));
+        await wavesurfer.load(myProxy + encodeURIComponent(audioUrl));
     }    
     
 
