@@ -2454,6 +2454,12 @@ async function initializeWaveform(audioUrl) {
     // Use your personal Cloudflare Worker!
     const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
 
+
+    // Force HTTP for publishers with broken SSL certificates
+    if (audioUrl.includes('files.civiced.org')) {
+        audioUrl = audioUrl.replace('https://', 'http://');
+    }
+    
     // Load audio via proxy
     await wavesurfer.load(myProxy + encodeURIComponent(audioUrl));    
     
