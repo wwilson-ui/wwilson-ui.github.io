@@ -853,21 +853,85 @@ async function loadManageFiles() {
 window.deleteFile = async function(n) { if(confirm(`Delete ${n}?`)) { await sb.storage.from('audio-files').remove([n]); loadManageFiles(); } };
 
 // ================= SUPER ADMIN PANEL =================
-async function loadSuperAdminTeachers() {
-    const tbody = document.getElementById('superAdminTeachersTable');
-    tbody.innerHTML = '<tr><td colspan="2">Loading...</td></tr>';
-    const { data } = await sb.from('classcast_teachers').select('*').order('email');
-    if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="2">No authorized teachers found.</td></tr>';
+window.loadSuperAdminTeachers = async function() {
+    if (!userPerms.isSuperAdmin) return;
     
-    tbody.innerHTML = data.map(t => `
-        <tr>
-            <td><strong>${t.email}</strong> ${t.email === MAIN_ADMIN ? '<span style="color:red; font-size:0.8rem;">(Super Admin)</span>' : ''}</td>
-            <td style="text-align:center;">
-                ${t.email !== MAIN_ADMIN ? `<button class="danger-btn" onclick="removeTeacher('${t.email}')">Revoke Access</button>` : '<span style="color:#666; font-size: 0.8rem;">System Linked</span>'}
-            </td>
-        </tr>
-    `).join('');
-}
+    const tbody = document.querySelector('#superAdminTeachersTable tbody');
+    const filesBody = document.querySelector('#superAdminFilesTable tbody');
+    tbody.innerHTML = '<tr><td colspan="4">Loading stats...</td></tr>';
+    filesBody.innerHTML = '<tr><td colspan="5">Loading files...</td></tr>';
+
+    // 1. TEACHER STATS
+    const { data: teachers } = await sb.from('classcast_teachers').select('*');
+    const { data: classes } = await sb.from('classcast_classes').select('teacher_email, is_archived');
+    const { data: assignments } = await sb.from('classcast_assignments').select('teacher_email, created_at');
+
+    let statsHtml = '';
+    const now = new Date();
+
+    for (const t of teachers) {
+        const tClasses = classes.filter(c => c.teacher_email === t.email && !c.is_archived).length;
+        const tAssigns = assignments.filter(a => a.teacher_email === t.email);
+        
+        let idleText = "Never active";
+        if (tAssigns.length > 0) {
+            // Find most recent assignment
+            const latest = new Date(Math.max(...tAssigns.map(a => new Date(a.created_at))));
+            const diffDays = Math.floor((now - latest) / (1000 * 60 * 60 * 24));
+            idleText = diffDays === 0 ? "Today" : `${diffDays} days ago`;
+        }
+
+        statsHtml += `
+            <tr>
+                <td><strong>${escapeHTML(t.email)}</strong></td>
+                <td>${tClasses} active</td>
+                <td>${tAssigns.length} total</td>
+                <td>${idleText}</td>
+            </tr>
+        `;
+    }
+    tbody.innerHTML = statsHtml || '<tr><td colspan="4">No teachers found.</td></tr>';
+
+    // 2. FILE IDLE TIME & WAREHOUSE
+    const { data: files, error: fileErr } = await sb.storage.from('classcast_audio').list();
+    if (fileErr || !files) {
+        filesBody.innerHTML = `<tr><td colspan="5">Error loading files: ${fileErr?.message}</td></tr>`;
+        return;
+    }
+
+    let filesHtml = '';
+    files.forEach(f => {
+        if (f.name === '.emptyFolderPlaceholder') return;
+        
+        const createdDate = new Date(f.created_at || f.updated_at);
+        const diffDays = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
+        const sizeMb = (f.metadata?.size / (1024 * 1024)).toFixed(2);
+        
+        filesHtml += `
+            <tr>
+                <td style="word-break: break-all; max-width: 250px;">${escapeHTML(f.name)}</td>
+                <td>System/Teacher</td>
+                <td>${sizeMb} MB</td>
+                <td style="${diffDays > 365 ? 'color: red; font-weight: bold;' : ''}">${diffDays} days</td>
+                <td>
+                    <button onclick="superAdminDeleteFile('${f.name}')" class="danger-btn">🗑️ Delete</button>
+                </td>
+            </tr>
+        `;
+    });
+    filesBody.innerHTML = filesHtml || '<tr><td colspan="5">No files found in storage.</td></tr>';
+};
+
+window.superAdminDeleteFile = async function(fileName) {
+    if(!confirm(`Are you sure you want to permanently delete ${fileName}? This will break any assignments using it.`)) return;
+    
+    const { error } = await sb.storage.from('classcast_audio').remove([fileName]);
+    if (error) alert("Error deleting: " + error.message);
+    else loadSuperAdminTeachers(); // Refresh the tables
+};
+
+
+
 window.addAuthorizedTeacher = async function() {
     const email = document.getElementById('newTeacherEmail').value.trim().toLowerCase();
     if (!email) return;
