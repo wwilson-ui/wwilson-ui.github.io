@@ -921,74 +921,100 @@ window.loadSuperAdminTeachers = async function() {
     
     const tbody = document.querySelector('#superAdminTeachersTable tbody');
     const filesBody = document.querySelector('#superAdminFilesTable tbody');
+    
+    if (!tbody || !filesBody) {
+        console.error('Super admin tables not found in HTML');
+        return;
+    }
+    
     tbody.innerHTML = '<tr><td colspan="4">Loading stats...</td></tr>';
     filesBody.innerHTML = '<tr><td colspan="5">Loading files...</td></tr>';
 
-    // 1. TEACHER STATS
-    const { data: teachers } = await sb.from('classcast_teachers').select('*');
-    const { data: classes } = await sb.from('classcast_classes').select('teacher_emails, is_archived');
-    const { data: assignments } = await sb.from('classcast_assignments').select('teacher_email, created_at');
-
-    let statsHtml = '';
-    const now = new Date();
-
-    for (const t of teachers) {
-        // Count classes where this teacher is in the teacher_emails array
-        const tClasses = classes.filter(c => {
-            if (c.is_archived) return false;
-            const emails = Array.isArray(c.teacher_emails) ? c.teacher_emails : [c.teacher_emails];
-            return emails.includes(t.email);
-        }).length;
+    try {
+        // 1. TEACHER STATS
+        const { data: teachers, error: teacherErr } = await sb.from('classcast_teachers').select('*');
+        if (teacherErr) {
+            tbody.innerHTML = `<tr><td colspan="4" style="color:red;">Error loading teachers: ${teacherErr.message}</td></tr>`;
+            return;
+        }
         
-        const tAssigns = assignments.filter(a => a.teacher_email === t.email);
+        const { data: classes, error: classErr } = await sb.from('classcast_classes').select('teacher_emails, is_archived');
+        if (classErr) {
+            tbody.innerHTML = `<tr><td colspan="4" style="color:red;">Error loading classes: ${classErr.message}</td></tr>`;
+            return;
+        }
         
-        let idleText = "Never active";
-        if (tAssigns.length > 0) {
-            // Find most recent assignment
-            const latest = new Date(Math.max(...tAssigns.map(a => new Date(a.created_at))));
-            const diffDays = Math.floor((now - latest) / (1000 * 60 * 60 * 24));
-            idleText = diffDays === 0 ? "Today" : `${diffDays} days ago`;
+        const { data: assignments, error: assignErr } = await sb.from('classcast_assignments').select('teacher_email, created_at');
+        if (assignErr) {
+            tbody.innerHTML = `<tr><td colspan="4" style="color:red;">Error loading assignments: ${assignErr.message}</td></tr>`;
+            return;
         }
 
-        statsHtml += `
-            <tr>
-                <td><strong>${escapeHTML(t.email)}</strong></td>
-                <td>${tClasses} active</td>
-                <td>${tAssigns.length} total</td>
-                <td>${idleText}</td>
-            </tr>
-        `;
-    }
-    tbody.innerHTML = statsHtml || '<tr><td colspan="4">No teachers found.</td></tr>';
+        let statsHtml = '';
+        const now = new Date();
 
-    // 2. FILE IDLE TIME & WAREHOUSE
-    const { data: files, error: fileErr } = await sb.storage.from('classcast_audio').list();
-    if (fileErr || !files) {
-        filesBody.innerHTML = `<tr><td colspan="5">Error loading files: ${fileErr?.message}</td></tr>`;
-        return;
-    }
+        for (const t of teachers) {
+            // Count classes where this teacher is in the teacher_emails array
+            const tClasses = classes.filter(c => {
+                if (c.is_archived) return false;
+                const emails = Array.isArray(c.teacher_emails) ? c.teacher_emails : [c.teacher_emails];
+                return emails.includes(t.email);
+            }).length;
+            
+            const tAssigns = assignments.filter(a => a.teacher_email === t.email);
+            
+            let idleText = "Never active";
+            if (tAssigns.length > 0) {
+                // Find most recent assignment
+                const latest = new Date(Math.max(...tAssigns.map(a => new Date(a.created_at))));
+                const diffDays = Math.floor((now - latest) / (1000 * 60 * 60 * 24));
+                idleText = diffDays === 0 ? "Today" : `${diffDays} days ago`;
+            }
 
-    let filesHtml = '';
-    files.forEach(f => {
-        if (f.name === '.emptyFolderPlaceholder') return;
+            statsHtml += `
+                <tr>
+                    <td><strong>${escapeHTML(t.email)}</strong></td>
+                    <td>${tClasses} active</td>
+                    <td>${tAssigns.length} total</td>
+                    <td>${idleText}</td>
+                </tr>
+            `;
+        }
+        tbody.innerHTML = statsHtml || '<tr><td colspan="4">No teachers found.</td></tr>';
+
+        // 2. FILE IDLE TIME & WAREHOUSE
+        const { data: files, error: fileErr } = await sb.storage.from('classcast_audio').list();
+        if (fileErr || !files) {
+            filesBody.innerHTML = `<tr><td colspan="5" style="color:red;">Error loading files: ${fileErr?.message || 'Unknown error'}</td></tr>`;
+            return;
+        }
+
+        let filesHtml = '';
+        files.forEach(f => {
+            if (f.name === '.emptyFolderPlaceholder') return;
+            
+            const createdDate = new Date(f.created_at || f.updated_at);
+            const diffDays = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
+            const sizeMb = (f.metadata?.size / (1024 * 1024)).toFixed(2);
+            
+            filesHtml += `
+                <tr>
+                    <td style="word-break: break-all; max-width: 250px;">${escapeHTML(f.name)}</td>
+                    <td>System/Teacher</td>
+                    <td>${sizeMb} MB</td>
+                    <td style="${diffDays > 365 ? 'color: red; font-weight: bold;' : ''}">${diffDays} days</td>
+                    <td>
+                        <button onclick="superAdminDeleteFile('${f.name}')" class="danger-btn">🗑️ Delete</button>
+                    </td>
+                </tr>
+            `;
+        });
+        filesBody.innerHTML = filesHtml || '<tr><td colspan="5">No files found in storage.</td></tr>';
         
-        const createdDate = new Date(f.created_at || f.updated_at);
-        const diffDays = Math.floor((now - createdDate) / (1000 * 60 * 60 * 24));
-        const sizeMb = (f.metadata?.size / (1024 * 1024)).toFixed(2);
-        
-        filesHtml += `
-            <tr>
-                <td style="word-break: break-all; max-width: 250px;">${escapeHTML(f.name)}</td>
-                <td>System/Teacher</td>
-                <td>${sizeMb} MB</td>
-                <td style="${diffDays > 365 ? 'color: red; font-weight: bold;' : ''}">${diffDays} days</td>
-                <td>
-                    <button onclick="superAdminDeleteFile('${f.name}')" class="danger-btn">🗑️ Delete</button>
-                </td>
-            </tr>
-        `;
-    });
-    filesBody.innerHTML = filesHtml || '<tr><td colspan="5">No files found in storage.</td></tr>';
+    } catch (error) {
+        console.error('Super admin loading error:', error);
+        tbody.innerHTML = `<tr><td colspan="4" style="color:red;">Unexpected error: ${error.message}</td></tr>`;
+    }
 };
 
 window.superAdminDeleteFile = async function(fileName) {
