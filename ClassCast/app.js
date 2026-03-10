@@ -2381,6 +2381,14 @@ window.loadAudioForTrimming = async function() {
                 alert('Please paste a Dropbox link first');
                 return;
             }
+
+            // --- ADD THIS FIX FOR BROKEN SSL SERVERS ---
+            if (audioUrl.includes('files.civiced.org')) {
+                audioUrl = audioUrl.replace('https://', 'http://');
+            }
+            // -------------------------------------------
+            
+            // Handle different URL types
             
             // Handle different URL types
             if (audioUrl.includes('dropbox.com')) {
