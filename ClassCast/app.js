@@ -770,11 +770,14 @@ async function loadManageClasses() {
     if (!list) return;
     list.innerHTML = '<p>Loading classes...</p>';
     
-    // Fetch classes
-    const { data, error } = await sb.from('classcast_classes')
-        .select('*')
-        .eq('teacher_email', userPerms.email)
-        .order('created_at', { ascending: false });
+    // Fetch classes - use contains for JSONB array
+    let query = sb.from('classcast_classes').select('*').order('created_at', { ascending: false });
+    
+    if (!userPerms.isSuperAdmin) {
+        query = query.contains('teacher_emails', `["${userPerms.email}"]`);
+    }
+    
+    const { data, error } = await query;
         
     if (error) { list.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`; return; }
     
@@ -865,14 +868,20 @@ window.loadSuperAdminTeachers = async function() {
 
     // 1. TEACHER STATS
     const { data: teachers } = await sb.from('classcast_teachers').select('*');
-    const { data: classes } = await sb.from('classcast_classes').select('teacher_email, is_archived');
+    const { data: classes } = await sb.from('classcast_classes').select('teacher_emails, is_archived');
     const { data: assignments } = await sb.from('classcast_assignments').select('teacher_email, created_at');
 
     let statsHtml = '';
     const now = new Date();
 
     for (const t of teachers) {
-        const tClasses = classes.filter(c => c.teacher_email === t.email && !c.is_archived).length;
+        // Count classes where this teacher is in the teacher_emails array
+        const tClasses = classes.filter(c => {
+            if (c.is_archived) return false;
+            const emails = Array.isArray(c.teacher_emails) ? c.teacher_emails : [c.teacher_emails];
+            return emails.includes(t.email);
+        }).length;
+        
         const tAssigns = assignments.filter(a => a.teacher_email === t.email);
         
         let idleText = "Never active";
