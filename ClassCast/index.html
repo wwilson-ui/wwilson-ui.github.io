@@ -182,52 +182,70 @@
                     <div id="admin-assignments" class="admin-panel active">
                         <div class="card" style="margin-top:0;">
 
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                                <h3 style="margin: 0;">Create New Assignment</h3>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3 style="margin: 0; color: #0079D3; font-size: 1.5rem;">Create New Assignment</h3>
                                 <button onclick="document.getElementById('classcastStudio').style.display='block'" class="action-btn" style="background: #673ab7; font-size: 1rem; padding: 8px 15px;">
                                     🎙️ Search Podcast Library
                                 </button>
                             </div>
                             
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                                <div>
-                                    <label>Assignment Title</label>
-                                    <input type="text" id="newAssignTitle" placeholder="e.g., Chapter 1: The Beginning">
+                            <!-- Redesigned Top Section with Better Layout -->
+                            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px;">
+                                <!-- Left Column: Title, Folder, Audio -->
+                                <div style="display: flex; flex-direction: column; gap: 15px;">
+                                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #0079D3;">
+                                        <label style="font-weight: 700; color: #333; font-size: 0.95rem; display: block; margin-bottom: 8px;">📝 Assignment Title</label>
+                                        <input type="text" id="newAssignTitle" placeholder="e.g., Chapter 1: The Beginning" style="width: 100%; box-sizing: border-box; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 1rem;">
+                                    </div>
+                                    
+                                    <div style="background: #fff3e0; padding: 15px; border-radius: 8px; border-left: 4px solid #ff9800;">
+                                        <label style="font-weight: 700; color: #333; font-size: 0.95rem; display: block; margin-bottom: 8px;">📁 Folder / Year</label>
+                                        <input type="text" id="newAssignFolder" placeholder="e.g. 2025 History, Unit 1" value="General" list="existingFolders" style="width: 100%; box-sizing: border-box; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 1rem;">
+                                        <datalist id="existingFolders"></datalist>
+                                    </div>
+                                    
+                                    <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; border-left: 4px solid #4caf50;">
+                                        <label style="font-weight: 700; color: #333; font-size: 0.95rem; display: block; margin-bottom: 8px;">🎵 Audio Source</label>
+                                        <div class="radio-group" style="margin-bottom: 10px;">
+                                            <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin-right: 20px;">
+                                                <input type="radio" name="audioSourceType" value="upload" checked onclick="toggleAudioSourceUI()"> 
+                                                <span>Upload MP3/WAV</span>
+                                            </label>
+                                            <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                                                <input type="radio" name="audioSourceType" value="dropbox" onclick="toggleAudioSourceUI()"> 
+                                                <span>Paste Dropbox Link</span>
+                                            </label>
+                                        </div>
+                                        <div id="audioUploadContainer">
+                                            <input type="file" id="newAssignAudioFile" accept="audio/mpeg, audio/wav, audio/ogg" style="width: 100%; padding: 8px; background: white; border: 2px dashed #4caf50; border-radius: 6px;">
+                                        </div>
+                                        <div id="audioDropboxContainer" class="hidden">
+                                            <input type="url" id="newAssignAudioUrl" placeholder="https://www.dropbox.com/s/..." style="width: 100%; box-sizing: border-box; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 1rem;">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div style="flex: 1;">
-                                    <label>Folder / Year (Warehouse)</label>
-                                    <input type="text" id="newAssignFolder" placeholder="e.g. 2025 History, Unit 1" value="General" list="existingFolders">
-                                    <datalist id="existingFolders"></datalist>
-                                </div>
-                                <div>
-                                    <label>Target Class / Period</label>
-                                    <div id="assignmentTargetsContainer" style="max-height: 250px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 5px; background: #fafafa;"></div>
+                                
+                                <!-- Right Column: Target Class -->
+                                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; border-left: 4px solid #2196f3;">
+                                    <label style="font-weight: 700; color: #333; font-size: 0.95rem; display: block; margin-bottom: 8px;">🎯 Target Class / Period</label>
+                                    <div id="assignmentTargetsContainer" style="max-height: 350px; overflow-y: auto; border: 2px solid #90caf9; padding: 12px; border-radius: 6px; background: white;"></div>
                                 </div>
                             </div>
                             
-                            <label>Audio Source</label>
-                            <div class="radio-group">
-                                <label><input type="radio" name="audioSourceType" value="upload" checked onclick="toggleAudioSourceUI()"> Upload MP3/WAV</label>
-                                <label><input type="radio" name="audioSourceType" value="dropbox" onclick="toggleAudioSourceUI()"> Paste Dropbox Link</label>
-                            </div>
-                            
-                            <div id="audioUploadContainer"><input type="file" id="newAssignAudioFile" accept="audio/mpeg, audio/wav, audio/ogg" style="margin-bottom: 15px;"></div>
-                            <div id="audioDropboxContainer" class="hidden"><input type="url" id="newAssignAudioUrl" placeholder="https://www.dropbox.com/s/..." style="margin-bottom: 15px;"></div>
-
-                            
-                            <div style="margin-top: 20px; border: 2px solid #0079D3; padding: 20px; border-radius: 8px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
-                                <h4 style="margin-top: 0; margin-bottom: 5px; color: #0079D3; display: flex; align-items: center; gap: 8px; font-size: 1.2rem;">
-                                    <span>✂️</span> Audio Trimmer - Visual Editor
+                            <!-- Visual Editor Section - Enhanced -->
+                            <div style="margin-top: 20px; border: 2px solid #0079D3; padding: 20px; border-radius: 8px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                                <h4 style="margin-top: 0; margin-bottom: 5px; color: #0079D3; display: flex; align-items: center; gap: 8px; font-size: 1.3rem;">
+                                    <span>✂️</span> Visual Audio Editor
                                 </h4>
-                                <p style="font-size: 0.85rem; color: #555; margin-bottom: 15px;">Mark sections to skip (ads, intros, outros). Students won't hear marked sections.</p>
+                                <p style="font-size: 0.85rem; color: #555; margin-bottom: 15px;">Load audio to visually mark skip zones and add questions by clicking on the waveform timeline.</p>
                                 
                                 <!-- Load Audio Button - Always Visible -->
-                                <div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center;">
+                                <div style="background: white; padding: 15px; border-radius: 6px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center;">
                                     <div>
-                                        <span style="font-weight: 600; color: #333; display: block;">Step 1: Load Audio for Visual Editing</span>
-                                        <span style="font-size: 0.8rem; color: #666;">Make sure audio is selected/uploaded above first</span>
+                                        <span style="font-weight: 700; color: #333; display: block; font-size: 1rem;">Step 1: Load Audio for Visual Editing</span>
+                                        <span style="font-size: 0.85rem; color: #666;">Select audio above, then click Load Audio to see waveform</span>
                                     </div>
-                                    <button type="button" id="loadAudioBtn" class="action-btn" onclick="loadAudioForTrimming()" style="background: #0079D3; padding: 8px 20px; font-size: 0.9rem; font-weight: 700;">🎵 Load Audio</button>
+                                    <button type="button" id="loadAudioBtn" class="action-btn" onclick="loadAudioForTrimming()" style="background: #0079D3; padding: 10px 24px; font-size: 1rem; font-weight: 700;">🎵 Load Audio</button>
                                 </div>
                                 
                                 <!-- Audio Preview Player (hidden until audio loaded) -->
@@ -237,12 +255,39 @@
                                     </div>
                                     
                                     <!-- Waveform Container -->
-                                    <div id="waveform" style="width: 100%; min-height: 100px; background: #fafafa; border-radius: 4px; margin: 10px 0;"></div>
+                                    <div id="waveform" style="width: 100%; min-height: 100px; background: #fafafa; border-radius: 4px; margin: 10px 0; cursor: crosshair;"></div>
 
-                                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 15px; background: #f8f9fa; padding: 10px; border-radius: 6px; border: 1px solid #ddd;">
-                                            <label for="waveZoom" style="font-size: 0.9rem; font-weight: bold; color: #444;">🔍 Zoom:</label>
-                                            <input type="range" id="waveZoom" min="10" max="200" value="10" oninput="setWaveformZoom(this.value)" style="flex: 1; cursor: pointer;">
+                                    <!-- Toolbar: Question Placement Mode -->
+                                    <div style="background: #fff9e6; border: 2px solid #ffc107; border-radius: 8px; padding: 12px; margin: 15px 0;">
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                            <span style="font-weight: 700; color: #333; font-size: 0.95rem;">🎯 Click Mode:</span>
+                                            <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: white; border: 2px solid #ddd; border-radius: 6px;">
+                                                <input type="radio" name="waveformMode" value="skip" checked onchange="setWaveformMode(this.value)">
+                                                <span style="font-weight: 600; color: #f44336;">✂️ Add Skip Zone</span>
+                                            </label>
+                                            <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: white; border: 2px solid #ddd; border-radius: 6px;">
+                                                <input type="radio" name="waveformMode" value="question" onchange="setWaveformMode(this.value)">
+                                                <span style="font-weight: 600; color: #0079D3;">❓ Add Question</span>
+                                            </label>
                                         </div>
+                                        
+                                        <!-- Question Type Selector (shown when question mode active) -->
+                                        <div id="questionTypeSelector" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #ffd54f;">
+                                            <span style="font-weight: 600; color: #555; font-size: 0.9rem; display: block; margin-bottom: 8px;">Select question type to add:</span>
+                                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                                <button type="button" class="question-type-btn" data-qtype="open" style="padding: 8px 14px; background: #0079D3; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">📝 Open-Ended</button>
+                                                <button type="button" class="question-type-btn" data-qtype="mc" style="padding: 8px 14px; background: #1e8e3e; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">✔️ Multiple Choice</button>
+                                                <button type="button" class="question-type-btn" data-qtype="tf" style="padding: 8px 14px; background: #f4b400; color: black; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">⚖️ True/False</button>
+                                                <button type="button" class="question-type-btn" data-qtype="match" style="padding: 8px 14px; background: #e53935; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">🔗 Matching</button>
+                                            </div>
+                                            <p style="font-size: 0.8rem; color: #666; margin: 8px 0 0 0; font-style: italic;">💡 Click a question type button, then click anywhere on the waveform to add that question at that timestamp.</p>
+                                        </div>
+                                    </div>
+
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 15px; background: #f8f9fa; padding: 10px; border-radius: 6px; border: 1px solid #ddd;">
+                                        <label for="waveZoom" style="font-size: 0.9rem; font-weight: bold; color: #444;">🔍 Zoom:</label>
+                                        <input type="range" id="waveZoom" min="10" max="200" value="10" oninput="setWaveformZoom(this.value)" style="flex: 1; cursor: pointer;">
+                                    </div>
                                     
                                     <!-- Playback Controls -->
                                     <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
@@ -472,7 +517,7 @@
                         
                         <div class="card" style="margin-top: 20px;">
                             <h2 style="margin-top: 0;">Audio Storage Warehouse</h2>
-                            <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">All audio files in your storage bucket (audio-files). Unused files can be safely deleted.</p>
+                            <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">All audio files in your storage bucket (audio_files). Unused files can be safely deleted.</p>
                             <table>
                                 <thead><tr><th>File Name</th><th>Size</th><th>Uploaded</th><th>Actions</th></tr></thead>
                                 <tbody id="teacherFilesTable"><tr><td colspan="4" style="text-align:center;">Loading files...</td></tr></tbody>
