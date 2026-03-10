@@ -2458,17 +2458,46 @@ async function initializeWaveform(audioUrl, sourceType) {
     
     // For uploaded files, use directly (it's already a blob URL)
     if (sourceType === 'upload') {
+        console.log('[UPLOAD] Loading blob URL directly');
         await wavesurfer.load(audioUrl);
-    } else {
-        // For external URLs, use proxy
-        const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
         
-        // Force HTTP for publishers with broken SSL certificates
-        if (audioUrl.includes('files.civiced.org')) {
-            finalUrl = audioUrl.replace('https://', 'http://');
+    } else if (audioUrl.includes('files.civiced.org')) {
+        // Special handling for civiced.org
+        console.log('[CIVICED] Detected files.civiced.org URL');
+        console.log('[CIVICED] Original URL:', audioUrl);
+        
+        // Convert to HTTP (broken SSL)
+        finalUrl = audioUrl.replace('https://', 'http://');
+        console.log('[CIVICED] Converted to HTTP:', finalUrl);
+        
+        // Try loading directly WITHOUT proxy first
+        console.log('[CIVICED] Attempting direct load (no proxy)...');
+        
+        try {
+            await wavesurfer.load(finalUrl);
+            console.log('[CIVICED] ✅ SUCCESS! Direct load worked (no proxy needed)');
+        } catch (directError) {
+            console.error('[CIVICED] ❌ Direct load failed:', directError.message);
+            console.log('[CIVICED] Trying with proxy as fallback...');
+            
+            // Fallback: Try with proxy
+            const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
+            const proxiedUrl = myProxy + encodeURIComponent(finalUrl);
+            console.log('[CIVICED] Proxied URL:', proxiedUrl);
+            
+            try {
+                await wavesurfer.load(proxiedUrl);
+                console.log('[CIVICED] ✅ SUCCESS! Proxy load worked');
+            } catch (proxyError) {
+                console.error('[CIVICED] ❌ Proxy load also failed:', proxyError.message);
+                throw new Error(`Cannot load civiced.org audio. Direct error: ${directError.message}, Proxy error: ${proxyError.message}`);
+            }
         }
         
-        // Load audio via proxy
+    } else {
+        // For all other external URLs, use proxy
+        const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
+        console.log('[EXTERNAL] Loading via proxy:', audioUrl);
         await wavesurfer.load(myProxy + encodeURIComponent(finalUrl));
     }    
     
