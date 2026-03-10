@@ -823,9 +823,29 @@ async function renderClassRowWithRoster(c, isArchived) {
     
     const studentCount = roster ? roster.length : 0;
     
+    // Get co-teachers
+    const teacherEmails = Array.isArray(c.teacher_emails) ? c.teacher_emails : [c.teacher_emails];
+    const coTeacherCount = teacherEmails.length;
+    
     const archiveBtn = isArchived 
         ? `<button onclick="toggleArchiveClass('${c.id}', false)" class="action-btn" style="background: #666; font-size: 0.85rem; padding: 6px 12px;">Unarchive</button>`
         : `<button onclick="toggleArchiveClass('${c.id}', true)" class="action-btn" style="background: #f57c00; font-size: 0.85rem; padding: 6px 12px;">Archive</button>`;
+    
+    // Build co-teacher display
+    let coTeacherHtml = '<div style="margin: 10px 0;">';
+    coTeacherHtml += '<strong style="font-size: 0.9rem; color: #555;">Co-Teachers:</strong> ';
+    if (coTeacherCount === 0) {
+        coTeacherHtml += '<span style="font-style: italic; color: #999;">None</span>';
+    } else {
+        coTeacherHtml += teacherEmails.map(email => {
+            const canRemove = coTeacherCount > 1; // Can't remove if only one teacher
+            return `<span style="display: inline-flex; align-items: center; gap: 5px; background: #e3f2fd; color: #0079D3; padding: 4px 10px; border-radius: 12px; margin-right: 5px; font-size: 0.85rem;">
+                ${escapeHTML(email)}
+                ${canRemove ? `<button onclick="removeCoTeacher('${c.id}', '${email}')" style="background: none; border: none; color: #d32f2f; cursor: pointer; padding: 0; margin: 0; font-size: 1rem; line-height: 1;">×</button>` : ''}
+            </span>`;
+        }).join('');
+    }
+    coTeacherHtml += '</div>';
     
     // Build roster HTML
     let rosterHtml = '';
@@ -852,13 +872,25 @@ async function renderClassRowWithRoster(c, isArchived) {
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <div>
                     <h3 style="margin: 0; color: #0079D3;">${escapeHTML(c.class_name)}</h3>
-                    <p style="font-size: 0.85rem; color: #666; margin: 5px 0 0 0;">${studentCount} student${studentCount !== 1 ? 's' : ''}</p>
+                    <p style="font-size: 0.85rem; color: #666; margin: 5px 0 0 0;">${studentCount} student${studentCount !== 1 ? 's' : ''} • ${coTeacherCount} teacher${coTeacherCount !== 1 ? 's' : ''}</p>
                 </div>
                 <div style="display: flex; gap: 10px;">
                     ${archiveBtn}
                     <button onclick="deleteClass('${c.id}')" class="danger-btn" style="font-size: 0.85rem; padding: 6px 12px;">Delete Class</button>
                 </div>
             </div>
+            
+            ${coTeacherHtml}
+            
+            ${!isArchived ? `
+            <div style="background: #f5f5f5; padding: 10px; border-radius: 4px; margin: 10px 0;">
+                <strong style="font-size: 0.9rem; color: #555;">Add Co-Teacher:</strong>
+                <div style="display: flex; gap: 10px; margin-top: 8px;">
+                    <input type="email" id="addCoTeacher_${c.id}" placeholder="teacher@email.com" style="flex: 1; margin: 0; padding: 8px;">
+                    <button onclick="addCoTeacher('${c.id}')" class="action-btn" style="padding: 8px 15px; white-space: nowrap; background: #0079D3;">+ Add Teacher</button>
+                </div>
+            </div>
+            ` : ''}
             
             ${rosterHtml}
             
@@ -890,10 +922,72 @@ window.createNewClass = async function() {
 window.deleteClass = async function(id) { if(confirm("Delete class?")) { await sb.from('classcast_classes').delete().eq('id', id); loadManageClasses(); } };
 window.addStudentToClass = async function(classId) {
     const n = document.getElementById(`addStudentName_${classId}`).value; const e = document.getElementById(`addStudentEmail_${classId}`).value;
-    if(!e) return; await sb.from('classcast_roster').insert([{ class_id: classId, student_name: n, student_email: e }]);
+    if(!e) return alert('Email is required'); 
+    await sb.from('classcast_roster').insert([{ class_id: classId, student_name: n, student_email: e }]);
+    document.getElementById(`addStudentName_${classId}`).value = '';
+    document.getElementById(`addStudentEmail_${classId}`).value = '';
     loadManageClasses();
 };
-window.removeStudent = async function(id) { await sb.from('classcast_roster').delete().eq('id', id); loadManageClasses(); };
+
+window.removeStudent = async function(id) { 
+    if (!confirm('Remove this student from the class?')) return;
+    await sb.from('classcast_roster').delete().eq('id', id); 
+    loadManageClasses(); 
+};
+
+window.addCoTeacher = async function(classId) {
+    const email = document.getElementById(`addCoTeacher_${classId}`).value.trim();
+    if (!email) return alert('Please enter a teacher email');
+    
+    // Validate email format
+    if (!email.includes('@')) return alert('Please enter a valid email address');
+    
+    // Get current class
+    const { data: cls } = await sb.from('classcast_classes').select('teacher_emails').eq('id', classId).single();
+    if (!cls) return alert('Class not found');
+    
+    // Get current emails array
+    let emails = Array.isArray(cls.teacher_emails) ? cls.teacher_emails : [cls.teacher_emails];
+    
+    // Check if already exists
+    if (emails.includes(email)) {
+        return alert('This teacher is already a co-teacher for this class');
+    }
+    
+    // Add new email
+    emails.push(email);
+    
+    // Update class
+    await sb.from('classcast_classes').update({ teacher_emails: emails }).eq('id', classId);
+    
+    // Clear input and reload
+    document.getElementById(`addCoTeacher_${classId}`).value = '';
+    loadManageClasses();
+};
+
+window.removeCoTeacher = async function(classId, emailToRemove) {
+    if (!confirm(`Remove ${emailToRemove} as co-teacher?`)) return;
+    
+    // Get current class
+    const { data: cls } = await sb.from('classcast_classes').select('teacher_emails').eq('id', classId).single();
+    if (!cls) return;
+    
+    // Get current emails array
+    let emails = Array.isArray(cls.teacher_emails) ? cls.teacher_emails : [cls.teacher_emails];
+    
+    // Remove the email
+    emails = emails.filter(e => e !== emailToRemove);
+    
+    // Prevent removing last teacher
+    if (emails.length === 0) {
+        return alert('Cannot remove the last teacher! At least one teacher must be assigned to the class.');
+    }
+    
+    // Update class
+    await sb.from('classcast_classes').update({ teacher_emails: emails }).eq('id', classId);
+    
+    loadManageClasses();
+};
 
 window.addCoTeacherPrompt = async function(classId) {
     const email = prompt("Enter the Google Email of the Co-Teacher you want to add to this class:");
@@ -906,14 +1000,181 @@ window.addCoTeacherPrompt = async function(classId) {
 };
 
 async function loadManageFiles() {
-    const tbody = document.getElementById('teacherFilesTable');
-    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Loading...</td></tr>';
-    const { data, error } = await sb.storage.from('audio-files').list();
-    if(error) return tbody.innerHTML = `<tr><td colspan="3">Error: ${error.message}</td></tr>`;
-    const valid = (data||[]).filter(f => f.name !== '.emptyFolderPlaceholder');
-    tbody.innerHTML = valid.length ? valid.map(f => `<tr><td>${f.name}</td><td>${(f.metadata.size/1024/1024).toFixed(2)} MB</td><td><button class="danger-btn" onclick="deleteFile('${f.name}')">Delete</button></td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center;">No files found.</td></tr>';
+    const foldersContainer = document.getElementById('foldersAndFilesContainer');
+    const filesTable = document.getElementById('teacherFilesTable');
+    
+    if (!foldersContainer) return;
+    
+    foldersContainer.innerHTML = '<p style="text-align:center; color:#666;">Loading folders...</p>';
+    
+    try {
+        // Get all assignments
+        const { data: assignments, error: assignError } = await sb.from('classcast_assignments')
+            .select('id, title, folder_name, audio_url, created_at')
+            .order('folder_name', { ascending: true })
+            .order('title', { ascending: true });
+        
+        if (assignError) {
+            foldersContainer.innerHTML = `<p style="color:red;">Error loading assignments: ${assignError.message}</p>`;
+            return;
+        }
+        
+        // Group assignments by folder
+        const folderMap = {};
+        (assignments || []).forEach(a => {
+            const folder = a.folder_name || 'General';
+            if (!folderMap[folder]) folderMap[folder] = [];
+            folderMap[folder].push(a);
+        });
+        
+        const folders = Object.keys(folderMap).sort();
+        
+        if (folders.length === 0) {
+            foldersContainer.innerHTML = '<p style="text-align:center; color:#666; font-style:italic;">No assignments yet. Create an assignment to see it here.</p>';
+            return;
+        }
+        
+        // Build folder view
+        let html = '';
+        folders.forEach(folderName => {
+            const folderAssignments = folderMap[folderName];
+            const assignmentCount = folderAssignments.length;
+            const isGeneral = folderName === 'General';
+            
+            html += `
+                <div class="card" style="margin-bottom: 15px; border-left: 4px solid #ff9800;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <div>
+                            <h3 style="margin: 0; color: #ff9800; display: flex; align-items: center; gap: 8px;">
+                                <span>📁</span> ${escapeHTML(folderName)}
+                            </h3>
+                            <p style="font-size: 0.85rem; color: #666; margin: 5px 0 0 0;">
+                                ${assignmentCount} assignment${assignmentCount !== 1 ? 's' : ''}
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            ${!isGeneral ? `
+                                <button onclick="renameFolder('${escapeHTML(folderName).replace(/'/g, "\\'")}', true)" class="action-btn" style="padding: 6px 12px; font-size: 0.85rem; background: #0079D3;">Rename</button>
+                                <button onclick="deleteFolder('${escapeHTML(folderName).replace(/'/g, "\\'")}', true)" class="danger-btn" style="padding: 6px 12px; font-size: 0.85rem;">Delete Folder</button>
+                            ` : '<span style="font-size: 0.85rem; color: #999; font-style: italic;">Default folder</span>'}
+                        </div>
+                    </div>
+                    
+                    <table style="width: 100%; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="background: #f5f5f5;">
+                                <th style="text-align: left; padding: 8px;">Assignment Title</th>
+                                <th style="text-align: left; padding: 8px;">Audio File</th>
+                                <th style="text-align: center; padding: 8px; width: 100px;">Created</th>
+                                <th style="text-align: center; padding: 8px; width: 150px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${folderAssignments.map(a => {
+                                const audioFileName = a.audio_url ? extractFileName(a.audio_url) : 'No audio';
+                                const createdDate = a.created_at ? new Date(a.created_at).toLocaleDateString() : 'Unknown';
+                                return `
+                                    <tr style="border-bottom: 1px solid #eee;">
+                                        <td style="padding: 10px;">
+                                            <strong>${escapeHTML(a.title)}</strong>
+                                        </td>
+                                        <td style="padding: 10px; font-family: monospace; font-size: 0.85rem; color: #666;">
+                                            ${audioFileName}
+                                        </td>
+                                        <td style="padding: 10px; text-align: center; font-size: 0.85rem; color: #666;">
+                                            ${createdDate}
+                                        </td>
+                                        <td style="padding: 10px; text-align: center;">
+                                            <button onclick="editAssignment(${a.id})" class="action-btn" style="padding: 4px 10px; font-size: 0.8rem; background: #555; margin-right: 5px;">Edit</button>
+                                            <button onclick="deleteAssignment(${a.id})" class="danger-btn" style="padding: 4px 10px; font-size: 0.8rem;">Delete</button>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        });
+        
+        foldersContainer.innerHTML = html;
+        
+        // Also load the raw audio files in storage
+        loadStorageFiles();
+        
+    } catch (error) {
+        console.error('Error loading folders:', error);
+        foldersContainer.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+    }
 }
-window.deleteFile = async function(n) { if(confirm(`Delete ${n}?`)) { await sb.storage.from('audio-files').remove([n]); loadManageFiles(); } };
+
+// Helper to extract filename from URL
+function extractFileName(url) {
+    if (!url) return 'No audio';
+    try {
+        // Handle Dropbox URLs
+        if (url.includes('dropbox')) {
+            const parts = url.split('/');
+            return decodeURIComponent(parts[parts.length - 1].split('?')[0]);
+        }
+        // Handle regular URLs
+        const parts = url.split('/');
+        return decodeURIComponent(parts[parts.length - 1]);
+    } catch (e) {
+        return 'Unknown file';
+    }
+}
+
+// Load raw storage files
+async function loadStorageFiles() {
+    const tbody = document.getElementById('teacherFilesTable');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>';
+    
+    const { data, error } = await sb.storage.from('audio_files').list();
+    if (error) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error: ${error.message}</td></tr>`;
+        return;
+    }
+    
+    const valid = (data || []).filter(f => f.name !== '.emptyFolderPlaceholder');
+    
+    if (valid.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#666; font-style:italic;">No files in storage.</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = valid.map(f => {
+        const sizeMB = (f.metadata?.size / 1024 / 1024).toFixed(2);
+        const uploadedDate = f.created_at ? new Date(f.created_at).toLocaleDateString() : 'Unknown';
+        return `
+            <tr>
+                <td style="word-break: break-all; max-width: 300px;">${escapeHTML(f.name)}</td>
+                <td>${sizeMB} MB</td>
+                <td>${uploadedDate}</td>
+                <td style="text-align: center;">
+                    <button class="danger-btn" onclick="deleteStorageFile('${escapeHTML(f.name).replace(/'/g, "\\'")}')">Delete</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+window.deleteStorageFile = async function(fileName) {
+    if (!confirm(`Delete "${fileName}" from storage?\n\nWarning: Any assignments using this file will break!`)) return;
+    
+    const { error } = await sb.storage.from('audio_files').remove([fileName]);
+    if (error) {
+        alert('Error deleting file: ' + error.message);
+    } else {
+        alert('File deleted successfully!');
+        loadStorageFiles();
+    }
+};
+
+// Keep old deleteFile for backwards compatibility
+window.deleteFile = window.deleteStorageFile;
 
 // ================= SUPER ADMIN PANEL =================
 window.loadSuperAdminTeachers = async function() {
@@ -983,9 +1244,9 @@ window.loadSuperAdminTeachers = async function() {
         tbody.innerHTML = statsHtml || '<tr><td colspan="4">No teachers found.</td></tr>';
 
         // 2. FILE IDLE TIME & WAREHOUSE
-        const { data: files, error: fileErr } = await sb.storage.from('classcast_audio').list();
+        const { data: files, error: fileErr } = await sb.storage.from('audio_files').list();
         if (fileErr || !files) {
-            filesBody.innerHTML = `<tr><td colspan="5" style="color:red;">Error loading files: ${fileErr?.message || 'Unknown error'}</td></tr>`;
+            filesBody.innerHTML = `<tr><td colspan="5" style="color:red;">Error loading files: ${fileErr?.message || 'Unknown error'}<br>Bucket: audio_files</td></tr>`;
             return;
         }
 
@@ -2283,4 +2544,86 @@ window.cancelEdit = function() {
         }
     }
     if (window.originalCancelEdit) window.originalCancelEdit();
+};
+
+// ==========================================
+// FOLDER MANAGEMENT (Manage Files Tab)
+// ==========================================
+
+window.createNewFolder = function() {
+    const folderName = prompt('Enter new folder name:');
+    if (!folderName || folderName.trim() === '') return;
+    
+    const trimmedName = folderName.trim();
+    
+    if (trimmedName.toLowerCase() === 'general') {
+        return alert('"General" is a reserved folder name. Please choose another name.');
+    }
+    
+    alert(`Folder "${trimmedName}" will be created when you add an assignment to it.\n\nTo use this folder:\n1. Create or edit an assignment\n2. Type "${trimmedName}" in the Folder field\n3. Save the assignment`);
+};
+
+window.renameFolder = async function(oldName, fromManageFiles = false) {
+    const newName = prompt(`Rename folder "${oldName}" to:`, oldName);
+    if (!newName || newName.trim() === '' || newName === oldName) return;
+    
+    const trimmedName = newName.trim();
+    
+    if (trimmedName.toLowerCase() === 'general' && oldName.toLowerCase() !== 'general') {
+        return alert('"General" is a reserved folder name. Please choose another name.');
+    }
+    
+    // Check if new name already exists
+    const { data: existing } = await sb.from('classcast_assignments').select('id').eq('folder_name', trimmedName).limit(1);
+    if (existing && existing.length > 0) {
+        return alert(`Folder "${trimmedName}" already exists. Choose a different name.`);
+    }
+    
+    // Update all assignments with this folder
+    const { error } = await sb.from('classcast_assignments')
+        .update({ folder_name: trimmedName })
+        .eq('folder_name', oldName);
+    
+    if (error) {
+        alert('Error renaming folder: ' + error.message);
+    } else {
+        alert(`Folder renamed from "${oldName}" to "${trimmedName}"`);
+        if (fromManageFiles) {
+            loadManageFiles();
+        } else if (typeof loadFolderList === 'function') {
+            loadFolderList();
+        }
+        if (typeof loadTeacherAssignments === 'function') loadTeacherAssignments();
+    }
+};
+
+window.deleteFolder = async function(folderName, fromManageFiles = false) {
+    const { data: assignments } = await sb.from('classcast_assignments').select('id').eq('folder_name', folderName);
+    const count = assignments ? assignments.length : 0;
+    
+    if (!confirm(`Delete folder "${folderName}"?\n\nThis will move ${count} assignment${count !== 1 ? 's' : ''} to the "General" folder.\n\nThe assignments themselves will NOT be deleted.`)) {
+        return;
+    }
+    
+    // Move all assignments to General folder
+    const { error } = await sb.from('classcast_assignments')
+        .update({ folder_name: 'General' })
+        .eq('folder_name', folderName);
+    
+    if (error) {
+        alert('Error deleting folder: ' + error.message);
+    } else {
+        alert(`Folder "${folderName}" deleted. ${count} assignment${count !== 1 ? 's' : ''} moved to "General".`);
+        if (fromManageFiles) {
+            loadManageFiles();
+        } else if (typeof loadFolderList === 'function') {
+            loadFolderList();
+        }
+        if (typeof loadTeacherAssignments === 'function') loadTeacherAssignments();
+    }
+};
+
+// Old modal-based function (kept for backwards compatibility but not used)
+window.manageFolders = function() {
+    alert('Folder management has moved to the "Manage Files" tab!\n\nClick the "📁 Manage Files" button in the navigation to organize your folders.');
 };
