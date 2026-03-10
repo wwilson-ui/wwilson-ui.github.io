@@ -766,57 +766,59 @@ window.importFromCSV = async function() {
 };
 
 async function loadManageClasses() {
-    const container = document.getElementById('classesListContainer');
-    container.innerHTML = '<p>Loading classes...</p>';
+    const list = document.getElementById('manageClassesList');
+    if (!list) return;
+    list.innerHTML = '<p>Loading classes...</p>';
     
-    let query = sb.from('classcast_classes').select('*').order('class_name');
-    if (!userPerms.isSuperAdmin) query = query.contains('teacher_emails', `["${userPerms.email}"]`);
-    const { data: classes } = await query;
-    const { data: rosters } = await sb.from('classcast_roster').select('*');
-    
-    if(!classes || classes.length === 0) { container.innerHTML = '<p>No classes created yet.</p>'; return; }
-
-    let html = '';
-    classes.forEach(cls => {
-        const students = (rosters || []).filter(r => r.class_id === cls.id);
-        const tEmails = Array.isArray(cls.teacher_emails) ? cls.teacher_emails : [cls.teacher_emails];
+    // Fetch classes
+    const { data, error } = await sb.from('classcast_classes')
+        .select('*')
+        .eq('teacher_email', userPerms.email)
+        .order('created_at', { ascending: false });
         
-        let studentRows = students.length === 0 ? '<tr><td colspan="3" style="text-align:center; color:#666;">No students added.</td></tr>'
-            : students.map(s => {
-                const safe = s.student_email || '';
-                const name = s.student_name ? s.student_name : (safe.includes('@') ? safe.split('@')[0] : `<strong>${safe}</strong>`);
-                const emailDisplay = safe.includes('@') ? `<span style="color:#555;">${safe}</span>` : `<span style="color:red; font-weight:bold;">⚠️ Blocked by Google/IT</span>`;
-                return `<tr><td><strong>${name}</strong></td><td>${emailDisplay}</td><td style="text-align:center;"><button class="danger-btn" onclick="removeStudent(${s.id})">Remove</button></td></tr>`;
-            }).join('');
+    if (error) { list.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`; return; }
+    
+    // Populate Class Filter in Assignments Tab
+    const classFilter = document.getElementById('filterClassSelect');
+    if (classFilter && classFilter.options.length <= 1) {
+        classFilter.innerHTML = '<option value="ALL">All Classes</option>' + 
+            data.map(c => `<option value="${c.id}">${escapeHTML(c.class_name)}</option>`).join('');
+    }
 
-        html += `
-        <div class="card" style="margin-bottom: 25px; border: 1px solid #dee2e6;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="margin:0; color:var(--primary);">${cls.class_name}</h3>
-                <button class="danger-btn" onclick="deleteClass(${cls.id})">Delete Class</button>
-            </div>
-            
-            <div style="margin-top: 10px; font-size: 0.85rem; color: #555;">
-                <strong>Co-Teachers:</strong> ${tEmails.join(', ')} 
-                <button onclick="addCoTeacherPrompt(${cls.id})" style="margin-left: 10px; background: none; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">+ Add Co-Teacher</button>
-            </div>
+    const activeClasses = data.filter(c => !c.is_archived);
+    const archivedClasses = data.filter(c => c.is_archived);
+    
+    let html = `<h3>Active Classes</h3>`;
+    if (activeClasses.length === 0) html += `<p>No active classes.</p>`;
+    html += activeClasses.map(c => renderClassRow(c, false)).join('');
 
-            <div style="margin-top: 15px; display:flex; gap:10px;">
-                <input type="text" id="addStudentName_${cls.id}" placeholder="Name (e.g. John Doe)" style="margin:0; flex:1;">
-                <input type="email" id="addStudentEmail_${cls.id}" placeholder="Email (jdoe@...)" style="margin:0; flex:1;">
-                <button class="action-btn" onclick="addStudentToClass(${cls.id})">Add Student</button>
-            </div>
-            
-            <div style="margin-top: 20px; border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden;">
-                <table style="margin-top: 0; border-collapse: collapse; white-space: nowrap;">
-                    <thead style="background: #f8f9fa;"><tr><th>Student Name</th><th>Student Email</th><th style="width: 120px; text-align: center;">Actions</th></tr></thead>
-                    <tbody>${studentRows}</tbody>
-                </table>
-            </div>
-        </div>`;
-    });
-    container.innerHTML = html;
+    if (archivedClasses.length > 0) {
+        html += `<h3 style="margin-top: 30px; color: #666;">Archived Classes</h3>`;
+        html += archivedClasses.map(c => renderClassRow(c, true)).join('');
+    }
+    list.innerHTML = html;
 }
+
+function renderClassRow(c, isArchived) {
+    const archiveBtn = isArchived 
+        ? `<button onclick="toggleArchiveClass('${c.id}', false)" class="action-btn" style="background: #666;">Unarchive</button>`
+        : `<button onclick="toggleArchiveClass('${c.id}', true)" class="action-btn" style="background: #f57c00;">Archive</button>`;
+        
+    return `
+        <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; ${isArchived ? 'opacity: 0.7; background: #f9f9f9;' : 'background: white;'}">
+            <div><strong>${escapeHTML(c.class_name)}</strong> (ID: ${c.id})</div>
+            <div style="display: flex; gap: 10px;">
+                ${archiveBtn}
+                <button onclick="deleteClass('${c.id}')" class="danger-btn">Delete</button>
+            </div>
+        </div>
+    `;
+}
+
+window.toggleArchiveClass = async function(classId, archiveStatus) {
+    await sb.from('classcast_classes').update({ is_archived: archiveStatus }).eq('id', classId);
+    loadManageClasses();
+};
 
 window.createNewClass = async function() {
     const name = document.getElementById('newClassName').value;
