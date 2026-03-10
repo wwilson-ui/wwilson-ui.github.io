@@ -1132,7 +1132,7 @@ async function loadStorageFiles() {
     
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>';
     
-    const { data, error } = await sb.storage.from('audio-files').list();
+    const { data, error } = await sb.storage.from('audio_files').list();
     if (error) {
         tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error: ${error.message}</td></tr>`;
         return;
@@ -1164,7 +1164,7 @@ async function loadStorageFiles() {
 window.deleteStorageFile = async function(fileName) {
     if (!confirm(`Delete "${fileName}" from storage?\n\nWarning: Any assignments using this file will break!`)) return;
     
-    const { error } = await sb.storage.from('audio-files').remove([fileName]);
+    const { error } = await sb.storage.from('audio_files').remove([fileName]);
     if (error) {
         alert('Error deleting file: ' + error.message);
     } else {
@@ -1180,34 +1180,91 @@ window.deleteFile = window.deleteStorageFile;
 window.loadSuperAdminTeachers = async function() {
     if (!userPerms.isSuperAdmin) return;
     
-    const tbody = document.querySelector('#superAdminTeachersTable tbody');
-    const filesBody = document.querySelector('#superAdminFilesTable tbody');
-    
-    if (!tbody || !filesBody) {
-        console.error('Super admin tables not found in HTML');
+    // Load both the simple teacher list AND the stats table
+    await loadAuthorizedTeachersList();
+    await loadTeacherStats();
+};
+
+// Load the simple "Authorized Teacher Email" table
+async function loadAuthorizedTeachersList() {
+    const tbody = document.querySelector('#superAdminTeachersTable');
+    if (!tbody) {
+        console.error('superAdminTeachersTable not found');
         return;
     }
     
-    tbody.innerHTML = '<tr><td colspan="4">Loading stats...</td></tr>';
-    filesBody.innerHTML = '<tr><td colspan="5">Loading files...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Loading...</td></tr>';
+    
+    try {
+        const { data: teachers, error } = await sb.from('classcast_teachers').select('email, role').order('email', { ascending: true });
+        
+        if (error) {
+            tbody.innerHTML = `<tr><td colspan="2" style="color:red; text-align:center;">Error: ${error.message}</td></tr>`;
+            return;
+        }
+        
+        if (!teachers || teachers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#666; font-style:italic;">No teachers added yet.</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        teachers.forEach(t => {
+            const roleLabel = t.role === 'super_admin' 
+                ? '<span style="background: #d32f2f; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px;">SUPER ADMIN</span>'
+                : '';
+            
+            html += `
+                <tr>
+                    <td><strong>${escapeHTML(t.email)}</strong>${roleLabel}</td>
+                    <td style="text-align: center;">
+                        ${t.role === 'super_admin' && t.email === userPerms.email 
+                            ? '<span style="font-size: 0.85rem; color: #999; font-style: italic;">You</span>'
+                            : `<button class="danger-btn" onclick="removeTeacher('${escapeHTML(t.email)}')" style="padding: 4px 10px; font-size: 0.85rem;">Remove</button>`
+                        }
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tbody.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error loading teachers:', error);
+        tbody.innerHTML = `<tr><td colspan="2" style="color:red; text-align:center;">Error: ${error.message}</td></tr>`;
+    }
+}
+
+// Load the "Teacher Usage Stats" table
+async function loadTeacherStats() {
+    const statsBody = document.querySelector('#teacherStatsTable tbody');
+    const filesBody = document.querySelector('#superAdminFilesTable tbody');
+    
+    if (!statsBody) {
+        console.error('Teacher stats table not found in HTML');
+        return;
+    }
+    
+    statsBody.innerHTML = '<tr><td colspan="4">Loading stats...</td></tr>';
+    if (filesBody) filesBody.innerHTML = '<tr><td colspan="5">Loading files...</td></tr>';
 
     try {
         // 1. TEACHER STATS
         const { data: teachers, error: teacherErr } = await sb.from('classcast_teachers').select('*');
         if (teacherErr) {
-            tbody.innerHTML = `<tr><td colspan="4" style="color:red;">Error loading teachers: ${teacherErr.message}</td></tr>`;
+            statsBody.innerHTML = `<tr><td colspan="4" style="color:red;">Error loading teachers: ${teacherErr.message}</td></tr>`;
             return;
         }
         
         const { data: classes, error: classErr } = await sb.from('classcast_classes').select('teacher_emails, is_archived');
         if (classErr) {
-            tbody.innerHTML = `<tr><td colspan="4" style="color:red;">Error loading classes: ${classErr.message}</td></tr>`;
+            statsBody.innerHTML = `<tr><td colspan="4" style="color:red;">Error loading classes: ${classErr.message}</td></tr>`;
             return;
         }
         
         const { data: assignments, error: assignErr } = await sb.from('classcast_assignments').select('teacher_email, created_at');
         if (assignErr) {
-            tbody.innerHTML = `<tr><td colspan="4" style="color:red;">Error loading assignments: ${assignErr.message}</td></tr>`;
+            statsBody.innerHTML = `<tr><td colspan="4" style="color:red;">Error loading assignments: ${assignErr.message}</td></tr>`;
             return;
         }
 
@@ -1241,9 +1298,11 @@ window.loadSuperAdminTeachers = async function() {
                 </tr>
             `;
         }
-        tbody.innerHTML = statsHtml || '<tr><td colspan="4">No teachers found.</td></tr>';
+        statsBody.innerHTML = statsHtml || '<tr><td colspan="4">No teachers found.</td></tr>';
 
-        // 2. FILE IDLE TIME & WAREHOUSE
+        // 2. FILE IDLE TIME & WAREHOUSE (if filesBody exists)
+        if (!filesBody) return;
+        
         const { data: files, error: fileErr } = await sb.storage.from('audio-files').list();
         if (fileErr || !files) {
             filesBody.innerHTML = `<tr><td colspan="5" style="color:red;">Error loading files: ${fileErr?.message || 'Unknown error'}<br>Bucket: audio-files</td></tr>`;
@@ -1290,17 +1349,41 @@ window.superAdminDeleteFile = async function(fileName) {
 
 window.addAuthorizedTeacher = async function() {
     const email = document.getElementById('newTeacherEmail').value.trim().toLowerCase();
-    if (!email) return;
-    await sb.from('classcast_teachers').insert([{ email: email }]);
+    if (!email) return alert('Please enter an email address');
+    
+    if (!email.includes('@')) return alert('Please enter a valid email address');
+    
+    const { error } = await sb.from('classcast_teachers').insert([{ email: email, role: 'teacher' }]);
+    
+    if (error) {
+        if (error.code === '23505') { // Duplicate key error
+            alert('This teacher email is already authorized');
+        } else {
+            alert('Error adding teacher: ' + error.message);
+        }
+        return;
+    }
+    
     document.getElementById('newTeacherEmail').value = '';
     loadSuperAdminTeachers();
 };
+
 window.removeTeacher = async function(email) {
-    if (confirm(`Revoke admin dashboard access for ${email}?`)) {
-        await sb.from('classcast_teachers').delete().eq('email', email);
+    if (email === userPerms.email) {
+        return alert('You cannot remove yourself!');
+    }
+    
+    if (!confirm(`Revoke dashboard access for ${email}?\n\nThey will no longer be able to log in as a teacher.`)) return;
+    
+    const { error } = await sb.from('classcast_teachers').delete().eq('email', email);
+    
+    if (error) {
+        alert('Error removing teacher: ' + error.message);
+    } else {
+        alert(`Access revoked for ${email}`);
         loadSuperAdminTeachers();
     }
-}
+};
 
 
 // ================= STUDENT PORTAL =================
