@@ -1,5 +1,5 @@
 // ==========================================
-// ClassCast - Unified Logic with Super Admin, Filters & Full Screen TEST CODE
+// ClassCast - Unified Logic with Super Admin, Filters & Full Screen
 // ==========================================
 
 let sb = null;
@@ -2364,7 +2364,15 @@ let currentAudioUrl = null;
 // Initialize WaveSurfer when audio is loaded
 window.loadAudioForTrimming = async function() {
     const sourceType = document.querySelector('input[name="audioSourceType"]:checked').value;
+    const loadBtn = document.getElementById('loadAudioBtn');
     let audioUrl = '';
+    
+    // Show loading spinner
+    const originalBtnHTML = loadBtn.innerHTML;
+    const originalBtnBg = loadBtn.style.background;
+    loadBtn.innerHTML = '⏳ Loading...';
+    loadBtn.style.background = '#ff9800';
+    loadBtn.disabled = true;
     
     try {
         if (sourceType === 'upload') {
@@ -2376,9 +2384,9 @@ window.loadAudioForTrimming = async function() {
             // Create temporary URL for uploaded file
             audioUrl = URL.createObjectURL(file);
         } else {
-            audioUrl = document.getElementById('newAssignAudioUrl').value;
+            audioUrl = document.getElementById('newAssignAudioUrl').value.trim();
             if (!audioUrl) {
-                alert('Please paste a Dropbox link first');
+                alert('Please paste an audio URL first');
                 return;
             }
                         
@@ -2393,22 +2401,53 @@ window.loadAudioForTrimming = async function() {
             }
         }
         
-    console.log('Loading audio from:', audioUrl);
+        console.log('Loading audio from:', audioUrl);
         currentAudioUrl = audioUrl; // Keeps the original URL safe for saving to your database
         
-        // Pass the URL directly to initializeWaveform
-        // It will handle proxy and encoding
         await initializeWaveform(audioUrl, sourceType);
         
         // Show preview section and update button
         document.getElementById('waveformPreviewSection').style.display = 'block';
-        document.getElementById('loadAudioBtn').innerHTML = '🔄 Reload Audio';
-        document.getElementById('loadAudioBtn').style.background = '#666';
+        loadBtn.innerHTML = '✅ Loaded - Click to Reload';
+        loadBtn.style.background = '#4caf50';
+        loadBtn.disabled = false;
         
     } catch (error) {
         console.error('Error loading audio:', error);
         
+        // Reset button to allow retry
+        loadBtn.innerHTML = '❌ Failed - Click to Retry';
+        loadBtn.style.background = '#d32f2f';
+        loadBtn.disabled = false;
+        
         // More detailed error message
+        let errorMsg = 'Error loading audio:\n\n';
+        if (error.message && error.message.includes('CORS')) {
+            errorMsg += '🔒 CORS Error: The audio source is blocking cross-origin access.\n\n';
+            errorMsg += '💡 Try:\n';
+            errorMsg += '1. Upload the file directly instead\n';
+            errorMsg += '2. Use manual time entry for skip zones/questions\n';
+            errorMsg += '3. Contact the podcast host about CORS headers';
+        } else if (error.message && error.message.includes('Failed to fetch')) {
+            errorMsg += '🌐 Network Error: Could not reach the audio source.\n\n';
+            errorMsg += '💡 Possible causes:\n';
+            errorMsg += '1. URL is incorrect or file doesn\'t exist\n';
+            errorMsg += '2. Source server is down\n';
+            errorMsg += '3. Firewall/network blocking the request\n\n';
+            errorMsg += 'Error: ' + error.message;
+        } else if (error.message) {
+            errorMsg += error.message;
+        } else {
+            errorMsg += 'Unknown error occurred.\n\n';
+            errorMsg += '💡 Please check:\n';
+            errorMsg += '1. File/URL is valid\n';
+            errorMsg += '2. File is MP3, WAV, or OGG format\n';
+            errorMsg += '3. URL is accessible (try opening in new tab)\n';
+        }
+        
+        alert(errorMsg);
+    }
+};
         let errorMsg = 'Error loading audio. ';
         if (error.message && error.message.includes('CORS')) {
             errorMsg += 'The audio URL may not allow cross-origin access. Try uploading the file directly instead.';
@@ -2451,54 +2490,33 @@ async function initializeWaveform(audioUrl, sourceType) {
         color: 'rgba(244, 67, 54, 0.3)'
     });
     
-    wavesurfer.on('error', (error) => { console.error('WaveSurfer error:', error); throw error; });
+    wavesurfer.on('error', (error) => { 
+        console.error('WaveSurfer error:', error); 
+        throw error; 
+    });
     
-    // Determine final URL to load
+    // Determine how to load the audio
     let finalUrl = audioUrl;
     
-    // For uploaded files, use directly (it's already a blob URL)
     if (sourceType === 'upload') {
+        // Uploaded files - use blob URL directly (no proxy needed)
         console.log('[UPLOAD] Loading blob URL directly');
         await wavesurfer.load(audioUrl);
+    } else {
+        // External URLs - use proxy for CORS
+        const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
         
-    } else if (audioUrl.includes('files.civiced.org')) {
-        // Special handling for civiced.org
-        console.log('[CIVICED] Detected files.civiced.org URL');
-        console.log('[CIVICED] Original URL:', audioUrl);
-        
-        // Convert to HTTP (broken SSL)
-        finalUrl = audioUrl.replace('https://', 'http://');
-        console.log('[CIVICED] Converted to HTTP:', finalUrl);
-        
-        // Try loading directly WITHOUT proxy first
-        console.log('[CIVICED] Attempting direct load (no proxy)...');
-        
-        try {
-            await wavesurfer.load(finalUrl);
-            console.log('[CIVICED] ✅ SUCCESS! Direct load worked (no proxy needed)');
-        } catch (directError) {
-            console.error('[CIVICED] ❌ Direct load failed:', directError.message);
-            console.log('[CIVICED] Trying with proxy as fallback...');
-            
-            // Fallback: Try with proxy
-            const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
-            const proxiedUrl = myProxy + encodeURIComponent(finalUrl);
-            console.log('[CIVICED] Proxied URL:', proxiedUrl);
-            
-            try {
-                await wavesurfer.load(proxiedUrl);
-                console.log('[CIVICED] ✅ SUCCESS! Proxy load worked');
-            } catch (proxyError) {
-                console.error('[CIVICED] ❌ Proxy load also failed:', proxyError.message);
-                throw new Error(`Cannot load civiced.org audio. Direct error: ${directError.message}, Proxy error: ${proxyError.message}`);
-            }
+        // Handle special cases
+        if (audioUrl.includes('files.civiced.org')) {
+            // Force HTTP for broken SSL certificates
+            finalUrl = audioUrl.replace('https://', 'http://');
+            console.log('[CIVICED] Converted to HTTP:', finalUrl);
         }
         
-    } else {
-        // For all other external URLs, use proxy
-        const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
-        console.log('[EXTERNAL] Loading via proxy:', audioUrl);
-        await wavesurfer.load(myProxy + encodeURIComponent(finalUrl));
+        // Load via proxy
+        const proxiedUrl = myProxy + encodeURIComponent(finalUrl);
+        console.log('[PROXY] Loading via proxy:', proxiedUrl);
+        await wavesurfer.load(proxiedUrl);
     }    
     
 
