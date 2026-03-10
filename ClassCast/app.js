@@ -2381,12 +2381,6 @@ window.loadAudioForTrimming = async function() {
                 alert('Please paste a Dropbox link first');
                 return;
             }
-
-            // --- ADD THIS FIX FOR BROKEN SSL SERVERS ---
-            if (audioUrl.includes('files.civiced.org')) {
-                audioUrl = audioUrl.replace('https://', 'http://');
-            }
-            // -------------------------------------------
                         
             // Handle different URL types
             if (audioUrl.includes('dropbox.com')) {
@@ -2402,17 +2396,9 @@ window.loadAudioForTrimming = async function() {
     console.log('Loading audio from:', audioUrl);
         currentAudioUrl = audioUrl; // Keeps the original URL safe for saving to your database
         
-        // --- ADD THE PROXY FOR VISUAL EDITOR ---
-        const proxyBase = "https://classcastproxy.wkwilson19.workers.dev/?url=";
-        let finalUrlToLoad = audioUrl;
-        
-        if (sourceType !== 'upload') {
-            // External links MUST use the proxy to bypass CORS and Mixed Content blockers
-            finalUrlToLoad = encodeURIComponent(audioUrl);
-        }
-        // ---------------------------------------
-        
-        await initializeWaveform(finalUrlToLoad);
+        // Pass the URL directly to initializeWaveform
+        // It will handle proxy and encoding
+        await initializeWaveform(audioUrl, sourceType);
         
         // Show preview section and update button
         document.getElementById('waveformPreviewSection').style.display = 'block';
@@ -2436,7 +2422,7 @@ window.loadAudioForTrimming = async function() {
 };
 
 
-async function initializeWaveform(audioUrl) {
+async function initializeWaveform(audioUrl, sourceType) {
     // Destroy existing instance if any
     if (wavesurfer) {
         try { wavesurfer.destroy(); } catch (e) { console.warn('Error destroying wavesurfer:', e); }
@@ -2467,17 +2453,24 @@ async function initializeWaveform(audioUrl) {
     
     wavesurfer.on('error', (error) => { console.error('WaveSurfer error:', error); throw error; });
     
-    // Use your personal Cloudflare Worker!
-    const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
-
-
-    // Force HTTP for publishers with broken SSL certificates
-    if (audioUrl.includes('files.civiced.org')) {
-        audioUrl = audioUrl.replace('https://', 'http://');
-    }
+    // Determine final URL to load
+    let finalUrl = audioUrl;
     
-    // Load audio via proxy
-    await wavesurfer.load(myProxy + encodeURIComponent(audioUrl));    
+    // For uploaded files, use directly (it's already a blob URL)
+    if (sourceType === 'upload') {
+        await wavesurfer.load(audioUrl);
+    } else {
+        // For external URLs, use proxy
+        const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
+        
+        // Force HTTP for publishers with broken SSL certificates
+        if (audioUrl.includes('files.civiced.org')) {
+            finalUrl = audioUrl.replace('https://', 'http://');
+        }
+        
+        // Load audio via proxy
+        await wavesurfer.load(myProxy + encodeURIComponent(finalUrl));
+    }    
     
 
     
@@ -2908,4 +2901,3 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
-
