@@ -193,25 +193,16 @@
                                 <div>
                                     <label>Assignment Title</label>
                                     <input type="text" id="newAssignTitle" placeholder="e.g., Chapter 1: The Beginning">
-
-                                    <label>Folder Name</label>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label>Folder / Year (Warehouse)</label>
                                     <input type="text" id="newAssignFolder" placeholder="e.g. 2025 History, Unit 1" value="General" list="existingFolders">
                                     <datalist id="existingFolders"></datalist>
                                 </div>
-                                
                                 <div>
                                     <label>Target Class / Period</label>
                                     <div id="assignmentTargetsContainer" style="max-height: 250px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 5px; background: #fafafa;"></div>
                                 </div>
-
-                                <!-- Moved to just below "Assignment Title" input above^
-                                <div style="flex: 1;">
-                                    <label>Folder Name</label>
-                                    <input type="text" id="newAssignFolder" placeholder="e.g. 2025 History, Unit 1" value="General" list="existingFolders">
-                                    <datalist id="existingFolders"></datalist>
-                                </div>
-                                -->
-                                
                             </div>
                             
                             <label>Audio Source</label>
@@ -466,10 +457,25 @@
 
                     <div id="admin-files" class="admin-panel">
                         <div class="card" style="margin-top:0;">
-                            <h2 style="margin-top: 0;">Supabase Storage (audio-files)</h2>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h2 style="margin: 0;">Assignment Files & Folders</h2>
+                                <button onclick="createNewFolder()" class="action-btn" style="background: #ff9800; display: flex; align-items: center; gap: 6px;">
+                                    <span>➕</span> New Folder
+                                </button>
+                            </div>
+                            <p style="color: #666; font-size: 0.9rem; margin-bottom: 20px;">Organize your assignments into folders. Each assignment's audio file is listed under its folder.</p>
+                            
+                            <div id="foldersAndFilesContainer">
+                                <p>Loading folders and files...</p>
+                            </div>
+                        </div>
+                        
+                        <div class="card" style="margin-top: 20px;">
+                            <h2 style="margin-top: 0;">Audio Storage Warehouse</h2>
+                            <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">All audio files in your storage bucket (audio_files). Unused files can be safely deleted.</p>
                             <table>
-                                <thead><tr><th>File Name</th><th>Size</th><th>Actions</th></tr></thead>
-                                <tbody id="teacherFilesTable"><tr><td colspan="3" style="text-align:center;">Loading files...</td></tr></tbody>
+                                <thead><tr><th>File Name</th><th>Size</th><th>Uploaded</th><th>Actions</th></tr></thead>
+                                <tbody id="teacherFilesTable"><tr><td colspan="4" style="text-align:center;">Loading files...</td></tr></tbody>
                             </table>
                         </div>
                     </div>
