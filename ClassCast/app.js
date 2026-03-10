@@ -279,13 +279,23 @@ window.addLinkRow = function(linkData = null) {
     list.appendChild(div);
 };
 
-window.addQuestionRow = function(type, qData = null) {
+window.addQuestionRow = function(type, qDataOrTimestamp = null) {
     const list = document.getElementById('questionsBuilderList');
     const id = Date.now() + Math.random().toString().slice(2, 6);
     const div = document.createElement('div');
     div.className = 'question-row-item';
     div.setAttribute('data-type', type); 
     div.style.border = "1px solid #ccc"; div.style.padding = "10px"; div.style.marginBottom = "10px"; div.style.borderRadius = "4px"; div.style.background = "#fff";
+
+    // Handle both qData object and simple timestamp number
+    let qData = null;
+    if (typeof qDataOrTimestamp === 'number') {
+        // It's a timestamp - create qData object
+        qData = { trigger_second: qDataOrTimestamp };
+    } else if (typeof qDataOrTimestamp === 'object') {
+        // It's a full qData object
+        qData = qDataOrTimestamp;
+    }
 
     let timeVal = qData && qData.trigger_second ? qData.trigger_second : '';
     let textVal = qData && qData.question_text ? escapeHTML(qData.question_text) : '';
@@ -1132,7 +1142,7 @@ async function loadStorageFiles() {
     
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>';
     
-    const { data, error } = await sb.storage.from('audio-files').list();
+    const { data, error } = await sb.storage.from('audio_files').list();
     if (error) {
         tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error: ${error.message}</td></tr>`;
         return;
@@ -1164,7 +1174,7 @@ async function loadStorageFiles() {
 window.deleteStorageFile = async function(fileName) {
     if (!confirm(`Delete "${fileName}" from storage?\n\nWarning: Any assignments using this file will break!`)) return;
     
-    const { error } = await sb.storage.from('audio-files').remove([fileName]);
+    const { error } = await sb.storage.from('audio_files').remove([fileName]);
     if (error) {
         alert('Error deleting file: ' + error.message);
     } else {
@@ -2457,6 +2467,9 @@ async function initializeWaveform(audioUrl) {
         // Reset zoom slider when new audio loads
         const zoomSlider = document.getElementById('waveZoom');
         if (zoomSlider) zoomSlider.value = 10;
+        
+        // Setup click handler for visual question placement
+        setupWaveformClickHandler();
     });
     
     // --- FEATURE 2: PREVIEW SKIP ZONES ---
@@ -2710,3 +2723,166 @@ window.deleteFolder = async function(folderName, fromManageFiles = false) {
 window.manageFolders = function() {
     alert('Folder management has moved to the "Manage Files" tab!\n\nClick the "📁 Manage Files" button in the navigation to organize your folders.');
 };
+
+// ==========================================
+// VISUAL QUESTION PLACEMENT ON WAVEFORM
+// ==========================================
+
+let waveformClickMode = 'skip'; // 'skip' or 'question'
+let selectedQuestionType = null;
+
+window.setWaveformMode = function(mode) {
+    waveformClickMode = mode;
+    const questionSelector = document.getElementById('questionTypeSelector');
+    
+    if (mode === 'question') {
+        questionSelector.style.display = 'block';
+        // Change waveform cursor
+        const waveformEl = document.getElementById('waveform');
+        if (waveformEl) waveformEl.style.cursor = 'pointer';
+    } else {
+        questionSelector.style.display = 'none';
+        selectedQuestionType = null;
+        const waveformEl = document.getElementById('waveform');
+        if (waveformEl) waveformEl.style.cursor = 'crosshair';
+        // Reset button highlights
+        document.querySelectorAll('.question-type-btn').forEach(btn => {
+            btn.style.opacity = '1';
+            btn.style.transform = 'none';
+        });
+    }
+};
+
+// Set up question type button clicks
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        const btns = document.querySelectorAll('.question-type-btn');
+        btns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                selectedQuestionType = this.getAttribute('data-qtype');
+                
+                // Visual feedback - highlight selected button
+                btns.forEach(b => {
+                    if (b === this) {
+                        b.style.opacity = '1';
+                        b.style.transform = 'scale(1.05)';
+                        b.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+                    } else {
+                        b.style.opacity = '0.5';
+                        b.style.transform = 'none';
+                        b.style.boxShadow = 'none';
+                    }
+                });
+                
+                // Show instruction
+                const waveformEl = document.getElementById('waveform');
+                if (waveformEl) {
+                    waveformEl.title = 'Click on the waveform to add your ' + 
+                        (selectedQuestionType === 'open' ? 'Open-Ended' :
+                         selectedQuestionType === 'mc' ? 'Multiple Choice' :
+                         selectedQuestionType === 'tf' ? 'True/False' :
+                         'Matching') + ' question';
+                }
+            });
+        });
+    }, 500);
+});
+
+// Add waveform click handler for question placement
+function setupWaveformClickHandler() {
+    if (!wavesurfer) return;
+    
+    const waveformContainer = document.querySelector('#waveform');
+    if (!waveformContainer) return;
+    
+    // Remove existing handler if any
+    if (waveformContainer._clickHandler) {
+        waveformContainer.removeEventListener('click', waveformContainer._clickHandler);
+    }
+    
+    const clickHandler = function(e) {
+        // Only handle in question mode
+        if (waveformClickMode !== 'question') return;
+        if (!selectedQuestionType) {
+            alert('Please select a question type first (click one of the colored buttons above)');
+            return;
+        }
+        
+        // Get click position relative to waveform
+        const rect = waveformContainer.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const relativeX = x / rect.width;
+        
+        // Calculate timestamp
+        const duration = wavesurfer.getDuration();
+        const timestamp = Math.floor(relativeX * duration);
+        
+        // Confirm and add question
+        const timeStr = formatTime(timestamp);
+        if (confirm(`Add ${getQuestionTypeLabel(selectedQuestionType)} question at ${timeStr}?`)) {
+            addQuestionAtTimestamp(selectedQuestionType, timestamp);
+            
+            // Visual feedback - flash at click location
+            const marker = document.createElement('div');
+            marker.style.cssText = `
+                position: absolute;
+                left: ${x}px;
+                top: 50%;
+                transform: translate(-50%, -50%);
+                width: 20px;
+                height: 20px;
+                background: #4caf50;
+                border-radius: 50%;
+                animation: pulse 0.5s ease-out;
+                pointer-events: none;
+                z-index: 1000;
+            `;
+            waveformContainer.style.position = 'relative';
+            waveformContainer.appendChild(marker);
+            setTimeout(() => marker.remove(), 500);
+            
+            // Reset selection
+            selectedQuestionType = null;
+            document.querySelectorAll('.question-type-btn').forEach(btn => {
+                btn.style.opacity = '1';
+                btn.style.transform = 'none';
+                btn.style.boxShadow = 'none';
+            });
+        }
+    };
+    
+    waveformContainer._clickHandler = clickHandler;
+    waveformContainer.addEventListener('click', clickHandler);
+}
+
+function getQuestionTypeLabel(type) {
+    switch(type) {
+        case 'open': return 'Open-Ended';
+        case 'mc': return 'Multiple Choice';
+        case 'tf': return 'True/False';
+        case 'match': return 'Matching';
+        default: return 'Question';
+    }
+}
+
+function addQuestionAtTimestamp(qType, timestamp) {
+    // Use existing addQuestionRow function but pre-fill timestamp
+    if (typeof addQuestionRow === 'function') {
+        addQuestionRow(qType, timestamp);
+    } else {
+        console.error('addQuestionRow function not found');
+    }
+}
+
+// Add CSS animation for pulse effect
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes pulse {
+        0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+        100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+    }
+`;
+document.head.appendChild(style);
