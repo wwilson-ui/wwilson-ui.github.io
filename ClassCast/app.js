@@ -552,72 +552,74 @@ window.saveNewAssignment = async function() {
 
 async function loadTeacherAssignments() {
     const tbody = document.getElementById('teacherAssignmentsTable');
-    if(!tbody) return;
-    let { data } = await sb.from('classcast_assignments').select('*').order('created_at', { ascending: false });
-    if(!data) return;
-
-    if (!userPerms.isSuperAdmin) {
-        const { data: myClasses } = await sb.from('classcast_classes').select('class_name').contains('teacher_emails', `["${userPerms.email}"]`);
-        const myClassNames = myClasses ? myClasses.map(c => c.class_name) : [];
-        data = data.filter(a => {
-            try { const targets = JSON.parse(a.target_class || '[]'); return targets.some(c => myClassNames.includes(c)); } catch(e) { return myClassNames.includes(a.target_class); }
-        });
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Loading assignments...</td></tr>';
+    
+    const { data, error } = await sb.from('classcast_assignments')
+        .select('*')
+        .eq('teacher_email', userPerms.email)
+        .order('created_at', { ascending: false });
+        
+    if (error) { tbody.innerHTML = `<tr><td colspan="3" style="color:red; text-align:center;">Error: ${error.message}</td></tr>`; return; }
+    
+    // Populate Folder Datalist & Filters
+    const folders = [...new Set(data.map(a => a.folder_name || 'General'))].sort();
+    const folderDatalist = document.getElementById('existingFolders');
+    const folderFilter = document.getElementById('filterFolderSelect');
+    
+    if (folderDatalist) folderDatalist.innerHTML = folders.map(f => `<option value="${f}">`).join('');
+    
+    if (folderFilter && folderFilter.options.length <= 1) {
+        folderFilter.innerHTML = '<option value="ALL">All Folders</option>' + 
+            folders.map(f => `<option value="${f}">${f}</option>`).join('');
     }
 
-    if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No assignments.</td></tr>'; return; }
+    const selectedFolder = folderFilter ? folderFilter.value : 'ALL';
+    const selectedClass = document.getElementById('filterClassSelect') ? document.getElementById('filterClassSelect').value : 'ALL';
+
+    // Apply Filters
+    let filteredData = data.filter(a => {
+        let folderMatch = selectedFolder === 'ALL' || (a.folder_name || 'General') === selectedFolder;
+        let classMatch = selectedClass === 'ALL' || (a.target_class && a.target_class.includes(selectedClass));
+        return folderMatch && classMatch;
+    });
+
+    if (filteredData.length === 0) { 
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No assignments found for these filters.</td></tr>'; 
+        return; 
+    }
     
-    tbody.innerHTML = data.map(a => {
-        // FEATURE 4: Check assignment status
-        const now = new Date();
-        const openDate = a.open_date ? new Date(a.open_date) : null;
-        const closeDate = a.close_date ? new Date(a.close_date) : null;
-        const isClosed = a.is_manually_closed || (closeDate && now > closeDate);
-        const isScheduled = openDate && now < openDate;
-        
-        let statusBadge = '';
-        if (isClosed) {
-            statusBadge = '<span style="background: #f44336; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px;">🔒 Closed</span>';
-        } else if (isScheduled) {
-            statusBadge = '<span style="background: #ff9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px;">📅 Scheduled</span>';
-        } else {
-            statusBadge = '<span style="background: #4caf50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 8px;">✅ Open</span>';
-        }
-        
-        // FIXED: Define isOpen variable
-        const isOpen = !isClosed;
-        
-        // IMPROVED: Better toggle switch with proper state management
-        const toggleSwitch = `
-            <div style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f5f5f5; border-radius: 4px; border: 1px solid #ddd;">
-                <span style="font-size: 0.8rem; font-weight: 600; color: ${isOpen ? '#4caf50' : '#999'}; min-width: 50px;">${isOpen ? 'Open' : 'Closed'}</span>
-                <label style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;">
-                    <input type="checkbox" ${isOpen ? 'checked' : ''} 
-                           onchange="toggleAssignmentStatus(${a.id}, this.checked)" 
-                           style="opacity: 0; width: 0; height: 0; position: absolute;">
-                    <span style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: ${isOpen ? '#4caf50' : '#ccc'}; border-radius: 12px; transition: 0.3s;"></span>
-                    <span style="position: absolute; content: ''; height: 18px; width: 18px; left: ${isOpen ? '23px' : '3px'}; bottom: 3px; background-color: white; border-radius: 50%; transition: 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
-                </label>
-            </div>
-        `;
-        
-        return `
+    tbody.innerHTML = filteredData.map(a => `
         <tr>
             <td>
-                <strong>${a.title}</strong>${statusBadge}
+                <span style="font-size: 0.8rem; background: #eee; padding: 2px 6px; border-radius: 4px;">📁 ${escapeHTML(a.folder_name || 'General')}</span><br>
+                <strong style="font-size: 1.05rem;">${escapeHTML(a.title)}</strong><br>
+                <span style="font-size: 0.85rem; color: #666;">Created: ${new Date(a.created_at).toLocaleDateString()}</span>
             </td>
-            <td>${a.target_class}</td>
+            <td>${escapeHTML(a.target_class || 'All Classes')}</td>
             <td>
-                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
-                    ${toggleSwitch}
-                    <div style="display: flex; gap: 5px;">
-                        <button class="action-btn" style="padding: 6px 12px; font-size: 0.8rem; background: #555;" onclick="editAssignment(${a.id})">Edit</button>
-                        <button class="danger-btn" style="padding: 6px 12px; font-size: 0.8rem;" onclick="deleteAssignment(${a.id})">Delete</button>
-                    </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button onclick="viewAssignmentProgress('${a.id}')" class="action-btn" style="background: #2e7d32; padding: 6px 10px; font-size: 0.85rem;">📊 Scores</button>
+                    <button onclick="editAssignment('${a.id}')" class="action-btn" style="background: #f57c00; padding: 6px 10px; font-size: 0.85rem;">✏️ Edit</button>
+                    <button onclick="deleteAssignment('${a.id}')" class="danger-btn" style="padding: 6px 10px; font-size: 0.85rem;">🗑️</button>
                 </div>
             </td>
-        </tr>`;
-    }).join('');
+        </tr>
+    `).join('');
 }
+
+// Helper to quickly jump to the Progress tab and select this assignment
+window.viewAssignmentProgress = function(assignmentId) {
+    window.switchAdminPanel('admin-progress');
+    setTimeout(() => {
+        const select = document.getElementById('progressAssignmentSelect');
+        if (select) {
+            select.value = assignmentId;
+            // Force the progress data to load for this specific assignment
+            select.dispatchEvent(new Event('change')); 
+        }
+    }, 500);
+};
 
 window.deleteAssignment = async function(id) { if(confirm("Delete this assignment?")) { await sb.from('classcast_assignments').delete().eq('id', id); loadTeacherAssignments(); } };
 
