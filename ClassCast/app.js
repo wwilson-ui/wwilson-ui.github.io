@@ -766,7 +766,8 @@ window.importFromCSV = async function() {
 };
 
 async function loadManageClasses() {
-    const list = document.getElementById('manageClassesList');
+    // Use the correct ID from the HTML
+    const list = document.getElementById('classesListContainer');
     if (!list) return;
     list.innerHTML = '<p>Loading classes...</p>';
     
@@ -779,7 +780,10 @@ async function loadManageClasses() {
     
     const { data, error } = await query;
         
-    if (error) { list.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`; return; }
+    if (error) { 
+        list.innerHTML = `<p style="color:red;">Error loading classes: ${error.message}</p>`; 
+        return; 
+    }
     
     // Populate Class Filter in Assignments Tab
     const classFilter = document.getElementById('filterClassSelect');
@@ -792,28 +796,82 @@ async function loadManageClasses() {
     const archivedClasses = data.filter(c => c.is_archived);
     
     let html = `<h3>Active Classes</h3>`;
-    if (activeClasses.length === 0) html += `<p>No active classes.</p>`;
-    html += activeClasses.map(c => renderClassRow(c, false)).join('');
+    if (activeClasses.length === 0) {
+        html += `<p>No active classes. Create one above!</p>`;
+    } else {
+        for (const c of activeClasses) {
+            html += await renderClassRowWithRoster(c, false);
+        }
+    }
 
     if (archivedClasses.length > 0) {
         html += `<h3 style="margin-top: 30px; color: #666;">Archived Classes</h3>`;
-        html += archivedClasses.map(c => renderClassRow(c, true)).join('');
+        for (const c of archivedClasses) {
+            html += await renderClassRowWithRoster(c, true);
+        }
     }
+    
     list.innerHTML = html;
 }
 
-function renderClassRow(c, isArchived) {
+async function renderClassRowWithRoster(c, isArchived) {
+    // Get roster for this class
+    const { data: roster } = await sb.from('classcast_roster')
+        .select('*')
+        .eq('class_id', c.id)
+        .order('student_name', { ascending: true });
+    
+    const studentCount = roster ? roster.length : 0;
+    
     const archiveBtn = isArchived 
-        ? `<button onclick="toggleArchiveClass('${c.id}', false)" class="action-btn" style="background: #666;">Unarchive</button>`
-        : `<button onclick="toggleArchiveClass('${c.id}', true)" class="action-btn" style="background: #f57c00;">Archive</button>`;
-        
+        ? `<button onclick="toggleArchiveClass('${c.id}', false)" class="action-btn" style="background: #666; font-size: 0.85rem; padding: 6px 12px;">Unarchive</button>`
+        : `<button onclick="toggleArchiveClass('${c.id}', true)" class="action-btn" style="background: #f57c00; font-size: 0.85rem; padding: 6px 12px;">Archive</button>`;
+    
+    // Build roster HTML
+    let rosterHtml = '';
+    if (studentCount === 0) {
+        rosterHtml = '<p style="font-style: italic; color: #999; margin: 10px 0;">No students yet. Add students below.</p>';
+    } else {
+        rosterHtml = '<ul style="list-style: none; padding: 0; margin: 10px 0; max-height: 300px; overflow-y: auto;">';
+        roster.forEach(s => {
+            rosterHtml += `
+                <li style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f9f9f9; margin-bottom: 5px; border-radius: 4px;">
+                    <div>
+                        <strong>${escapeHTML(s.student_name || 'Unnamed')}</strong><br>
+                        <span style="font-size: 0.85rem; color: #666;">${escapeHTML(s.student_email)}</span>
+                    </div>
+                    <button onclick="removeStudent('${s.id}')" class="danger-btn" style="font-size: 0.8rem; padding: 4px 8px;">Remove</button>
+                </li>
+            `;
+        });
+        rosterHtml += '</ul>';
+    }
+    
     return `
-        <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; ${isArchived ? 'opacity: 0.7; background: #f9f9f9;' : 'background: white;'}">
-            <div><strong>${escapeHTML(c.class_name)}</strong> (ID: ${c.id})</div>
-            <div style="display: flex; gap: 10px;">
-                ${archiveBtn}
-                <button onclick="deleteClass('${c.id}')" class="danger-btn">Delete</button>
+        <div class="card" style="${isArchived ? 'opacity: 0.7; background: #f9f9f9;' : ''}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div>
+                    <h3 style="margin: 0; color: #0079D3;">${escapeHTML(c.class_name)}</h3>
+                    <p style="font-size: 0.85rem; color: #666; margin: 5px 0 0 0;">${studentCount} student${studentCount !== 1 ? 's' : ''}</p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    ${archiveBtn}
+                    <button onclick="deleteClass('${c.id}')" class="danger-btn" style="font-size: 0.85rem; padding: 6px 12px;">Delete Class</button>
+                </div>
             </div>
+            
+            ${rosterHtml}
+            
+            ${!isArchived ? `
+            <div style="border-top: 1px solid #eee; padding-top: 15px; margin-top: 15px;">
+                <h4 style="margin: 0 0 10px 0; font-size: 0.95rem;">Add Student</h4>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="addStudentName_${c.id}" placeholder="Student Name" style="flex: 1; margin: 0;">
+                    <input type="email" id="addStudentEmail_${c.id}" placeholder="student@email.com" style="flex: 1; margin: 0;">
+                    <button onclick="addStudentToClass('${c.id}')" class="action-btn" style="padding: 8px 15px; white-space: nowrap;">+ Add</button>
+                </div>
+            </div>
+            ` : ''}
         </div>
     `;
 }
