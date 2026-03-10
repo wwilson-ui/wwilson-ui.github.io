@@ -1132,7 +1132,7 @@ async function loadStorageFiles() {
     
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>';
     
-    const { data, error } = await sb.storage.from('audio_files').list();
+    const { data, error } = await sb.storage.from('audio-files').list();
     if (error) {
         tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">Error: ${error.message}</td></tr>`;
         return;
@@ -1164,7 +1164,7 @@ async function loadStorageFiles() {
 window.deleteStorageFile = async function(fileName) {
     if (!confirm(`Delete "${fileName}" from storage?\n\nWarning: Any assignments using this file will break!`)) return;
     
-    const { error } = await sb.storage.from('audio_files').remove([fileName]);
+    const { error } = await sb.storage.from('audio-files').remove([fileName]);
     if (error) {
         alert('Error deleting file: ' + error.message);
     } else {
@@ -1244,9 +1244,9 @@ window.loadSuperAdminTeachers = async function() {
         tbody.innerHTML = statsHtml || '<tr><td colspan="4">No teachers found.</td></tr>';
 
         // 2. FILE IDLE TIME & WAREHOUSE
-        const { data: files, error: fileErr } = await sb.storage.from('audio_files').list();
+        const { data: files, error: fileErr } = await sb.storage.from('audio-files').list();
         if (fileErr || !files) {
-            filesBody.innerHTML = `<tr><td colspan="5" style="color:red;">Error loading files: ${fileErr?.message || 'Unknown error'}<br>Bucket: audio_files</td></tr>`;
+            filesBody.innerHTML = `<tr><td colspan="5" style="color:red;">Error loading files: ${fileErr?.message || 'Unknown error'}<br>Bucket: audio-files</td></tr>`;
             return;
         }
 
