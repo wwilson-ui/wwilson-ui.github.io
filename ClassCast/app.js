@@ -1,5 +1,5 @@
 // ==========================================
-// ClassCast - Unified Logic with Super Admin, Filters & Full Screen
+// ClassCast - Unified Logic with Super Admin, Filters & Full Screen New Look!
 // ==========================================
 
 let sb = null;
