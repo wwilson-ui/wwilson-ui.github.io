@@ -1,5 +1,5 @@
 // ==========================================
-// ClassCast - Unified Logic with Super Admin, Filters & Full Screen New Parse Fix
+// ClassCast - Unified Logic with Super Admin, Filters & Full Screen Changes
 // ==========================================
 
 let sb = null;
@@ -160,10 +160,15 @@ window.cycleSpeed = function() {
 window.scrubAudio = function(e) {
     const player = document.getElementById('audioPlayer');
     let targetTime = parseInt(e.target.value);
-    if (targetTime > maxReachedTime + 1) {
+    
+    // Check if assignment allows skip ahead
+    const allowSkipAhead = window.currentAssignment?.allow_skip_ahead === true;
+    
+    if (!allowSkipAhead && targetTime > maxReachedTime + 1) {
         targetTime = maxReachedTime;
         e.target.value = maxReachedTime;
     }
+    
     player.currentTime = targetTime;
     const qModal = document.getElementById('questionModal');
     if(qModal) qModal.classList.add('hidden');
@@ -374,6 +379,7 @@ window.editAssignment = async function(id) {
     document.getElementById('newAssignAudioUrl').value = assignData.audio_url || '';
     document.getElementById('newAssignTranscript').value = assignData.transcript || '';
     document.getElementById('newAssignAllowSpeed').checked = assignData.allow_speed !== false;
+    document.getElementById('newAssignAllowSkipAhead').checked = assignData.allow_skip_ahead === true;
 
     document.getElementById('existingSubsparkUrl').value = assignData.subspark_url || '';
     document.getElementById('autoCreateSubspark').checked = false;
@@ -515,6 +521,7 @@ window.saveNewAssignment = async function() {
             subspark_url: finalSubSparkUrl, 
             transcript: transcript, 
             allow_speed: document.getElementById('newAssignAllowSpeed').checked,
+            allow_skip_ahead: document.getElementById('newAssignAllowSkipAhead').checked,
             additional_links: JSON.stringify(finalLinks),
             skip_zones: currentSkipZones,
             open_date: document.getElementById('newAssignOpenDate').value || null,
@@ -600,8 +607,8 @@ async function loadTeacherAssignments() {
     }
     
     tbody.innerHTML = filteredData.map(a => {
-        // Determine if assignment is manually closed
         const isManuallyClosed = a.is_manually_closed || false;
+        const toggleChecked = !isManuallyClosed;
         const toggleLabel = isManuallyClosed ? 'Closed' : 'Open';
         const toggleColor = isManuallyClosed ? '#d32f2f' : '#4caf50';
         
@@ -615,12 +622,11 @@ async function loadTeacherAssignments() {
             <td>${escapeHTML(a.target_class || 'All Classes')}</td>
             <td>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                    <!-- Toggle Switch -->
                     <label class="toggle-switch" style="margin: 0;">
-                        <input type="checkbox" ${!isManuallyClosed ? 'checked' : ''} 
+                        <input type="checkbox" ${toggleChecked ? 'checked' : ''} 
                                onchange="toggleAssignmentStatus('${a.id}', this.checked)">
                         <span class="toggle-slider"></span>
-                        <span class="toggle-label" style="color: ${toggleColor}; font-weight: bold; font-size: 0.85rem;">${toggleLabel}</span>
+                        <span class="toggle-label" style="color: ${toggleColor};">${toggleLabel}</span>
                     </label>
                     
                     <button onclick="viewAssignmentProgress('${a.id}')" class="action-btn" style="background: #2e7d32; padding: 6px 10px; font-size: 0.85rem;">📊 Scores</button>
@@ -630,7 +636,11 @@ async function loadTeacherAssignments() {
             </td>
         </tr>
     `;
-    }).join('');
+    }).join('');                    <button onclick="deleteAssignment('${a.id}')" class="danger-btn" style="padding: 6px 10px; font-size: 0.85rem;">🗑️</button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
 }
 
 // Helper to quickly jump to the Progress tab and select this assignment
@@ -650,7 +660,7 @@ window.deleteAssignment = async function(id) { if(confirm("Delete this assignmen
 
 // Toggle assignment open/closed status
 window.toggleAssignmentStatus = async function(assignmentId, isOpen) {
-    const is_manually_closed = !isOpen;  // If open = false, then manually closed = true
+    const is_manually_closed = !isOpen;
     
     const { error } = await sb.from('classcast_assignments')
         .update({ is_manually_closed })
@@ -659,10 +669,9 @@ window.toggleAssignmentStatus = async function(assignmentId, isOpen) {
     if (error) {
         console.error('Error toggling assignment:', error);
         alert('Failed to update assignment status');
-        loadTeacherAssignments(); // Reload to reset switch
+        loadTeacherAssignments();
     } else {
-        console.log(`Assignment ${assignmentId} set to ${isOpen ? 'OPEN' : 'CLOSED'}`);
-        // Update the label without full reload
+        // Update label without full reload
         const row = event.target.closest('tr');
         if (row) {
             const label = row.querySelector('.toggle-label');
@@ -1552,29 +1561,31 @@ window.startAssignment = async function(assignId) {
             rewindCount = progData.rewind_count || 0; 
             previousTotalTime = progData.total_session_seconds || 0; 
             
-            // CRITICAL: Parse student_answers if it's a string (JSONB from database)
+            // CRITICAL FIX: Parse student_answers if it's a JSON string
             let parsedAnswers = progData.student_answers || {};
             if (typeof parsedAnswers === 'string') {
                 try {
                     parsedAnswers = JSON.parse(parsedAnswers);
+                    console.log('[PARSED] student_answers from JSON string');
                 } catch (e) {
-                    console.error('Failed to parse student_answers:', e);
+                    console.error('[ERROR] Failed to parse student_answers:', e);
                     parsedAnswers = {};
                 }
             }
             studentSessionAnswers = parsedAnswers;
             
-            // Mark questions as answered so they don't get asked again
-            console.log('[STUDENT PROGRESS] Loaded previous answers:', studentSessionAnswers);
-            if (qData) {
+            // Mark questions as already answered so they don't get asked again
+            if (qData && qData.length > 0) {
                 qData.forEach(q => { 
                     if (studentSessionAnswers[q.id]) {
                         answeredCheckpoints.push(q.id);
-                        console.log(`[ANSWERED] Question ${q.id} already answered:`, studentSessionAnswers[q.id]);
+                        console.log(`[SKIP] Question ${q.id} already answered, will skip`);
                     }
                 });
+                console.log(`[PROGRESS] Loaded ${answeredCheckpoints.length} answered questions out of ${qData.length} total`);
             }
-            console.log('[ANSWERED CHECKPOINTS]:', answeredCheckpoints);
+        } else {
+            console.log('[NEW] No previous progress found for this student');
         }
     }
 
@@ -1680,8 +1691,10 @@ function handleAudioTimeUpdate() {
     }
     // ----------------------------------------
 
-    // Prevent scrubbing ahead (but allow skip zone jumps)
-    if (currentTime > maxReachedTime + 1) {
+    // Prevent scrubbing ahead (unless teacher allows it)
+    const allowSkipAhead = window.currentAssignment?.allow_skip_ahead === true;
+    
+    if (!allowSkipAhead && currentTime > maxReachedTime + 1) {
         player.currentTime = maxReachedTime;
     } else {
         maxReachedTime = Math.max(maxReachedTime, currentTime);
@@ -1695,15 +1708,8 @@ function handleAudioTimeUpdate() {
 
     const passedQuestion = activeQuestions.find(q => player.currentTime >= q.trigger_second && !answeredCheckpoints.includes(q.id));
     if (passedQuestion) {
-        console.log('[QUESTION TRIGGER] Question found at time', player.currentTime, ':', passedQuestion);
-        console.log('[QUESTION CHECK] Is in answered list?', answeredCheckpoints.includes(passedQuestion.id));
-        
         if (currentActiveQuestionId !== passedQuestion.id) {
             currentActiveQuestionId = passedQuestion.id; player.pause(); player.currentTime = passedQuestion.trigger_second; 
-            
-            // Check if student has a previous answer for this question
-            const previousAnswer = studentSessionAnswers[passedQuestion.id];
-            console.log('[PREVIOUS ANSWER] For question', passedQuestion.id, ':', previousAnswer);
             
             document.getElementById('questionModal').classList.remove('hidden'); 
             document.getElementById('submitAnswerBtn').style.display = 'block'; // Ensure button is visible for regular questions
@@ -1716,28 +1722,19 @@ function handleAudioTimeUpdate() {
             
             let interactiveHtml = '';
             if (qType === 'mc') {
-                const prevAns = previousAnswer ? previousAnswer.answer : null;
                 interactiveHtml = `
                     <div style="display:flex; flex-direction:column; gap:8px;">
-                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="a" ${prevAns === 'a' ? 'checked' : ''}> ${escapeHTML(options.a)}</label>
-                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="b" ${prevAns === 'b' ? 'checked' : ''}> ${escapeHTML(options.b)}</label>
-                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="c" ${prevAns === 'c' ? 'checked' : ''}> ${escapeHTML(options.c)}</label>
-                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="d" ${prevAns === 'd' ? 'checked' : ''}> ${escapeHTML(options.d)}</label>
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="a"> ${escapeHTML(options.a)}</label>
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="b"> ${escapeHTML(options.b)}</label>
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="c"> ${escapeHTML(options.c)}</label>
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="d"> ${escapeHTML(options.d)}</label>
                     </div>`;
             } else if (qType === 'tf') {
-                const prevAns = previousAnswer ? previousAnswer.answer : null;
-                interactiveHtml = `<div style="display:flex; gap:15px;"><label style="cursor:pointer;"><input type="radio" name="student_ans" value="true" ${prevAns === 'true' ? 'checked' : ''}> True</label><label style="cursor:pointer;"><input type="radio" name="student_ans" value="false" ${prevAns === 'false' ? 'checked' : ''}> False</label></div>`;
+                interactiveHtml = `<div style="display:flex; gap:15px;"><label style="cursor:pointer;"><input type="radio" name="student_ans" value="true"> True</label><label style="cursor:pointer;"><input type="radio" name="student_ans" value="false"> False</label></div>`;
             } else if (qType === 'match') {
                 let pairs = options.pairs || []; let shuffledMatches = pairs.map(p => p.m).sort(() => Math.random() - 0.5);
-                const prevAns = previousAnswer ? previousAnswer.answer : [];
-                interactiveHtml = pairs.map((p, i) => {
-                    const prevValue = Array.isArray(prevAns) && prevAns[i] ? prevAns[i] : '';
-                    return `<div style="margin-bottom:8px; display:flex; align-items:center; gap: 10px;"><strong style="width: 40%; text-align:right;">${escapeHTML(p.t)} = </strong> <select class="student_match_select" data-index="${i}" style="width: 50%; padding: 4px;"><option value="">-- Select Match --</option>${shuffledMatches.map(m => `<option value="${escapeHTML(m)}" ${m === prevValue ? 'selected' : ''}>${escapeHTML(m)}</option>`).join('')}</select></div>`;
-                }).join('');
-            } else {
-                const prevText = previousAnswer ? previousAnswer.answer : '';
-                interactiveHtml = `<textarea id="studentAnswerText" rows="3" style="width:100%; font-family:inherit; padding:8px;" placeholder="Type your answer here...">${escapeHTML(prevText)}</textarea>`;
-            }
+                interactiveHtml = pairs.map((p, i) => `<div style="margin-bottom:8px; display:flex; align-items:center; gap: 10px;"><strong style="width: 40%; text-align:right;">${escapeHTML(p.t)} = </strong> <select class="student_match_select" data-index="${i}" style="width: 50%; padding: 4px;"><option value="">-- Select Match --</option>${shuffledMatches.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('')}</select></div>`).join('');
+            } else interactiveHtml = `<textarea id="studentAnswerText" rows="3" style="width:100%; font-family:inherit; padding:8px;" placeholder="Type your answer here..."></textarea>`;
             
             document.getElementById('questionInteractiveArea').innerHTML = interactiveHtml;
             
