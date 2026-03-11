@@ -1,5 +1,5 @@
 // ==========================================
-// ClassCast - Unified Logic with Super Admin, Filters & Full Screen Changes
+// ClassCast - Unified Logic with Super Admin, Filters & Full Screen
 // ==========================================
 
 let sb = null;
@@ -160,15 +160,11 @@ window.cycleSpeed = function() {
 window.scrubAudio = function(e) {
     const player = document.getElementById('audioPlayer');
     let targetTime = parseInt(e.target.value);
-    
-    // Check if assignment allows skip ahead
     const allowSkipAhead = window.currentAssignment?.allow_skip_ahead === true;
-    
     if (!allowSkipAhead && targetTime > maxReachedTime + 1) {
         targetTime = maxReachedTime;
         e.target.value = maxReachedTime;
     }
-    
     player.currentTime = targetTime;
     const qModal = document.getElementById('questionModal');
     if(qModal) qModal.classList.add('hidden');
@@ -378,8 +374,8 @@ window.editAssignment = async function(id) {
     toggleAudioSourceUI();
     document.getElementById('newAssignAudioUrl').value = assignData.audio_url || '';
     document.getElementById('newAssignTranscript').value = assignData.transcript || '';
-    document.getElementById('newAssignAllowSpeed').checked = assignData.allow_speed !== false;
-    document.getElementById('newAssignAllowSkipAhead').checked = assignData.allow_skip_ahead === true;
+    if (document.getElementById('newAssignAllowSpeed')) document.getElementById('newAssignAllowSpeed').checked = assignData.allow_speed !== false;
+    if (document.getElementById('newAssignAllowSkipAhead')) document.getElementById('newAssignAllowSkipAhead').checked = assignData.allow_skip_ahead === true;
 
     document.getElementById('existingSubsparkUrl').value = assignData.subspark_url || '';
     document.getElementById('autoCreateSubspark').checked = false;
@@ -520,8 +516,8 @@ window.saveNewAssignment = async function() {
             audio_url: finalAudioUrl, 
             subspark_url: finalSubSparkUrl, 
             transcript: transcript, 
-            allow_speed: document.getElementById('newAssignAllowSpeed').checked,
-            allow_skip_ahead: document.getElementById('newAssignAllowSkipAhead').checked,
+            allow_speed: document.getElementById('newAssignAllowSpeed')?.checked || false,
+            allow_skip_ahead: document.getElementById('newAssignAllowSkipAhead')?.checked || false,
             additional_links: JSON.stringify(finalLinks),
             skip_zones: currentSkipZones,
             open_date: document.getElementById('newAssignOpenDate').value || null,
@@ -607,10 +603,8 @@ async function loadTeacherAssignments() {
     }
     
     tbody.innerHTML = filteredData.map(a => {
-        const isManuallyClosed = a.is_manually_closed || false;
-        const toggleChecked = !isManuallyClosed;
-        const toggleLabel = isManuallyClosed ? 'Closed' : 'Open';
-        const toggleColor = isManuallyClosed ? '#d32f2f' : '#4caf50';
+        const isClosed = a.is_manually_closed || false;
+        const isOpen = !isClosed;
         
         return `
         <tr>
@@ -623,10 +617,9 @@ async function loadTeacherAssignments() {
             <td>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                     <label class="toggle-switch" style="margin: 0;">
-                        <input type="checkbox" ${toggleChecked ? 'checked' : ''} 
-                               onchange="toggleAssignmentStatus('${a.id}', this.checked)">
+                        <input type="checkbox" ${isOpen ? 'checked' : ''} onchange="toggleAssignmentStatus('${a.id}', this.checked)">
                         <span class="toggle-slider"></span>
-                        <span class="toggle-label" style="color: ${toggleColor};">${toggleLabel}</span>
+                        <span class="toggle-label" style="color: ${isOpen ? '#4caf50' : '#d32f2f'};">${isOpen ? 'Open' : 'Closed'}</span>
                     </label>
                     
                     <button onclick="viewAssignmentProgress('${a.id}')" class="action-btn" style="background: #2e7d32; padding: 6px 10px; font-size: 0.85rem;">📊 Scores</button>
@@ -636,11 +629,7 @@ async function loadTeacherAssignments() {
             </td>
         </tr>
     `;
-    }).join('');                    <button onclick="deleteAssignment('${a.id}')" class="danger-btn" style="padding: 6px 10px; font-size: 0.85rem;">🗑️</button>
-                </div>
-            </td>
-        </tr>
-    `).join('');
+    }).join('');
 }
 
 // Helper to quickly jump to the Progress tab and select this assignment
@@ -658,20 +647,13 @@ window.viewAssignmentProgress = function(assignmentId) {
 
 window.deleteAssignment = async function(id) { if(confirm("Delete this assignment?")) { await sb.from('classcast_assignments').delete().eq('id', id); loadTeacherAssignments(); } };
 
-// Toggle assignment open/closed status
 window.toggleAssignmentStatus = async function(assignmentId, isOpen) {
     const is_manually_closed = !isOpen;
-    
-    const { error } = await sb.from('classcast_assignments')
-        .update({ is_manually_closed })
-        .eq('id', assignmentId);
-    
+    const { error } = await sb.from('classcast_assignments').update({ is_manually_closed }).eq('id', assignmentId);
     if (error) {
-        console.error('Error toggling assignment:', error);
-        alert('Failed to update assignment status');
+        alert('Failed to update');
         loadTeacherAssignments();
     } else {
-        // Update label without full reload
         const row = event.target.closest('tr');
         if (row) {
             const label = row.querySelector('.toggle-label');
@@ -1561,31 +1543,26 @@ window.startAssignment = async function(assignId) {
             rewindCount = progData.rewind_count || 0; 
             previousTotalTime = progData.total_session_seconds || 0; 
             
-            // CRITICAL FIX: Parse student_answers if it's a JSON string
+            // Parse student_answers if it's a JSON string
             let parsedAnswers = progData.student_answers || {};
             if (typeof parsedAnswers === 'string') {
                 try {
                     parsedAnswers = JSON.parse(parsedAnswers);
-                    console.log('[PARSED] student_answers from JSON string');
                 } catch (e) {
-                    console.error('[ERROR] Failed to parse student_answers:', e);
+                    console.error('Failed to parse student_answers:', e);
                     parsedAnswers = {};
                 }
             }
             studentSessionAnswers = parsedAnswers;
             
-            // Mark questions as already answered so they don't get asked again
-            if (qData && qData.length > 0) {
+            // Mark questions as answered
+            if (qData) {
                 qData.forEach(q => { 
                     if (studentSessionAnswers[q.id]) {
                         answeredCheckpoints.push(q.id);
-                        console.log(`[SKIP] Question ${q.id} already answered, will skip`);
                     }
                 });
-                console.log(`[PROGRESS] Loaded ${answeredCheckpoints.length} answered questions out of ${qData.length} total`);
             }
-        } else {
-            console.log('[NEW] No previous progress found for this student');
         }
     }
 
@@ -1691,9 +1668,8 @@ function handleAudioTimeUpdate() {
     }
     // ----------------------------------------
 
-    // Prevent scrubbing ahead (unless teacher allows it)
+    // Prevent scrubbing ahead (unless allowed)
     const allowSkipAhead = window.currentAssignment?.allow_skip_ahead === true;
-    
     if (!allowSkipAhead && currentTime > maxReachedTime + 1) {
         player.currentTime = maxReachedTime;
     } else {
