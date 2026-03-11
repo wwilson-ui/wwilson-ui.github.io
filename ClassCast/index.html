@@ -69,6 +69,53 @@
         .fullscreen-mode { position: fixed !important; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; z-index: 9999; background: #f0f2f5; padding: 25px; box-sizing: border-box; overflow-y: auto; max-height: none !important; }
         .fullscreen-mode .card { height: 100%; display: flex; flex-direction: column; margin: 0; }
         .fullscreen-mode .grid-wrapper { flex: 1; min-height: 0; overflow: auto; }
+        
+        /* TOGGLE SWITCH STYLES */
+        .toggle-switch {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toggle-switch input[type="checkbox"] {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+        .toggle-slider {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 26px;
+            background-color: #ccc;
+            border-radius: 34px;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #4caf50;
+        }
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+        .toggle-label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            min-width: 50px;
+        }
     </style>
 </head>
 <body>
@@ -320,10 +367,39 @@
                                 </div>
                             </div>
 
-                            
-                            <label style="font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 15px 0; background: #f0f2f5; padding: 10px; border-radius: 4px;">
-                                <input type="checkbox" id="newAssignAllowSpeed" checked> Allow students to adjust playback speed
-                            </label>
+                            <!-- Playback Controls Section with Toggle Switches -->
+                            <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #4caf50; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                                <h3 style="margin-top: 0; font-size: 1.1rem; color: #2e7d32; display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 1.3rem;">🎛️</span> Playback Controls
+                                </h3>
+                                <p style="font-size: 0.85rem; color: #666; margin-bottom: 18px;">Control student playback options during assignment.</p>
+                                
+                                <div style="display: flex; flex-direction: column; gap: 15px;">
+                                    <!-- Allow Speed Change Toggle -->
+                                    <div style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 12px 15px; border-radius: 6px; border: 1px solid #e0e0e0;">
+                                        <div>
+                                            <strong style="color: #333; font-size: 0.95rem;">Allow Playback Speed Adjustment</strong>
+                                            <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #666;">Let students change audio speed (0.5x - 2x)</p>
+                                        </div>
+                                        <label class="toggle-switch" style="margin: 0;">
+                                            <input type="checkbox" id="newAssignAllowSpeed">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                    
+                                    <!-- Allow Skip Ahead Toggle -->
+                                    <div style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 12px 15px; border-radius: 6px; border: 1px solid #e0e0e0;">
+                                        <div>
+                                            <strong style="color: #333; font-size: 0.95rem;">Allow Skip Ahead</strong>
+                                            <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #666;">Let students scrub forward in the audio timeline</p>
+                                        </div>
+                                        <label class="toggle-switch" style="margin: 0;">
+                                            <input type="checkbox" id="newAssignAllowSkipAhead">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- FEATURE 4: Assignment Dates -->
                             <div style="background: #fff3e0; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #ff9800; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
