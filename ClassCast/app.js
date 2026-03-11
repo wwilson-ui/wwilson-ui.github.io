@@ -1,5 +1,5 @@
 // ==========================================
-// ClassCast - Unified Logic with Super Admin, Filters & Full Screen
+// ClassCast - Unified Logic with Super Admin, Filters & Full Screen fix answers & toggles
 // ==========================================
 
 let sb = null;
@@ -599,7 +599,13 @@ async function loadTeacherAssignments() {
         return; 
     }
     
-    tbody.innerHTML = filteredData.map(a => `
+    tbody.innerHTML = filteredData.map(a => {
+        // Determine if assignment is manually closed
+        const isManuallyClosed = a.is_manually_closed || false;
+        const toggleLabel = isManuallyClosed ? 'Closed' : 'Open';
+        const toggleColor = isManuallyClosed ? '#d32f2f' : '#4caf50';
+        
+        return `
         <tr>
             <td>
                 <span style="font-size: 0.8rem; background: #eee; padding: 2px 6px; border-radius: 4px;">📁 ${escapeHTML(a.folder_name || 'General')}</span><br>
@@ -608,14 +614,23 @@ async function loadTeacherAssignments() {
             </td>
             <td>${escapeHTML(a.target_class || 'All Classes')}</td>
             <td>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                    <!-- Toggle Switch -->
+                    <label class="toggle-switch" style="margin: 0;">
+                        <input type="checkbox" ${!isManuallyClosed ? 'checked' : ''} 
+                               onchange="toggleAssignmentStatus('${a.id}', this.checked)">
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label" style="color: ${toggleColor}; font-weight: bold; font-size: 0.85rem;">${toggleLabel}</span>
+                    </label>
+                    
                     <button onclick="viewAssignmentProgress('${a.id}')" class="action-btn" style="background: #2e7d32; padding: 6px 10px; font-size: 0.85rem;">📊 Scores</button>
                     <button onclick="editAssignment('${a.id}')" class="action-btn" style="background: #f57c00; padding: 6px 10px; font-size: 0.85rem;">✏️ Edit</button>
                     <button onclick="deleteAssignment('${a.id}')" class="danger-btn" style="padding: 6px 10px; font-size: 0.85rem;">🗑️</button>
                 </div>
             </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
 }
 
 // Helper to quickly jump to the Progress tab and select this assignment
@@ -632,6 +647,32 @@ window.viewAssignmentProgress = function(assignmentId) {
 };
 
 window.deleteAssignment = async function(id) { if(confirm("Delete this assignment?")) { await sb.from('classcast_assignments').delete().eq('id', id); loadTeacherAssignments(); } };
+
+// Toggle assignment open/closed status
+window.toggleAssignmentStatus = async function(assignmentId, isOpen) {
+    const is_manually_closed = !isOpen;  // If open = false, then manually closed = true
+    
+    const { error } = await sb.from('classcast_assignments')
+        .update({ is_manually_closed })
+        .eq('id', assignmentId);
+    
+    if (error) {
+        console.error('Error toggling assignment:', error);
+        alert('Failed to update assignment status');
+        loadTeacherAssignments(); // Reload to reset switch
+    } else {
+        console.log(`Assignment ${assignmentId} set to ${isOpen ? 'OPEN' : 'CLOSED'}`);
+        // Update the label without full reload
+        const row = event.target.closest('tr');
+        if (row) {
+            const label = row.querySelector('.toggle-label');
+            if (label) {
+                label.textContent = isOpen ? 'Open' : 'Closed';
+                label.style.color = isOpen ? '#4caf50' : '#d32f2f';
+            }
+        }
+    }
+};
 
 // ================= TEACHER PANEL 3: CLASSES & ROSTERS =================
 
@@ -1633,6 +1674,9 @@ function handleAudioTimeUpdate() {
         if (currentActiveQuestionId !== passedQuestion.id) {
             currentActiveQuestionId = passedQuestion.id; player.pause(); player.currentTime = passedQuestion.trigger_second; 
             
+            // Check if student has a previous answer for this question
+            const previousAnswer = studentSessionAnswers[passedQuestion.id];
+            
             document.getElementById('questionModal').classList.remove('hidden'); 
             document.getElementById('submitAnswerBtn').style.display = 'block'; // Ensure button is visible for regular questions
             document.getElementById('questionText').innerText = passedQuestion.question_text; 
@@ -1644,19 +1688,28 @@ function handleAudioTimeUpdate() {
             
             let interactiveHtml = '';
             if (qType === 'mc') {
+                const prevAns = previousAnswer ? previousAnswer.answer : null;
                 interactiveHtml = `
                     <div style="display:flex; flex-direction:column; gap:8px;">
-                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="a"> ${escapeHTML(options.a)}</label>
-                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="b"> ${escapeHTML(options.b)}</label>
-                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="c"> ${escapeHTML(options.c)}</label>
-                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="d"> ${escapeHTML(options.d)}</label>
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="a" ${prevAns === 'a' ? 'checked' : ''}> ${escapeHTML(options.a)}</label>
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="b" ${prevAns === 'b' ? 'checked' : ''}> ${escapeHTML(options.b)}</label>
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="c" ${prevAns === 'c' ? 'checked' : ''}> ${escapeHTML(options.c)}</label>
+                        <label style="cursor:pointer;"><input type="radio" name="student_ans" value="d" ${prevAns === 'd' ? 'checked' : ''}> ${escapeHTML(options.d)}</label>
                     </div>`;
             } else if (qType === 'tf') {
-                interactiveHtml = `<div style="display:flex; gap:15px;"><label style="cursor:pointer;"><input type="radio" name="student_ans" value="true"> True</label><label style="cursor:pointer;"><input type="radio" name="student_ans" value="false"> False</label></div>`;
+                const prevAns = previousAnswer ? previousAnswer.answer : null;
+                interactiveHtml = `<div style="display:flex; gap:15px;"><label style="cursor:pointer;"><input type="radio" name="student_ans" value="true" ${prevAns === 'true' ? 'checked' : ''}> True</label><label style="cursor:pointer;"><input type="radio" name="student_ans" value="false" ${prevAns === 'false' ? 'checked' : ''}> False</label></div>`;
             } else if (qType === 'match') {
                 let pairs = options.pairs || []; let shuffledMatches = pairs.map(p => p.m).sort(() => Math.random() - 0.5);
-                interactiveHtml = pairs.map((p, i) => `<div style="margin-bottom:8px; display:flex; align-items:center; gap: 10px;"><strong style="width: 40%; text-align:right;">${escapeHTML(p.t)} = </strong> <select class="student_match_select" data-index="${i}" style="width: 50%; padding: 4px;"><option value="">-- Select Match --</option>${shuffledMatches.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('')}</select></div>`).join('');
-            } else interactiveHtml = `<textarea id="studentAnswerText" rows="3" style="width:100%; font-family:inherit; padding:8px;" placeholder="Type your answer here..."></textarea>`;
+                const prevAns = previousAnswer ? previousAnswer.answer : [];
+                interactiveHtml = pairs.map((p, i) => {
+                    const prevValue = Array.isArray(prevAns) && prevAns[i] ? prevAns[i] : '';
+                    return `<div style="margin-bottom:8px; display:flex; align-items:center; gap: 10px;"><strong style="width: 40%; text-align:right;">${escapeHTML(p.t)} = </strong> <select class="student_match_select" data-index="${i}" style="width: 50%; padding: 4px;"><option value="">-- Select Match --</option>${shuffledMatches.map(m => `<option value="${escapeHTML(m)}" ${m === prevValue ? 'selected' : ''}>${escapeHTML(m)}</option>`).join('')}</select></div>`;
+                }).join('');
+            } else {
+                const prevText = previousAnswer ? previousAnswer.answer : '';
+                interactiveHtml = `<textarea id="studentAnswerText" rows="3" style="width:100%; font-family:inherit; padding:8px;" placeholder="Type your answer here...">${escapeHTML(prevText)}</textarea>`;
+            }
             
             document.getElementById('questionInteractiveArea').innerHTML = interactiveHtml;
             
