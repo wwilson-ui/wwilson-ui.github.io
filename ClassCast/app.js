@@ -1,5 +1,5 @@
 // ==========================================
-// ClassCast - Unified Logic with Super Admin, Filters & Full Screen Faster Fix
+// ClassCast - Unified Logic with Super Admin, Filters & Full Screen
 // ==========================================
 
 let sb = null;
@@ -2481,23 +2481,61 @@ async function initializeWaveform(audioUrl, sourceType) {
         // Uploaded files - use blob URL directly (no proxy)
         console.log('[UPLOAD] Loading blob URL directly');
         await wavesurfer.load(audioUrl);
+        
     } else if (audioUrl.includes('files.civiced.org')) {
         // Special handling for civiced.org (broken SSL certificate)
-        // Try AllOrigins proxy which handles broken SSL better
-        const allOriginsProxy = 'https://api.allorigins.win/raw?url=';
-        console.log('[CIVICED] Using AllOrigins proxy for broken SSL');
-        console.log('[CIVICED] URL:', allOriginsProxy + encodeURIComponent(audioUrl));
+        // The library preview loads it DIRECTLY - let's try that approach!
+        let loaded = false;
+        let lastError = null;
+        const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
         
+        // Attempt 1: Direct load with HTTP (NO PROXY - just like library preview!)
+        console.log('[CIVICED] Attempt 1: Direct HTTP load (no proxy - like library preview)');
         try {
-            await wavesurfer.load(allOriginsProxy + encodeURIComponent(audioUrl));
-            console.log('[CIVICED] ✅ Success with AllOrigins!');
-        } catch (error) {
-            // Fallback: try your Cloudflare proxy with HTTP
-            console.log('[CIVICED] AllOrigins failed, trying Cloudflare proxy with HTTP...');
-            const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
             const httpUrl = audioUrl.replace('https://', 'http://');
-            await wavesurfer.load(myProxy + encodeURIComponent(httpUrl));
+            console.log('[CIVICED] URL:', httpUrl);
+            await wavesurfer.load(httpUrl);
+            console.log('[CIVICED] ✅ SUCCESS! Direct HTTP worked!');
+            loaded = true;
+        } catch (error) {
+            console.log('[CIVICED] ❌ Direct load failed:', error.message);
+            lastError = error;
         }
+        
+        // Attempt 2: Try Cloudflare proxy with HTTP
+        if (!loaded) {
+            console.log('[CIVICED] Attempt 2: Cloudflare proxy + HTTP');
+            try {
+                const httpUrl = audioUrl.replace('https://', 'http://');
+                await wavesurfer.load(myProxy + encodeURIComponent(httpUrl));
+                console.log('[CIVICED] ✅ SUCCESS! Proxy + HTTP worked!');
+                loaded = true;
+            } catch (error) {
+                console.log('[CIVICED] ❌ Proxy + HTTP failed:', error.message);
+                lastError = error;
+            }
+        }
+        
+        // Attempt 3: Try Cloudflare proxy with HTTPS
+        if (!loaded) {
+            console.log('[CIVICED] Attempt 3: Cloudflare proxy + HTTPS');
+            try {
+                await wavesurfer.load(myProxy + encodeURIComponent(audioUrl));
+                console.log('[CIVICED] ✅ SUCCESS! Proxy + HTTPS worked!');
+                loaded = true;
+            } catch (error) {
+                console.log('[CIVICED] ❌ Proxy + HTTPS failed:', error.message);
+                lastError = error;
+            }
+        }
+        
+        // If all attempts failed, throw the last error
+        if (!loaded && lastError) {
+            console.error('[CIVICED] ❌❌❌ All 3 methods failed!');
+            console.error('[CIVICED] This is strange because library preview works!');
+            throw lastError;
+        }
+        
     } else {
         // All other external URLs - use your Cloudflare proxy
         const myProxy = "https://classcastproxy.wkwilson19.workers.dev/?url=";
