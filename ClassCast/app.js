@@ -1,5 +1,5 @@
 // ==========================================
-// ClassCast - Unified Logic with Super Admin, Filters & Full Screen fix answers & toggles
+// ClassCast - Unified Logic with Super Admin, Filters & Full Screen New Parse Fix
 // ==========================================
 
 let sb = null;
@@ -1548,9 +1548,33 @@ window.startAssignment = async function(assignId) {
     if (safeUserEmail) {
         const { data: progData } = await sb.from('classcast_progress').select('*').eq('assignment_id', assignId).eq('student_email', safeUserEmail).single();
         if (progData) {
-            maxReachedTime = progData.furthest_second || 0; rewindCount = progData.rewind_count || 0; previousTotalTime = progData.total_session_seconds || 0; 
-            studentSessionAnswers = progData.student_answers || {};
-            if (qData) qData.forEach(q => { if (studentSessionAnswers[q.id]) answeredCheckpoints.push(q.id); });
+            maxReachedTime = progData.furthest_second || 0; 
+            rewindCount = progData.rewind_count || 0; 
+            previousTotalTime = progData.total_session_seconds || 0; 
+            
+            // CRITICAL: Parse student_answers if it's a string (JSONB from database)
+            let parsedAnswers = progData.student_answers || {};
+            if (typeof parsedAnswers === 'string') {
+                try {
+                    parsedAnswers = JSON.parse(parsedAnswers);
+                } catch (e) {
+                    console.error('Failed to parse student_answers:', e);
+                    parsedAnswers = {};
+                }
+            }
+            studentSessionAnswers = parsedAnswers;
+            
+            // Mark questions as answered so they don't get asked again
+            console.log('[STUDENT PROGRESS] Loaded previous answers:', studentSessionAnswers);
+            if (qData) {
+                qData.forEach(q => { 
+                    if (studentSessionAnswers[q.id]) {
+                        answeredCheckpoints.push(q.id);
+                        console.log(`[ANSWERED] Question ${q.id} already answered:`, studentSessionAnswers[q.id]);
+                    }
+                });
+            }
+            console.log('[ANSWERED CHECKPOINTS]:', answeredCheckpoints);
         }
     }
 
@@ -1671,11 +1695,15 @@ function handleAudioTimeUpdate() {
 
     const passedQuestion = activeQuestions.find(q => player.currentTime >= q.trigger_second && !answeredCheckpoints.includes(q.id));
     if (passedQuestion) {
+        console.log('[QUESTION TRIGGER] Question found at time', player.currentTime, ':', passedQuestion);
+        console.log('[QUESTION CHECK] Is in answered list?', answeredCheckpoints.includes(passedQuestion.id));
+        
         if (currentActiveQuestionId !== passedQuestion.id) {
             currentActiveQuestionId = passedQuestion.id; player.pause(); player.currentTime = passedQuestion.trigger_second; 
             
             // Check if student has a previous answer for this question
             const previousAnswer = studentSessionAnswers[passedQuestion.id];
+            console.log('[PREVIOUS ANSWER] For question', passedQuestion.id, ':', previousAnswer);
             
             document.getElementById('questionModal').classList.remove('hidden'); 
             document.getElementById('submitAnswerBtn').style.display = 'block'; // Ensure button is visible for regular questions
