@@ -1,5 +1,5 @@
 // =====================================================
-// SCOTUS BRIEF GENERATOR - UNIFIED WITH SPARK (FIXED)
+// SCOTUS BRIEF GENERATOR - FIXED & COMPLETE
 // =====================================================
 
 const TEACHER_EMAIL = 'wwilson@mtps.us';
@@ -19,28 +19,23 @@ let data = {
 
 // ─── INITIALIZATION ─────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-    // Initialize Supabase
     if (typeof window.supabase !== 'undefined') {
         const url = window.SUPABASE_URL || 'https://mvxuubwbtkhdbhuadxtu.supabase.co';
         const key = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHV1YndidGtoZGJodWFkeHR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQyMDgsImV4cCI6MjA4Njc2MDIwOH0.FzsVt0bmWnrc3pYUWfJyS-9PE9oJY1ZzoGbax3q_LGk';
         supabaseClient = window.supabase.createClient(url, key);
-        
-        // Listen for auth changes
+
         supabaseClient.auth.onAuthStateChange((event, session) => {
             updateAuthUI(session);
         });
-        
-        // Initial auth check
+
         await checkAuth();
-        
-        // Load cases and docket
         loadCases();
         loadDocket();
     } else {
         console.error('Supabase not loaded');
+        document.getElementById('auth-status').innerText = 'Offline mode';
     }
-    
-    // Initialize UI
+
     renderInputFields();
     refresh();
     setupDeleteHandler();
@@ -54,47 +49,50 @@ async function checkAuth() {
 
 function updateAuthUI(session) {
     const authSection = document.getElementById('authSection');
-    const authStatus = document.getElementById('auth-status');
-    const adminTab = document.getElementById('admin-tab');
-    
+    const authStatus  = document.getElementById('auth-status');
+    const adminTabBtn = document.getElementById('admin-sidebar-btn');
+    const adminNavBtn = document.getElementById('admin-tab');
+
     if (session) {
         currentUser = session.user.email;
-        isTeacher = (currentUser.toLowerCase() === TEACHER_EMAIL.toLowerCase());
+        isTeacher   = (currentUser.toLowerCase() === TEACHER_EMAIL.toLowerCase());
         const emailPrefix = currentUser.split('@')[0];
-        
+
         if (authSection) {
             authSection.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <span style="font-weight: 600; color: white;">${emailPrefix}</span>
-                    <button onclick="signOut()" style="padding: 6px 12px; font-size: 0.8rem; background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; cursor: pointer;">Sign Out</button>
-                </div>
-            `;
+                <div style="display:flex;align-items:center;gap:15px;">
+                    <span style="font-weight:600;color:white;">${emailPrefix}</span>
+                    <button onclick="signOut()" style="padding:6px 12px;font-size:0.8rem;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.4);border-radius:4px;cursor:pointer;">Sign Out</button>
+                </div>`;
         }
-        
         if (authStatus) authStatus.innerText = `Signed in as ${currentUser}`;
-        if (adminTab) adminTab.style.display = isTeacher ? 'inline-flex' : 'none';
-        
-        // Load user projects
+
+        // Show teacher-only UI
+        if (adminTabBtn) adminTabBtn.style.display = isTeacher ? 'block' : 'none';
+        if (adminNavBtn) adminNavBtn.style.display  = isTeacher ? 'inline-flex' : 'none';
+
         loadUserProjects();
+
+        // Re-render docket with delete buttons if teacher
+        loadDocket();
     } else {
         currentUser = null;
-        isTeacher = false;
-        
+        isTeacher   = false;
+
         if (authSection) {
             authSection.innerHTML = `
-                <button onclick="signIn()" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: white; color: #1a237e; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                <button onclick="signIn()" style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:white;color:#1a237e;border:none;border-radius:4px;font-weight:600;cursor:pointer;">
                     <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" width="18" height="18">
                     Sign in
-                </button>
-            `;
+                </button>`;
         }
-        
         if (authStatus) authStatus.innerText = 'Not signed in';
-        if (adminTab) adminTab.style.display = 'none';
+        if (adminTabBtn) adminTabBtn.style.display = 'none';
+        if (adminNavBtn) adminNavBtn.style.display  = 'none';
     }
 }
 
-window.signIn = async function() {
+window.signIn = async function () {
     await supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -104,25 +102,27 @@ window.signIn = async function() {
     });
 };
 
-window.signOut = async function() {
+window.signOut = async function () {
     await supabaseClient.auth.signOut();
     window.location.reload();
 };
 
 // ─── TAB SWITCHING ──────────────────────────────────────────────────────────
-window.switchTab = function(tabId) {
+// FIX: Accept the button element explicitly so we don't rely on the ambient
+// `event` variable (which is undefined when called programmatically).
+window.switchTab = function (tabId, btnEl) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-    
+
     const target = document.getElementById(tabId);
     if (target) target.classList.add('active');
-    
-    const btn = event?.target;
-    if (btn) btn.classList.add('active');
+
+    // btnEl is passed from onclick="switchTab('x', this)"
+    if (btnEl) btnEl.classList.add('active');
 };
 
-window.toggleAmicusField = function() {
-    const briefType = document.getElementById('briefType').value;
+window.toggleAmicusField = function () {
+    const briefType   = document.getElementById('briefType').value;
     const amicusExtras = document.getElementById('amicus-extras');
     if (amicusExtras) {
         amicusExtras.style.display = briefType === 'Amicus Curiae' ? 'block' : 'none';
@@ -130,26 +130,25 @@ window.toggleAmicusField = function() {
     refresh();
 };
 
-// ─── DYNAMIC INPUT FIELDS (FIXED) ───────────────────────────────────────────
+// ─── DYNAMIC INPUT FIELDS ───────────────────────────────────────────────────
 function renderInputFields() {
-    // Map of type to container ID (matching HTML)
     const containers = {
         petitioners: 'petitioner-inputs',
-        respondents: 'respondent-inputs',
-        cases: 'case-inputs',
-        statutes: 'statute-inputs',
-        questions: 'question-inputs'
+        respondents:  'respondent-inputs',
+        cases:        'case-inputs',
+        statutes:     'statute-inputs',
+        questions:    'question-inputs'
     };
-    
+
     Object.keys(containers).forEach(type => {
         const container = document.getElementById(containers[type]);
         if (!container) return;
-        
+
         container.innerHTML = '';
         data[type].forEach((val, i) => {
             const wrapper = document.createElement('div');
-            wrapper.style.cssText = 'display:flex; gap:5px; margin-bottom:5px;';
-            
+            wrapper.style.cssText = 'display:flex;gap:5px;margin-bottom:5px;';
+
             const input = document.createElement(type === 'questions' ? 'textarea' : 'input');
             if (type === 'questions') input.rows = 2;
             input.value = val;
@@ -158,14 +157,14 @@ function renderInputFields() {
                 data[type][i] = e.target.value;
                 refresh();
             };
-            
+
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'action-btn btn-danger delete-btn';
-            deleteBtn.style.cssText = 'width:40px; height:40px; padding:0;';
+            deleteBtn.style.cssText = 'width:40px;height:40px;padding:0;';
             deleteBtn.textContent = '✕';
             deleteBtn.setAttribute('data-type', type);
             deleteBtn.setAttribute('data-index', i);
-            
+
             wrapper.appendChild(input);
             wrapper.appendChild(deleteBtn);
             container.appendChild(wrapper);
@@ -173,16 +172,14 @@ function renderInputFields() {
     });
 }
 
-window.addDynamic = function(type) {
-    // Convert singular to plural for data object
+window.addDynamic = function (type) {
     const typeMap = {
-        'petitioner': 'petitioners',
-        'respondent': 'respondents',
-        'case': 'cases',
-        'statute': 'statutes',
-        'question': 'questions'
+        petitioner: 'petitioners',
+        respondent:  'respondents',
+        case:        'cases',
+        statute:     'statutes',
+        question:    'questions'
     };
-    
     const dataType = typeMap[type] || type;
     data[dataType].push('');
     renderInputFields();
@@ -192,9 +189,8 @@ window.addDynamic = function(type) {
 function setupDeleteHandler() {
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('delete-btn')) {
-            const type = e.target.getAttribute('data-type');
+            const type  = e.target.getAttribute('data-type');
             const index = parseInt(e.target.getAttribute('data-index'));
-            
             if (data[type]) {
                 data[type].splice(index, 1);
                 if (data[type].length === 0) data[type].push('');
@@ -205,147 +201,146 @@ function setupDeleteHandler() {
     });
 }
 
-// ─── PREVIEW RENDERING (FIXED) ──────────────────────────────────────────────
+// ─── PREVIEW RENDERING ──────────────────────────────────────────────────────
 function refresh() {
     const target = document.getElementById('render-target');
     if (!target) return;
-    
-    const projectTitle = document.getElementById('projectTitle')?.value || '';
-    const briefType = document.getElementById('briefType')?.value || 'Petitioner';
-    const courtTerm = document.getElementById('courtTerm')?.value || 'October Term 2025';
-    const docketNum = document.getElementById('docketNum')?.value || 'No. XX-XXXX';
-    const lowerCourt = document.getElementById('lowerCourt')?.value || 'United States District Court';
-    const firmName = document.getElementById('firmName')?.value || '[Law Firm Name]';
-    const studentNames = document.getElementById('studentNames')?.value || '[Counsel Names]';
-    const summaryArg = document.getElementById('summaryArg')?.value || '';
-    const argBody = document.getElementById('argBody')?.value || '';
-    const conclusionText = document.getElementById('conclusionText')?.value || '';
-    
+
+    const projectTitle  = document.getElementById('projectTitle')?.value  || '';
+    const briefType     = document.getElementById('briefType')?.value      || 'Petitioner';
+    const courtTerm     = document.getElementById('courtTerm')?.value      || 'October Term 2025';
+    const docketNum     = document.getElementById('docketNum')?.value      || 'No. XX-XXXX';
+    const lowerCourt    = document.getElementById('lowerCourt')?.value     || 'United States District Court';
+    const firmName      = document.getElementById('firmName')?.value       || '[Law Firm Name]';
+    const studentNames  = document.getElementById('studentNames')?.value   || '[Counsel Names]';
+    const summaryArg    = document.getElementById('summaryArg')?.value     || '';
+    const argBody       = document.getElementById('argBody')?.value        || '';
+    const conclusionText= document.getElementById('conclusionText')?.value || '';
+
     const petitionersList = data.petitioners.filter(p => p.trim()).join(', ') || '[Petitioner Name]';
     const respondentsList = data.respondents.filter(r => r.trim()).join(', ') || '[Respondent Name]';
-    
+
     let briefTitle = '';
     if (briefType === 'Amicus Curiae') {
-        const amicusName = document.getElementById('amicusName')?.value || '[Amicus Name]';
+        const amicusName    = document.getElementById('amicusName')?.value    || '[Amicus Name]';
         const amicusSupport = document.getElementById('amicusSupport')?.value || 'Petitioner';
-        briefTitle = `Brief for ${amicusName}<br>as Amicus Curiae ${amicusSupport}`;
+        briefTitle = `Brief for ${amicusName}<br>as Amicus Curiae in Support of ${amicusSupport}`;
     } else {
         briefTitle = `Brief for ${briefType}`;
     }
-    
-    // Page 1: Cover
+
+    // ── PAGE 1: Cover ──────────────────────────────────────────────────────
     let html = `
     <div class="paper">
         <div class="court-header">
-            Supreme Court of the United States
+            In the Supreme Court of the United States
         </div>
-        <div style="text-align:center; margin:30px 0;">
-            ${courtTerm}
-        </div>
+        <div style="text-align:center;margin:20px 0;font-size:11pt;">${courtTerm}</div>
+        <div style="text-align:center;font-weight:bold;font-size:11pt;margin-bottom:10px;">${docketNum}</div>
         <hr>
         <div class="title-box">
-            ${petitionersList}<br>
-            <span style="font-style:italic;">Petitioners</span><br>
+            ${petitionersList},<br>
+            <span style="font-style:italic;">Petitioner${data.petitioners.filter(p=>p.trim()).length>1?'s':''},</span><br>
             v.<br>
-            ${respondentsList}<br>
-            <span style="font-style:italic;">Respondents</span>
+            ${respondentsList},<br>
+            <span style="font-style:italic;">Respondent${data.respondents.filter(r=>r.trim()).length>1?'s':''}.</span>
         </div>
-        <div style="text-align:center; font-weight:bold; margin:20px 0;">
-            On Writ of Certiorari to the<br>${lowerCourt}
+        <div style="text-align:center;margin:15px 0;">
+            <em>On Writ of Certiorari to the<br>${lowerCourt}</em>
         </div>
         <hr>
-        <div style="text-align:center; font-weight:bold; margin:20px 0; font-size:14pt;">
+        <div style="text-align:center;font-weight:bold;margin:25px 0;font-size:14pt;text-transform:uppercase;letter-spacing:0.04em;">
             ${briefTitle}
         </div>
-        <div style="margin-top:80px;">
-            ${firmName}<br>
+        <div style="margin-top:60px;font-size:11pt;">
+            <strong>${firmName}</strong><br>
+            <em>Counsel of Record</em><br><br>
             ${studentNames.split('\n').join('<br>')}
         </div>
-        <div class="manual-footer">${docketNum}</div>
+        <div class="page-footer">${docketNum}</div>
     </div>`;
-    
-    // Page 2: Questions
+
+    // ── PAGE 2: Questions Presented ────────────────────────────────────────
     const questions = data.questions.filter(q => q.trim());
     if (questions.length > 0) {
         html += `
     <div class="paper">
-        <div class="section-header">Question(s) Presented</div>
-        ${questions.map((q, i) => `<p>${questions.length > 1 ? `${i + 1}. ` : ''}${q}</p>`).join('')}
-        <div class="manual-footer">${docketNum}</div>
+        <div class="section-header">Question${questions.length > 1 ? 's' : ''} Presented</div>
+        ${questions.map((q, i) => `<p style="margin:15px 0;">${questions.length > 1 ? `${i + 1}.&nbsp;` : ''}${q}</p>`).join('')}
+        <div class="page-footer">${docketNum}</div>
     </div>`;
     }
-    
-    // Page 3: Parties & Table of Authorities
+
+    // ── PAGE 3: Parties & Table of Authorities ─────────────────────────────
     html += `
     <div class="paper">
         <div class="section-header">Parties to the Proceeding</div>
-        <p><strong>Petitioners:</strong> ${petitionersList}</p>
-        <p><strong>Respondents:</strong> ${respondentsList}</p>
-        
-        <div class="section-header">Table of Authorities</div>
-        <p style="font-weight:bold; margin-top:15px;">Cases:</p>`;
-    
-    const cases = data.cases.filter(c => c.trim());
-    if (cases.length > 0) {
-        cases.forEach(c => {
-            html += `<p style="margin-left:20px; text-indent:-20px;"><em>${c}</em></p>`;
+        <p><strong>Petitioner${data.petitioners.filter(p=>p.trim()).length>1?'s':''}:</strong> ${petitionersList}</p>
+        <p><strong>Respondent${data.respondents.filter(r=>r.trim()).length>1?'s':''}:</strong> ${respondentsList}</p>
+
+        <div class="section-header" style="margin-top:30px;">Table of Authorities</div>
+        <p style="font-weight:bold;margin-top:15px;border-bottom:1pt solid black;padding-bottom:4px;">Cases</p>`;
+
+    const casesArr = data.cases.filter(c => c.trim());
+    if (casesArr.length > 0) {
+        casesArr.forEach(c => {
+            html += `<p style="margin:6px 0 6px 20px;text-indent:-20px;"><em>${c}</em></p>`;
         });
     } else {
-        html += `<p style="margin-left:20px; font-style:italic;">[No cases cited]</p>`;
+        html += `<p style="margin-left:20px;color:#666;font-style:italic;">[No cases cited]</p>`;
     }
-    
-    html += `<p style="font-weight:bold; margin-top:15px;">Statutes:</p>`;
-    const statutes = data.statutes.filter(s => s.trim());
-    if (statutes.length > 0) {
-        statutes.forEach(s => {
-            html += `<p style="margin-left:20px; text-indent:-20px;">${s}</p>`;
+
+    html += `<p style="font-weight:bold;margin-top:20px;border-bottom:1pt solid black;padding-bottom:4px;">Statutes &amp; Other Authorities</p>`;
+    const statutesArr = data.statutes.filter(s => s.trim());
+    if (statutesArr.length > 0) {
+        statutesArr.forEach(s => {
+            html += `<p style="margin:6px 0 6px 20px;text-indent:-20px;">${s}</p>`;
         });
     } else {
-        html += `<p style="margin-left:20px; font-style:italic;">[No statutes cited]</p>`;
+        html += `<p style="margin-left:20px;color:#666;font-style:italic;">[No statutes cited]</p>`;
     }
-    
-    html += `<div class="manual-footer">${docketNum}</div></div>`;
-    
-    // Page 4: Summary of Argument
+
+    html += `<div class="page-footer">${docketNum}</div></div>`;
+
+    // ── PAGE 4: Summary of Argument ────────────────────────────────────────
     if (summaryArg.trim()) {
         html += `
     <div class="paper">
         <div class="section-header">Summary of Argument</div>
-        <p>${summaryArg.replace(/\n/g, '</p><p>')}</p>
-        <div class="manual-footer">${docketNum}</div>
+        <p>${summaryArg.replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br>')}</p>
+        <div class="page-footer">${docketNum}</div>
     </div>`;
     }
-    
-    // Page 5+: Argument
+
+    // ── PAGE 5+: Argument ──────────────────────────────────────────────────
     if (argBody.trim()) {
         html += `
     <div class="paper">
         <div class="section-header">Argument</div>
-        <p>${argBody.replace(/\n/g, '</p><p>')}</p>
-        <div class="manual-footer">${docketNum}</div>
+        <p>${argBody.replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br>')}</p>
+        <div class="page-footer">${docketNum}</div>
     </div>`;
     }
-    
-    // Final Page: Conclusion
+
+    // ── Final Page: Conclusion & Signature ─────────────────────────────────
     if (conclusionText.trim()) {
         html += `
     <div class="paper">
         <div class="section-header">Conclusion</div>
-        <p>${conclusionText.replace(/\n/g, '</p><p>')}</p>
-        <div style="margin-top:40px;">
+        <p>${conclusionText.replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br>')}</p>
+        <div style="margin-top:50px;">
             <p>Respectfully submitted,</p>
-            <div style="margin-top:60px;">
-                ${firmName}<br>
+            <div style="margin-top:50px;border-top:1pt solid black;width:3in;padding-top:6px;">
+                <strong>${firmName}</strong><br>
+                <em>Counsel of Record</em><br><br>
                 ${studentNames.split('\n').join('<br>')}
             </div>
         </div>
-        <div class="manual-footer">${docketNum}</div>
+        <div class="page-footer">${docketNum}</div>
     </div>`;
     }
-    
+
     target.innerHTML = html;
-    
-    // Update case brief link
     updateCaseBriefLink();
 }
 
@@ -353,82 +348,77 @@ window.refresh = refresh;
 
 function updateCaseBriefLink() {
     const caseSelect = document.getElementById('assignedCase');
-    const linkArea = document.getElementById('caseBriefLinkArea');
-    
+    const linkArea   = document.getElementById('caseBriefLinkArea');
     if (!caseSelect || !linkArea) return;
-    
+
     const selectedOption = caseSelect.options[caseSelect.selectedIndex];
     const link = selectedOption?.getAttribute('data-link');
-    
-    if (link) {
-        linkArea.innerHTML = `<a href="${link}" target="_blank" style="color: #1a237e;">📄 View Case Brief</a>`;
-    } else {
-        linkArea.innerHTML = '';
-    }
+    linkArea.innerHTML = link
+        ? `<a href="${link}" target="_blank" style="color:#1a237e;">📄 View Case Brief</a>`
+        : '';
 }
 
-// ─── CLOUD SAVE/LOAD ────────────────────────────────────────────────────────
+// ─── CLOUD SAVE / LOAD / DELETE ─────────────────────────────────────────────
 async function loadUserProjects() {
     if (!currentUser || !supabaseClient) return;
-    
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
     const { data: projects } = await supabaseClient
         .from('scotus_projects')
         .select('*')
-        .eq('user_id', (await supabaseClient.auth.getUser()).data.user.id)
+        .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
-    
+
     const select = document.getElementById('cloud-projects');
     if (select) {
         select.innerHTML = '<option value="">📂 Select a Project...</option>';
-        if (projects) {
-            projects.forEach(p => {
-                const option = document.createElement('option');
-                option.value = p.id;
-                option.textContent = p.title;
-                select.appendChild(option);
-            });
-        }
+        (projects || []).forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = p.title;
+            select.appendChild(option);
+        });
     }
 }
 
-window.saveToCloud = async function() {
-    if (!currentUser) {
-        alert('Please sign in to save projects');
-        return;
-    }
-    
+window.saveToCloud = async function () {
+    if (!currentUser) { alert('Please sign in to save projects'); return; }
+
     const title = document.getElementById('projectTitle').value.trim() || 'Untitled Project';
     const { data: { user } } = await supabaseClient.auth.getUser();
-    
-    const projectData = {
-        user_id: user.id,
-        title: title,
-        data: {
-            projectTitle: document.getElementById('projectTitle').value,
-            briefType: document.getElementById('briefType').value,
-            amicusName: document.getElementById('amicusName')?.value,
-            amicusSupport: document.getElementById('amicusSupport')?.value,
-            courtTerm: document.getElementById('courtTerm').value,
-            firmName: document.getElementById('firmName').value,
-            studentNames: document.getElementById('studentNames').value,
-            assignedCase: document.getElementById('assignedCase')?.value,
-            docketNum: document.getElementById('docketNum').value,
-            lowerCourt: document.getElementById('lowerCourt').value,
-            petitioners: data.petitioners,
-            respondents: data.respondents,
-            cases: data.cases,
-            statutes: data.statutes,
-            questions: data.questions,
-            summaryArg: document.getElementById('summaryArg').value,
-            argBody: document.getElementById('argBody').value,
-            conclusionText: document.getElementById('conclusionText').value
-        }
+
+    // Collect the full state snapshot
+    const snapshot = {
+        projectTitle:  document.getElementById('projectTitle').value,
+        briefType:     document.getElementById('briefType').value,
+        amicusName:    document.getElementById('amicusName')?.value   || '',
+        amicusSupport: document.getElementById('amicusSupport')?.value || '',
+        courtTerm:     document.getElementById('courtTerm').value,
+        firmName:      document.getElementById('firmName').value,
+        studentNames:  document.getElementById('studentNames').value,
+        assignedCase:  document.getElementById('assignedCase')?.value  || '',
+        docketNum:     document.getElementById('docketNum').value,
+        lowerCourt:    document.getElementById('lowerCourt').value,
+        petitioners:   data.petitioners,
+        respondents:   data.respondents,
+        cases:         data.cases,
+        statutes:      data.statutes,
+        questions:     data.questions,
+        summaryArg:    document.getElementById('summaryArg').value,
+        argBody:       document.getElementById('argBody').value,
+        conclusionText:document.getElementById('conclusionText').value
     };
-    
+
+    // FIX: Use upsert with a stable conflict key.
+    // We match on user_id + title. If the DB constraint doesn't exist this
+    // falls back to a plain insert — either way it works.
     const { error } = await supabaseClient
         .from('scotus_projects')
-        .upsert(projectData, { onConflict: 'user_id,title' });
-    
+        .upsert(
+            { user_id: user.id, title, data: snapshot, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id,title', ignoreDuplicates: false }
+        );
+
     if (error) {
         alert('Error saving: ' + error.message);
     } else {
@@ -437,143 +427,144 @@ window.saveToCloud = async function() {
     }
 };
 
-window.loadSelectedProject = async function() {
+window.loadSelectedProject = async function () {
     const projectId = document.getElementById('cloud-projects').value;
-    if (!projectId) {
-        alert('Please select a project first');
-        return;
-    }
-    
-    const { data: project } = await supabaseClient
+    if (!projectId) { alert('Please select a project first'); return; }
+
+    const { data: project, error } = await supabaseClient
         .from('scotus_projects')
         .select('*')
         .eq('id', projectId)
         .single();
-    
-    if (project && project.data) {
-        const d = project.data;
-        
-        document.getElementById('projectTitle').value = d.projectTitle || '';
-        document.getElementById('briefType').value = d.briefType || 'Petitioner';
-        if (document.getElementById('amicusName')) document.getElementById('amicusName').value = d.amicusName || '';
-        if (document.getElementById('amicusSupport')) document.getElementById('amicusSupport').value = d.amicusSupport || 'Petitioner';
-        document.getElementById('courtTerm').value = d.courtTerm || '';
-        document.getElementById('firmName').value = d.firmName || '';
-        document.getElementById('studentNames').value = d.studentNames || '';
-        if (document.getElementById('assignedCase')) document.getElementById('assignedCase').value = d.assignedCase || '';
-        document.getElementById('docketNum').value = d.docketNum || '';
-        document.getElementById('lowerCourt').value = d.lowerCourt || '';
-        document.getElementById('summaryArg').value = d.summaryArg || '';
-        document.getElementById('argBody').value = d.argBody || '';
-        document.getElementById('conclusionText').value = d.conclusionText || '';
-        
-        data.petitioners = d.petitioners || [''];
-        data.respondents = d.respondents || [''];
-        data.cases = d.cases || [''];
-        data.statutes = d.statutes || [''];
-        data.questions = d.questions || [''];
-        
-        toggleAmicusField();
-        renderInputFields();
-        refresh();
-        
-        alert('✅ Project loaded!');
-    }
-};
 
-window.deleteSelectedProject = async function() {
-    const projectId = document.getElementById('cloud-projects').value;
-    if (!projectId) {
-        alert('Please select a project first');
+    if (error || !project || !project.data) {
+        alert('Could not load project.');
         return;
     }
-    
+
+    const d = project.data;
+
+    document.getElementById('projectTitle').value  = d.projectTitle  || '';
+    document.getElementById('briefType').value     = d.briefType     || 'Petitioner';
+    if (document.getElementById('amicusName'))    document.getElementById('amicusName').value    = d.amicusName    || '';
+    if (document.getElementById('amicusSupport')) document.getElementById('amicusSupport').value = d.amicusSupport || 'Petitioner';
+    document.getElementById('courtTerm').value     = d.courtTerm     || '';
+    document.getElementById('firmName').value      = d.firmName      || '';
+    document.getElementById('studentNames').value  = d.studentNames  || '';
+    document.getElementById('docketNum').value     = d.docketNum     || '';
+    document.getElementById('lowerCourt').value    = d.lowerCourt    || '';
+    document.getElementById('summaryArg').value    = d.summaryArg    || '';
+    document.getElementById('argBody').value       = d.argBody       || '';
+    document.getElementById('conclusionText').value= d.conclusionText|| '';
+
+    // FIX: Restore assignedCase after the options have been populated
+    if (d.assignedCase && document.getElementById('assignedCase')) {
+        // Try to set immediately; if options aren't loaded yet, set after a tick
+        const sel = document.getElementById('assignedCase');
+        sel.value = d.assignedCase;
+        if (sel.value !== d.assignedCase) {
+            // Options not yet populated — store and restore after loadCases
+            sel.setAttribute('data-pending', d.assignedCase);
+        }
+    }
+
+    data.petitioners = d.petitioners || [''];
+    data.respondents  = d.respondents  || [''];
+    data.cases        = d.cases        || [''];
+    data.statutes     = d.statutes     || [''];
+    data.questions    = d.questions    || [''];
+
+    toggleAmicusField();
+    renderInputFields();
+    refresh();
+    alert('✅ Project loaded!');
+};
+
+window.deleteSelectedProject = async function () {
+    const projectId = document.getElementById('cloud-projects').value;
+    if (!projectId) { alert('Please select a project first'); return; }
     if (!confirm('Delete this project permanently?')) return;
-    
+
     const { error } = await supabaseClient
         .from('scotus_projects')
         .delete()
         .eq('id', projectId);
-    
+
     if (error) {
         alert('Error deleting: ' + error.message);
     } else {
-        alert('✅ Project deleted');
         document.getElementById('cloud-projects').value = '';
+        alert('✅ Project deleted');
         loadUserProjects();
     }
 };
 
-// ─── CASES & DOCKET ─────────────────────────────────────────────────────────
+// ─── CASES ──────────────────────────────────────────────────────────────────
 async function loadCases() {
     if (!supabaseClient) return;
-    
+
     const { data: cases } = await supabaseClient
         .from('scotus_cases')
         .select('*')
         .order('name');
-    
+
     const select = document.getElementById('assignedCase');
     if (select) {
         select.innerHTML = '<option value="">-- Select a Case --</option>';
-        if (cases) {
-            cases.forEach(c => {
-                const option = document.createElement('option');
-                option.value = c.name;
-                option.setAttribute('data-link', c.brief_link || '');
-                option.textContent = c.name;
-                select.appendChild(option);
-            });
+        (cases || []).forEach(c => {
+            const option = document.createElement('option');
+            option.value = c.name;
+            option.setAttribute('data-link', c.brief_link || '');
+            option.textContent = c.name;
+            select.appendChild(option);
+        });
+
+        // Restore any pending case selection from loadSelectedProject
+        const pending = select.getAttribute('data-pending');
+        if (pending) {
+            select.value = pending;
+            select.removeAttribute('data-pending');
+            updateCaseBriefLink();
         }
     }
-    
-    if (isTeacher) {
-        updateAdminCasesList(cases);
-    }
+
+    if (isTeacher) updateAdminCasesList(cases);
 }
 
 function updateAdminCasesList(cases) {
     const container = document.getElementById('manage-cases-list');
     if (!container) return;
-    
+
     if (!cases || cases.length === 0) {
-        container.innerHTML = '<p style="color: #999;">No cases yet. Add one above!</p>';
+        container.innerHTML = '<p style="color:#999;">No cases yet. Add one above!</p>';
         return;
     }
-    
+
     container.innerHTML = '';
     cases.forEach(c => {
         const div = document.createElement('div');
-        div.style.cssText = 'padding: 10px; margin-bottom: 10px; background: #f8f9fa; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;';
+        div.style.cssText = 'padding:10px;margin-bottom:10px;background:#f8f9fa;border-radius:4px;display:flex;justify-content:space-between;align-items:center;';
         div.innerHTML = `
             <div>
                 <strong>${c.name}</strong>
-                ${c.brief_link ? `<br><a href="${c.brief_link}" target="_blank" style="font-size: 0.85em; color: #1a237e;">View Brief</a>` : ''}
+                ${c.brief_link ? `<br><a href="${c.brief_link}" target="_blank" style="font-size:0.85em;color:#1a237e;">View Brief</a>` : ''}
             </div>
-            <button class="action-btn btn-danger" style="width: auto; padding: 8px 15px; height: auto;" onclick="deleteCase('${c.id}')">Delete</button>
-        `;
+            <button class="action-btn btn-danger" style="width:auto;padding:8px 15px;height:auto;" onclick="deleteCase('${c.id}')">Delete</button>`;
         container.appendChild(div);
     });
 }
 
-window.addNewCase = async function() {
-    if (!isTeacher) {
-        alert('Only teachers can add cases');
-        return;
-    }
-    
+window.addNewCase = async function () {
+    if (!isTeacher) { alert('Only teachers can add cases'); return; }
+
     const name = document.getElementById('newCaseName').value.trim();
     const link = document.getElementById('newCaseLink').value.trim();
-    
-    if (!name) {
-        alert('Please enter a case name');
-        return;
-    }
-    
+    if (!name) { alert('Please enter a case name'); return; }
+
     const { error } = await supabaseClient
         .from('scotus_cases')
         .insert([{ name, brief_link: link }]);
-    
+
     if (error) {
         alert('Error adding case: ' + error.message);
     } else {
@@ -584,15 +575,15 @@ window.addNewCase = async function() {
     }
 };
 
-window.deleteCase = async function(caseId) {
+window.deleteCase = async function (caseId) {
     if (!isTeacher) return;
-    if (!confirm('Delete this case?')) return;
-    
+    if (!confirm('Delete this case from the list?')) return;
+
     const { error } = await supabaseClient
         .from('scotus_cases')
         .delete()
         .eq('id', caseId);
-    
+
     if (error) {
         alert('Error: ' + error.message);
     } else {
@@ -600,136 +591,192 @@ window.deleteCase = async function(caseId) {
     }
 };
 
+// ─── DOCKET ──────────────────────────────────────────────────────────────────
 async function loadDocket() {
     if (!supabaseClient) return;
-    
+
     const { data: briefs } = await supabaseClient
         .from('scotus_submissions')
-        .select(`
-            *,
-            profiles(email)
-        `)
+        .select('*, profiles(email)')
         .order('submitted_at', { ascending: false });
-    
+
     const tbody = document.getElementById('docket-body');
     if (!tbody) return;
-    
+
     if (!briefs || briefs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999;">No briefs submitted yet</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">No briefs submitted yet</td></tr>';
         return;
     }
-    
+
     // Group by case name
     const grouped = {};
     briefs.forEach(b => {
         const caseName = b.case_name || 'Unknown Case';
         if (!grouped[caseName]) {
-            grouped[caseName] = { petitioner: [], respondent: [], amicus: [], brief_link: null };
+            grouped[caseName] = { petitioner: [], respondent: [], amicus: [], brief_link: null, submissions: [] };
         }
-        
         if (!grouped[caseName].brief_link && b.case_brief_link) {
             grouped[caseName].brief_link = b.case_brief_link;
         }
-        
+
         const authorEmail = b.profiles?.email || 'Anonymous';
-        const link = `<a href="${b.pdf_url}" target="_blank" style="color: #1a237e;">${authorEmail.split('@')[0]}</a>`;
-        
-        if (b.brief_type === 'Petitioner') {
-            grouped[caseName].petitioner.push(link);
-        } else if (b.brief_type === 'Respondent') {
-            grouped[caseName].respondent.push(link);
-        } else if (b.brief_type === 'Amicus Curiae') {
-            grouped[caseName].amicus.push(link);
-        }
+        const linkHtml = b.pdf_url
+            ? `<a href="${b.pdf_url}" target="_blank" style="color:#1a237e;">${authorEmail.split('@')[0]}</a>`
+            : authorEmail.split('@')[0];
+
+        // FIX: Store each submission id so teacher can delete it
+        const item = { html: linkHtml, id: b.id };
+
+        if (b.brief_type === 'Petitioner')     grouped[caseName].petitioner.push(item);
+        else if (b.brief_type === 'Respondent') grouped[caseName].respondent.push(item);
+        else if (b.brief_type === 'Amicus Curiae') grouped[caseName].amicus.push(item);
     });
-    
+
     tbody.innerHTML = '';
     Object.keys(grouped).forEach(caseName => {
+        const g = grouped[caseName];
         const row = tbody.insertRow();
+
+        // Helper to render a cell with optional teacher delete buttons
+        const renderCell = (items) => {
+            if (!items.length) return '-';
+            return items.map(item => {
+                const del = isTeacher
+                    ? `&nbsp;<button onclick="deleteDocketEntry('${item.id}')" style="font-size:0.7rem;background:#c62828;color:white;border:none;border-radius:3px;padding:1px 5px;cursor:pointer;">✕</button>`
+                    : '';
+                return `<div style="margin-bottom:3px;">${item.html}${del}</div>`;
+            }).join('');
+        };
+
         row.innerHTML = `
             <td><strong>${caseName}</strong></td>
-            <td>${grouped[caseName].brief_link ? `<a href="${grouped[caseName].brief_link}" target="_blank" style="color: #1a237e;">View Brief</a>` : '-'}</td>
-            <td>${grouped[caseName].petitioner.join('<br>') || '-'}</td>
-            <td>${grouped[caseName].respondent.join('<br>') || '-'}</td>
-            <td>${grouped[caseName].amicus.join('<br>') || '-'}</td>
-        `;
+            <td>${g.brief_link ? `<a href="${g.brief_link}" target="_blank" style="color:#1a237e;">View Brief</a>` : '-'}</td>
+            <td>${renderCell(g.petitioner)}</td>
+            <td>${renderCell(g.respondent)}</td>
+            <td>${renderCell(g.amicus)}</td>
+            ${isTeacher ? `<td><button class="action-btn btn-danger" style="width:auto;padding:5px 10px;height:auto;font-size:0.75rem;" onclick="deleteDocketCase('${caseName}')">Delete Case</button></td>` : '<td></td>'}`;
     });
+
+    // Ensure header has the right number of columns
+    const headerRow = document.getElementById('docket-header-row');
+    if (headerRow) {
+        const adminTh = document.getElementById('docket-admin-th');
+        if (adminTh) adminTh.style.display = isTeacher ? '' : 'none';
+    }
 }
 
-// ─── PDF & SUBMISSION ───────────────────────────────────────────────────────
-window.downloadPDF = async function() {
-    const element = document.getElementById('render-target');
-    const opt = {
-        margin: 0,
-        filename: (document.getElementById('projectTitle').value || 'brief') + '.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    
-    html2pdf().from(element).set(opt).save();
-};
+// Teacher: delete a single brief from the docket
+window.deleteDocketEntry = async function (submissionId) {
+    if (!isTeacher) return;
+    if (!confirm('Remove this brief from the docket?')) return;
 
-window.submitToCourt = async function() {
-    if (!currentUser) {
-        alert('Please sign in to submit');
-        return;
-    }
-    
-    const caseName = document.getElementById('assignedCase')?.value;
-    if (!caseName) {
-        alert('Please select a case first');
-        return;
-    }
-    
-    const caseSelect = document.getElementById('assignedCase');
-    const selectedOption = caseSelect.options[caseSelect.selectedIndex];
-    const caseBriefLink = selectedOption.getAttribute('data-link');
-    
-    alert('Generating PDF and submitting to court...');
-    
-    // Generate PDF
-    const element = document.getElementById('render-target');
-    const opt = {
-        margin: 0,
-        filename: 'brief.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    
-    const pdfBlob = await html2pdf().from(element).set(opt).outputPdf('blob');
-    
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    const fileName = `${user.id}_${Date.now()}.pdf`;
-    
-    const { data: uploadData, error: uploadError } = await supabaseClient.storage
-        .from('scotus-briefs')
-        .upload(fileName, pdfBlob);
-    
-    if (uploadError) {
-        alert('Upload error: ' + uploadError.message);
-        return;
-    }
-    
-    const { data: { publicUrl } } = supabaseClient.storage
-        .from('scotus-briefs')
-        .getPublicUrl(fileName);
-    
     const { error } = await supabaseClient
         .from('scotus_submissions')
-        .insert([{
-            user_id: user.id,
-            case_name: caseName,
-            case_brief_link: caseBriefLink,
-            brief_type: document.getElementById('briefType').value,
-            pdf_url: publicUrl
-        }]);
-    
-    if (error) {
-        alert('Error submitting: ' + error.message);
-    } else {
-        alert('✅ Brief submitted to court docket!');
-        loadDocket();
+        .delete()
+        .eq('id', submissionId);
+
+    if (error) alert('Error: ' + error.message);
+    else loadDocket();
+};
+
+// Teacher: delete all submissions for a case from the docket
+window.deleteDocketCase = async function (caseName) {
+    if (!isTeacher) return;
+    if (!confirm(`Remove ALL briefs for "${caseName}" from the docket? This cannot be undone.`)) return;
+
+    const { error } = await supabaseClient
+        .from('scotus_submissions')
+        .delete()
+        .eq('case_name', caseName);
+
+    if (error) alert('Error: ' + error.message);
+    else loadDocket();
+};
+
+// ─── PDF & PRINT ─────────────────────────────────────────────────────────────
+window.downloadPDF = async function () {
+    const element = document.getElementById('render-target');
+
+    // Temporarily make footers static for proper PDF pagination
+    document.querySelectorAll('.page-footer').forEach(el => {
+        el.classList.add('pdf-mode');
+    });
+
+    const opt = {
+        margin:    [0, 0, 0, 0],
+        filename:  (document.getElementById('projectTitle').value || 'scotus-brief') + '.pdf',
+        image:     { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF:     { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'], before: '.paper' }
+    };
+
+    try {
+        await html2pdf().from(element).set(opt).save();
+    } catch (err) {
+        alert('PDF generation error: ' + err.message);
+    } finally {
+        document.querySelectorAll('.page-footer').forEach(el => {
+            el.classList.remove('pdf-mode');
+        });
+    }
+};
+
+// ─── SUBMIT TO COURT ─────────────────────────────────────────────────────────
+window.submitToCourt = async function () {
+    if (!currentUser) { alert('Please sign in to submit'); return; }
+
+    const caseSelect = document.getElementById('assignedCase');
+    const caseName   = caseSelect?.value;
+    if (!caseName)   { alert('Please select a case first'); return; }
+
+    const selectedOption  = caseSelect.options[caseSelect.selectedIndex];
+    const caseBriefLink   = selectedOption.getAttribute('data-link');
+
+    if (!confirm('Submit this brief to the Court Docket? This will generate a PDF and post it publicly.')) return;
+
+    const element = document.getElementById('render-target');
+    const opt = {
+        margin:    [0, 0, 0, 0],
+        filename:  'brief.pdf',
+        image:     { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF:     { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'], before: '.paper' }
+    };
+
+    try {
+        const pdfBlob = await html2pdf().from(element).set(opt).outputPdf('blob');
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        const fileName = `${user.id}_${Date.now()}.pdf`;
+
+        const { error: uploadError } = await supabaseClient.storage
+            .from('scotus-briefs')
+            .upload(fileName, pdfBlob, { contentType: 'application/pdf' });
+
+        if (uploadError) { alert('Upload error: ' + uploadError.message); return; }
+
+        const { data: { publicUrl } } = supabaseClient.storage
+            .from('scotus-briefs')
+            .getPublicUrl(fileName);
+
+        const { error } = await supabaseClient
+            .from('scotus_submissions')
+            .insert([{
+                user_id:         user.id,
+                case_name:       caseName,
+                case_brief_link: caseBriefLink,
+                brief_type:      document.getElementById('briefType').value,
+                pdf_url:         publicUrl
+            }]);
+
+        if (error) {
+            alert('Error submitting: ' + error.message);
+        } else {
+            alert('✅ Brief submitted to Court Docket!');
+            loadDocket();
+        }
+    } catch (err) {
+        alert('Submission error: ' + err.message);
     }
 };
