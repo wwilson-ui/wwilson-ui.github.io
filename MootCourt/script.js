@@ -257,7 +257,6 @@ function refresh() {
             <em>Counsel of Record</em><br><br>
             ${studentNames.split('\n').join('<br>')}
         </div>
-        <div class="page-footer">${docketNum}</div>
     </div>`;
 
     // ── PAGE 2: Questions Presented ────────────────────────────────────────
@@ -267,7 +266,6 @@ function refresh() {
     <div class="paper">
         <div class="section-header">Question${questions.length > 1 ? 's' : ''} Presented</div>
         ${questions.map((q, i) => `<p style="margin:15px 0;">${questions.length > 1 ? `${i + 1}.&nbsp;` : ''}${q}</p>`).join('')}
-        <div class="page-footer">${docketNum}</div>
     </div>`;
     }
 
@@ -300,7 +298,7 @@ function refresh() {
         html += `<p style="margin-left:20px;color:#666;font-style:italic;">[No statutes cited]</p>`;
     }
 
-    html += `<div class="page-footer">${docketNum}</div></div>`;
+    html += `</div>`;
 
     // ── PAGE 4: Summary of Argument ────────────────────────────────────────
     if (summaryArg.trim()) {
@@ -308,7 +306,6 @@ function refresh() {
     <div class="paper">
         <div class="section-header">Summary of Argument</div>
         <p>${summaryArg.replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br>')}</p>
-        <div class="page-footer">${docketNum}</div>
     </div>`;
     }
 
@@ -318,7 +315,6 @@ function refresh() {
     <div class="paper">
         <div class="section-header">Argument</div>
         <p>${argBody.replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br>')}</p>
-        <div class="page-footer">${docketNum}</div>
     </div>`;
     }
 
@@ -336,7 +332,6 @@ function refresh() {
                 ${studentNames.split('\n').join('<br>')}
             </div>
         </div>
-        <div class="page-footer">${docketNum}</div>
     </div>`;
     }
 
@@ -697,11 +692,6 @@ window.deleteDocketCase = async function (caseName) {
 window.downloadPDF = async function () {
     const element = document.getElementById('render-target');
 
-    // Temporarily make footers static for proper PDF pagination
-    document.querySelectorAll('.page-footer').forEach(el => {
-        el.classList.add('pdf-mode');
-    });
-
     const opt = {
         margin:    [0, 0, 0, 0],
         filename:  (document.getElementById('projectTitle').value || 'scotus-brief') + '.pdf',
@@ -715,10 +705,6 @@ window.downloadPDF = async function () {
         await html2pdf().from(element).set(opt).save();
     } catch (err) {
         alert('PDF generation error: ' + err.message);
-    } finally {
-        document.querySelectorAll('.page-footer').forEach(el => {
-            el.classList.remove('pdf-mode');
-        });
     }
 };
 
@@ -730,8 +716,8 @@ window.submitToCourt = async function () {
     const caseName   = caseSelect?.value;
     if (!caseName)   { alert('Please select a case first'); return; }
 
-    const selectedOption  = caseSelect.options[caseSelect.selectedIndex];
-    const caseBriefLink   = selectedOption.getAttribute('data-link');
+    const selectedOption = caseSelect.options[caseSelect.selectedIndex];
+    const caseBriefLink  = selectedOption.getAttribute('data-link');
 
     if (!confirm('Submit this brief to the Court Docket? This will generate a PDF and post it publicly.')) return;
 
@@ -748,7 +734,13 @@ window.submitToCourt = async function () {
     try {
         const pdfBlob = await html2pdf().from(element).set(opt).outputPdf('blob');
         const { data: { user } } = await supabaseClient.auth.getUser();
-        const fileName = `${user.id}_${Date.now()}.pdf`;
+
+        // FIX: Supabase storage RLS requires the file path to begin with the
+        // authenticated user's ID so the policy `(auth.uid() = owner)` or
+        // the default `auth.uid()::text = (storage.foldername(name))[1]`
+        // resolves correctly. Using `{uid}/{timestamp}.pdf` satisfies both
+        // the common custom policy and the Supabase default template.
+        const fileName = `${user.id}/${Date.now()}.pdf`;
 
         const { error: uploadError } = await supabaseClient.storage
             .from('scotus-briefs')
