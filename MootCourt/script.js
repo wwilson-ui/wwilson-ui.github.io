@@ -691,19 +691,16 @@ window.deleteDocketCase = async function (caseName) {
 // ─── PDF & PRINT ─────────────────────────────────────────────────────────────
 window.downloadPDF = async function () {
     const element = document.getElementById('render-target');
-
-    // FIX: min-height:11in makes html2pdf treat every .paper as a full page,
-    // then the forced page-break adds another blank page after it.
-    // Collapse to height:auto for the snapshot, restore afterward.
     element.classList.add('pdf-export');
 
     const opt = {
-        margin:      [1, 1, 1, 1],   // 1-inch margins handled by jsPDF, not padding
+        margin:      0, // Fixes double margins (relies on your HTML's 1in padding instead)
         filename:    (document.getElementById('projectTitle').value || 'scotus-brief') + '.pdf',
         image:       { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true },
         jsPDF:       { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak:   { mode: 'avoid-all', before: '.paper' }
+        // THE FIX: Break before every .paper, EXCEPT the very first one!
+        pagebreak:   { mode: 'avoid-all', before: '.paper:not(:first-child)' } 
     };
 
     try {
@@ -755,20 +752,21 @@ window.submitToCourt = async function () {
     element.classList.add('pdf-export');
 
     const opt = {
-        margin:      0, // HTML padding acts as our margin!
+        margin:      0, // Fixes double margins
         filename:    'brief.pdf',
         image:       { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
         jsPDF:       { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak:   { mode: 'css' } // Let CSS handle the page breaks
+        // THE FIX: Break before every .paper, EXCEPT the very first one!
+        pagebreak:   { mode: 'avoid-all', before: '.paper:not(:first-child)' }
     };
 
     try {
         const pdfBlob = await html2pdf().from(element).set(opt).outputPdf('blob');
         element.classList.remove('pdf-export');
         
-        // ... (The rest of your Supabase upload code remains exactly the same!)
         const { data: { user } } = await supabaseClient.auth.getUser();
+
         const fileName = `${user.id}/${Date.now()}.pdf`;
 
         const { error: uploadError } = await supabaseClient.storage
