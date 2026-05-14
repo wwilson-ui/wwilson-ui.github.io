@@ -212,20 +212,7 @@ hr {
     font-size: 11pt;
 }
 
-/*
- * FIX (PDF footer): Keep in normal document flow so html2pdf picks it up
- * correctly at the bottom of each page's content rather than computing
- * `bottom: 0.75in` against the viewport.
- *
- * On-screen: a top margin pushes it toward the bottom of the letter sheet.
- * In PDF: it appears right after the last line of content on that page.
- */
-.page-footer {
-    margin-top: 60px;
-    text-align: center;
-    font-size: 11pt;
-    color: #333;
-}
+
 
 /* ── PRINT MEDIA ────────────────────────────────────────────────────────────── */
 @media print {
@@ -263,12 +250,6 @@ hr {
     .paper:first-child {
         page-break-before: auto !important;
         break-before: auto !important;
-    }
-
-    /* Footer reverts to normal flow in print too */
-    .page-footer {
-        margin-top: 60px !important;
-        position: static !important;
     }
 }
 
