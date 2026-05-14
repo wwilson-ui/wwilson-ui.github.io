@@ -214,6 +214,22 @@ hr {
 
 
 
+/* ── PDF EXPORT OVERRIDE ────────────────────────────────────────────────────── */
+/*
+ * Applied temporarily to #render-target during html2pdf capture.
+ * Collapses min-height so html2pdf measures actual content height only,
+ * and removes the CSS page-break-before so the library's own pagebreak
+ * mode ('avoid-all' + before:'.paper') handles pagination cleanly.
+ */
+.pdf-export .paper {
+    min-height: 0 !important;
+    height: auto !important;
+    page-break-before: auto !important;
+    break-before: auto !important;
+    margin-bottom: 0 !important;
+    box-shadow: none !important;
+}
+
 /* ── PRINT MEDIA ────────────────────────────────────────────────────────────── */
 @media print {
     body, .app-container {
