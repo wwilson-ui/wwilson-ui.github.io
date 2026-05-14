@@ -715,6 +715,29 @@ window.downloadPDF = async function () {
     }
 };
 
+// ─── PDF & PRINT ─────────────────────────────────────────────────────────────
+window.downloadPDF = async function () {
+    const element = document.getElementById('render-target');
+    element.classList.add('pdf-export');
+
+    const opt = {
+        margin:      0, // HTML padding acts as our margin! Maps 1:1 perfectly.
+        filename:    (document.getElementById('projectTitle').value || 'scotus-brief') + '.pdf',
+        image:       { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF:       { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak:   { mode: 'css' } // Let CSS handle the page breaks to prevent blank Page 1
+    };
+
+    try {
+        await html2pdf().from(element).set(opt).save();
+    } catch (err) {
+        alert('PDF generation error: ' + err.message);
+    } finally {
+        element.classList.remove('pdf-export');
+    }
+};
+
 // ─── SUBMIT TO COURT ─────────────────────────────────────────────────────────
 window.submitToCourt = async function () {
     if (!currentUser) { alert('Please sign in to submit'); return; }
@@ -732,24 +755,20 @@ window.submitToCourt = async function () {
     element.classList.add('pdf-export');
 
     const opt = {
-        margin:      [1, 1, 1, 1],
+        margin:      0, // HTML padding acts as our margin!
         filename:    'brief.pdf',
         image:       { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
         jsPDF:       { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak:   { mode: 'avoid-all', before: '.paper' }
+        pagebreak:   { mode: 'css' } // Let CSS handle the page breaks
     };
 
     try {
         const pdfBlob = await html2pdf().from(element).set(opt).outputPdf('blob');
         element.classList.remove('pdf-export');
+        
+        // ... (The rest of your Supabase upload code remains exactly the same!)
         const { data: { user } } = await supabaseClient.auth.getUser();
-
-        // FIX: Supabase storage RLS requires the file path to begin with the
-        // authenticated user's ID so the policy `(auth.uid() = owner)` or
-        // the default `auth.uid()::text = (storage.foldername(name))[1]`
-        // resolves correctly. Using `{uid}/{timestamp}.pdf` satisfies both
-        // the common custom policy and the Supabase default template.
         const fileName = `${user.id}/${Date.now()}.pdf`;
 
         const { error: uploadError } = await supabaseClient.storage
