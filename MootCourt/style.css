@@ -216,18 +216,21 @@ hr {
 
 /* ── PDF EXPORT OVERRIDE ────────────────────────────────────────────────────── */
 /*
- * Applied temporarily to #render-target during html2pdf capture.
- * Collapses min-height so html2pdf measures actual content height only,
- * and removes the CSS page-break-before so the library's own pagebreak
- * mode ('avoid-all' + before:'.paper') handles pagination cleanly.
+ * Make .paper elements exactly 8.5x11in with NO external margins.
+ * This guarantees a perfect 1:1 map into the PDF canvas without scaling.
  */
 .pdf-export .paper {
-    min-height: 0 !important;
-    height: auto !important;
-    page-break-before: auto !important;
-    break-before: auto !important;
     margin-bottom: 0 !important;
     box-shadow: none !important;
+    min-height: 11in !important; /* Lock exact page height */
+    page-break-before: always !important;
+    break-before: page !important;
+}
+
+/* Fixes the blank page 1 issue by preventing a break before the first element */
+.pdf-export .paper:first-child {
+    page-break-before: auto !important;
+    break-before: auto !important;
 }
 
 /* ── PRINT MEDIA ────────────────────────────────────────────────────────────── */
