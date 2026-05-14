@@ -9,61 +9,66 @@
 </head>
 <body>
 
-<header style="background: var(--legal-blue); color: white; padding: 0 25px; display: flex; justify-content: space-between; align-items: center; height: 60px; z-index: 10;">
-    <div style="font-weight:bold; font-size: 1.2rem;">⚖️ SCOTUS Brief Generator Pro</div>
-    
-    <div style="display: flex; align-items: center; gap: 20px;">
-        <a id="admin-tab" href="#" onclick="switchTab('admin')" style="display: none; color: white; font-weight: 600; text-decoration: none; align-items: center; gap: 5px;">
+<!-- ─── HEADER ─────────────────────────────────────────────────────────────── -->
+<header style="background:var(--legal-blue);color:white;padding:0 25px;display:flex;justify-content:space-between;align-items:center;height:60px;flex-shrink:0;z-index:10;">
+    <div style="font-weight:bold;font-size:1.2rem;">⚖️ SCOTUS Brief Generator Pro</div>
+    <div style="display:flex;align-items:center;gap:20px;">
+        <!-- FIX: admin-tab nav link — hidden until teacher signs in -->
+        <a id="admin-tab" href="#" onclick="switchTab('admin', null); return false;"
+           style="display:none;color:white;font-weight:600;text-decoration:none;align-items:center;gap:5px;">
             🛡️ Admin
         </a>
-        
         <div id="authSection"></div>
     </div>
 </header>
 
-
+<!-- ─── MAIN LAYOUT ────────────────────────────────────────────────────────── -->
 <main class="app-container">
+
+    <!-- SIDEBAR -->
     <nav class="sidebar">
-        <div id="auth-status" style="font-size: 0.75rem; color: #888; margin-bottom: 15px;">Initializing...</div>
-        
+        <div id="auth-status" style="font-size:0.75rem;color:#888;margin-bottom:15px;">Initializing…</div>
+
         <div class="tabs-zone">
-            <button class="tab-btn active" onclick="switchTab('setup')">1. Initial Setup</button>
-            <button class="tab-btn" onclick="switchTab('cover')">2. Cover Page</button>
-            <button class="tab-btn" onclick="switchTab('authorities')">3. Authorities</button>
-            <button class="tab-btn" onclick="switchTab('questions')">4. Questions</button>
-            <button class="tab-btn" onclick="switchTab('argument')">5. Argument</button>
-            <button class="tab-btn" onclick="switchTab('finalize')">6. Finalize & Print</button>
+            <!-- FIX: pass `this` so switchTab() can mark the correct button active -->
+            <button class="tab-btn active" onclick="switchTab('setup', this)">1. Initial Setup</button>
+            <button class="tab-btn"        onclick="switchTab('cover', this)">2. Cover Page</button>
+            <button class="tab-btn"        onclick="switchTab('authorities', this)">3. Authorities</button>
+            <button class="tab-btn"        onclick="switchTab('questions', this)">4. Questions</button>
+            <button class="tab-btn"        onclick="switchTab('argument', this)">5. Argument</button>
+            <button class="tab-btn"        onclick="switchTab('finalize', this)">6. Finalize &amp; Print</button>
+            <button class="tab-btn"        onclick="switchTab('docket', this)">🏛️ Court Docket</button>
+            <!-- Teacher-only admin button — hidden by default, shown on auth -->
+            <button class="tab-btn" id="admin-sidebar-btn"
+                    style="display:none;"
+                    onclick="switchTab('admin', this)">⚙️ Teacher Admin</button>
         </div>
 
-<!--- Begin Added Content re: Teacher Admin --> 
-
-        <button class="tab-btn" onclick="switchTab('docket')">🏛️ Court Docket</button>
-<!--- Removed button & added to navigation menu       <button class="tab-btn admin-only" id="admin-tab" style="display:none;" onclick="switchTab('admin')">⚙️ Teacher Admin</button>    -->
-
-<!--- End Added Content re: Teacher Admin -->         
-        
         <div class="persistence-zone">
             <button class="action-btn cloud-save-btn" onclick="saveToCloud()">☁️ Save to Cloud</button>
             <select id="cloud-projects" class="action-btn">
-                <option value="">📂 Select a Project...</option>
+                <option value="">📂 Select a Project…</option>
             </select>
-            <div style="display: flex; gap: 5px;">
-                <button class="action-btn" style="flex: 1;" onclick="loadSelectedProject()">📥 Load</button>
-                <button class="action-btn btn-danger" style="flex: 1;" onclick="deleteSelectedProject()">🗑️ Delete</button>
+            <div style="display:flex;gap:5px;">
+                <button class="action-btn" style="flex:1;" onclick="loadSelectedProject()">📥 Load</button>
+                <button class="action-btn btn-danger" style="flex:1;" onclick="deleteSelectedProject()">🗑️ Delete</button>
             </div>
         </div>
 
         <div class="sidebar-footer">
-            <a href="terms.html" target="_blank" style="color:#999; text-decoration:none; font-size:0.75rem;">Terms of Service</a>
+            <a href="terms.html" target="_blank" style="color:#999;text-decoration:none;font-size:0.75rem;">Terms of Service</a>
         </div>
-    </nav>
+    </nav><!-- /sidebar -->
 
+    <!-- INPUT PANEL -->
     <section class="input-panel">
+
+        <!-- Tab 1: Setup -->
         <div id="setup" class="tab-content active">
             <h2>Project Setup</h2>
             <label>Project Title:</label>
             <input type="text" id="projectTitle" oninput="refresh()">
-    
+
             <label>Writing for:</label>
             <select id="briefType" onchange="toggleAmicusField(); refresh()">
                 <option value="Petitioner">Brief for Petitioner</option>
@@ -71,7 +76,7 @@
                 <option value="Amicus Curiae">Brief for Amicus Curiae</option>
             </select>
 
-            <div id="amicus-extras" style="display:none; margin-top: 10px; border-left: 3px solid var(--legal-blue); padding-left: 10px;">
+            <div id="amicus-extras" style="display:none;margin-top:10px;border-left:3px solid var(--legal-blue);padding-left:10px;">
                 <label>Name of Amicus:</label>
                 <input type="text" id="amicusName" placeholder="e.g. American Civil Liberties Union" oninput="refresh()">
                 <label>In Support of:</label>
@@ -82,109 +87,95 @@
                 </select>
             </div>
 
-
             <label>Court Term:</label>
             <input type="text" id="courtTerm" placeholder="October Term 2025" oninput="refresh()">
 
-            
-            <label>Law Firm Name:</label>
-            <input type="text" id="firmName" placeholder="Law Firm..." oninput="refresh()">
+            <label>Law Firm / Team Name:</label>
+            <input type="text" id="firmName" placeholder="Law Firm…" oninput="refresh()">
+
             <label>Counsel Names:</label>
             <textarea id="studentNames" rows="3" oninput="refresh()"></textarea>
         </div>
 
+        <!-- Tab 2: Cover -->
         <div id="cover" class="tab-content">
             <h2>Cover Details</h2>
 
-<!--- BEGIN Added Content re: case selection dropdown --> 
-
             <label>Select Your Assigned Case:</label>
             <select id="assignedCase" onchange="refresh()">
-                <option value="">-- Fetching Cases... --</option>
+                <option value="">-- Fetching Cases… --</option>
             </select>
-            <p id="caseBriefLinkArea" style="font-size: 0.8rem;"></p>
+            <p id="caseBriefLinkArea" style="font-size:0.8rem;"></p>
 
-
-
-            <!-- Temporarily remove duplicate id="admin" tag per gemini review) 
-            <div id="admin" class="tab-content">
-                <h2>Teacher Case Manager</h2>
-                <div style="background:#f4f4f4; padding:15px; border-radius:8px;">
-                    <label>Add New Case Name:</label>
-                    <input type="text" id="newCaseName" placeholder="e.g. Cooksey v. MTPS">
-                    <label>Google Drive Brief Link:</label>
-                       <input type="text" id="newCaseLink" placeholder="Paste link here...">
-                    <button class="action-btn" onclick="addNewCase()">Add Case to List</button>
-                </div>
-                <div id="manage-cases-list" style="margin-top:20px;"></div>
-            </div>
-
-
-            -->
-
-
-            
-<!--- End Added Content re: case selection dropdown --> 
-            
             <label>Docket Number:</label>
-            <input type="text" id="docketNum" oninput="refresh()">
+            <input type="text" id="docketNum" placeholder="No. XX-XXXX" oninput="refresh()">
+
             <label>Petitioners:</label>
             <div id="petitioner-inputs"></div>
-            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('petitioner')">+ Add Petitioner</button>
+            <button class="action-btn" style="height:30px;font-size:0.7rem;width:auto;padding:0 10px;" onclick="addDynamic('petitioner')">+ Add Petitioner</button>
+
             <label>Respondents:</label>
             <div id="respondent-inputs"></div>
-            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('respondent')">+ Add Respondent</button>
+            <button class="action-btn" style="height:30px;font-size:0.7rem;width:auto;padding:0 10px;" onclick="addDynamic('respondent')">+ Add Respondent</button>
+
             <label>Lower Court:</label>
             <input type="text" id="lowerCourt" oninput="refresh()">
         </div>
 
+        <!-- Tab 3: Authorities -->
         <div id="authorities" class="tab-content">
             <h2>Authorities</h2>
             <label>Cases:</label>
             <div id="case-inputs"></div>
-            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('case')">+ Add Case</button>
+            <button class="action-btn" style="height:30px;font-size:0.7rem;width:auto;padding:0 10px;" onclick="addDynamic('case')">+ Add Case</button>
+
             <label>Statutes:</label>
             <div id="statute-inputs"></div>
-            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('statute')">+ Add Statute</button>
+            <button class="action-btn" style="height:30px;font-size:0.7rem;width:auto;padding:0 10px;" onclick="addDynamic('statute')">+ Add Statute</button>
         </div>
 
+        <!-- Tab 4: Questions -->
         <div id="questions" class="tab-content">
-            <h2>Questions</h2>
+            <h2>Questions Presented</h2>
             <div id="question-inputs"></div>
-            <button class="action-btn" style="height:30px; font-size:0.7rem; width:auto; padding:0 10px;" onclick="addDynamic('question')">+ Add Question</button>
+            <button class="action-btn" style="height:30px;font-size:0.7rem;width:auto;padding:0 10px;" onclick="addDynamic('question')">+ Add Question</button>
         </div>
 
+        <!-- Tab 5: Argument -->
         <div id="argument" class="tab-content">
             <h2>Argument</h2>
             <label>Summary of Argument:</label>
-            <textarea id="summaryArg" rows="4" oninput="refresh()"></textarea>
+            <textarea id="summaryArg" rows="5" oninput="refresh()"></textarea>
             <label>Argument Body:</label>
-            <textarea id="argBody" rows="12" oninput="refresh()"></textarea>
+            <textarea id="argBody" rows="14" oninput="refresh()"></textarea>
         </div>
 
+        <!-- Tab 6: Finalize -->
         <div id="finalize" class="tab-content">
             <h2>Finalize</h2>
             <label>Conclusion:</label>
-            <textarea id="conclusionText" rows="4" oninput="refresh()"></textarea>
-            <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
-                <button class="action-btn cloud-save-btn" onclick="downloadPDF()">📥 DOWNLOAD PDF</button>
-                <button class="action-btn" style="background:#333; color:white;" onclick="window.print()">🖨️ DIRECT PRINT</button>
-        
-                <button class="action-btn" style="background: #2e7d32; color: white; border: none;" onclick="submitToCourt()">⚖️ SUBMIT TO COURT</button>
+            <textarea id="conclusionText" rows="5" oninput="refresh()"></textarea>
+            <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px;">
+                <button class="action-btn cloud-save-btn" onclick="downloadPDF()">📥 Download PDF</button>
+                <button class="action-btn" style="background:#333;color:white;" onclick="window.print()">🖨️ Direct Print</button>
+                <button class="action-btn" style="background:#2e7d32;color:white;border:none;" onclick="submitToCourt()">⚖️ Submit to Court</button>
             </div>
         </div>
 
+        <!-- Docket tab -->
         <div id="docket" class="tab-content">
             <h2>Public Court Docket</h2>
-            <div id="docket-table-container">
+            <div id="docket-table-container" style="overflow-x:auto;">
                 <table class="docket-table">
                     <thead>
-                        <tr>
+                        <tr id="docket-header-row">
                             <th>Case Name</th>
                             <th>Case Brief</th>
                             <th>Petitioner</th>
                             <th>Respondent</th>
                             <th>Amicus Curiae</th>
+                            <!-- FIX: Admin column — always rendered, hidden for non-teachers via JS -->
+                            <th id="docket-admin-th" style="display:none;">Admin</th>
                         </tr>
                     </thead>
                     <tbody id="docket-body"></tbody>
@@ -192,48 +183,47 @@
             </div>
         </div>
 
-
-
+        <!-- Admin tab (teacher only) -->
         <div id="admin" class="tab-content">
-            <div class="admin-header">
-                <h2>⚖️ Teacher Case Manager</h2>
-                <p>Add cases here to populate the dropdown menu for students.</p>
-            </div>
+            <h2>⚖️ Teacher Case Manager</h2>
+            <p style="color:#555;">Add cases here to populate the dropdown menu for students.</p>
 
             <div class="admin-card">
                 <h3>Add New Case</h3>
                 <div class="admin-form-group">
                     <label>Case Name (e.g., Cooksey v. MTPS)</label>
-                    <input type="text" id="newCaseName" placeholder="Enter case name...">
+                    <input type="text" id="newCaseName" placeholder="Enter case name…">
                 </div>
                 <div class="admin-form-group">
                     <label>Google Drive Brief Link</label>
-                    <input type="text" id="newCaseLink" placeholder="Paste the shared Google Drive URL here...">
+                    <input type="text" id="newCaseLink" placeholder="Paste the shared Google Drive URL here…">
                 </div>
-                <button class="action-btn" style="background: var(--legal-blue); color: white;" onclick="addNewCase()">Add Case to Student List</button>
+                <button class="action-btn" style="background:var(--legal-blue);color:white;" onclick="addNewCase()">
+                    Add Case to Student List
+                </button>
             </div>
 
-            <div class="admin-card" style="margin-top: 20px;">
+            <div class="admin-card" style="margin-top:20px;">
                 <h3>Existing Cases</h3>
                 <div id="manage-cases-list">
-                    <p style="color: #666;">Loading active cases...</p>
+                    <p style="color:#666;">Loading active cases…</p>
                 </div>
             </div>
         </div>
 
-        
+    </section><!-- /input-panel -->
 
-</section>
-
+    <!-- PREVIEW PANEL -->
     <section class="preview-panel">
         <div id="render-target"></div>
     </section>
-</main>
+
+</main><!-- /app-container -->
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-    <script src="../config.js"></script> 
-    <script src="script.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<script src="../config.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
