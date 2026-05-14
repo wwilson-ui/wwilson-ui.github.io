@@ -692,19 +692,26 @@ window.deleteDocketCase = async function (caseName) {
 window.downloadPDF = async function () {
     const element = document.getElementById('render-target');
 
+    // FIX: min-height:11in makes html2pdf treat every .paper as a full page,
+    // then the forced page-break adds another blank page after it.
+    // Collapse to height:auto for the snapshot, restore afterward.
+    element.classList.add('pdf-export');
+
     const opt = {
-        margin:    [0, 0, 0, 0],
-        filename:  (document.getElementById('projectTitle').value || 'scotus-brief') + '.pdf',
-        image:     { type: 'jpeg', quality: 0.98 },
+        margin:      [1, 1, 1, 1],   // 1-inch margins handled by jsPDF, not padding
+        filename:    (document.getElementById('projectTitle').value || 'scotus-brief') + '.pdf',
+        image:       { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-        jsPDF:     { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'], before: '.paper' }
+        jsPDF:       { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak:   { mode: 'avoid-all', before: '.paper' }
     };
 
     try {
         await html2pdf().from(element).set(opt).save();
     } catch (err) {
         alert('PDF generation error: ' + err.message);
+    } finally {
+        element.classList.remove('pdf-export');
     }
 };
 
@@ -722,17 +729,20 @@ window.submitToCourt = async function () {
     if (!confirm('Submit this brief to the Court Docket? This will generate a PDF and post it publicly.')) return;
 
     const element = document.getElementById('render-target');
+    element.classList.add('pdf-export');
+
     const opt = {
-        margin:    [0, 0, 0, 0],
-        filename:  'brief.pdf',
-        image:     { type: 'jpeg', quality: 0.98 },
+        margin:      [1, 1, 1, 1],
+        filename:    'brief.pdf',
+        image:       { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
-        jsPDF:     { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'], before: '.paper' }
+        jsPDF:       { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak:   { mode: 'avoid-all', before: '.paper' }
     };
 
     try {
         const pdfBlob = await html2pdf().from(element).set(opt).outputPdf('blob');
+        element.classList.remove('pdf-export');
         const { data: { user } } = await supabaseClient.auth.getUser();
 
         // FIX: Supabase storage RLS requires the file path to begin with the
@@ -770,5 +780,7 @@ window.submitToCourt = async function () {
         }
     } catch (err) {
         alert('Submission error: ' + err.message);
+    } finally {
+        element.classList.remove('pdf-export');
     }
 };
