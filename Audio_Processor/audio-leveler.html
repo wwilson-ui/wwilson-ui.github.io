@@ -222,8 +222,33 @@ details li { margin-bottom: .3rem; }
   </section>
 </main>
 
+<noscript>
+  <main><h1>Audio Leveler</h1><p class="lede">This tool needs JavaScript turned on. Please open this file in Google Chrome.</p></main>
+</noscript>
+<script>
+// Check for every browser feature the tool needs before showing it
+window.__unsupported = (function () {
+  try {
+    if (!window.OfflineAudioContext || !window.Blob || !window.URL || !URL.createObjectURL) return true;
+    const ctx = new OfflineAudioContext(1, 1, 48000);
+    if (typeof ctx.decodeAudioData !== "function" || typeof ctx.createDynamicsCompressor !== "function" ||
+        typeof ctx.createBuffer(1, 1, 48000).copyToChannel !== "function") return true;
+    if (!window.CSS || !CSS.supports || !CSS.supports("selector(:has(*))")) return true;
+    return false;
+  } catch (e) { return true; }
+})();
+if (window.__unsupported) {
+  document.querySelector("main").innerHTML =
+    '<header><div><h1>Audio Leveler</h1>' +
+    '<p class="lede">This browser can’t run the Audio Leveler. Please open this file in Google Chrome.</p>' +
+    '</div></header>' +
+    '<section class="panel"><p style="margin:0">To open it in Chrome: right-click the file, choose <b>Open with</b>, then <b>Google Chrome</b>. ' +
+    'Or open Chrome and drag the file into a new tab.</p></section>';
+}
+</script>
 <script>
 // ---------- DSP-START ----------
+if (!window.__unsupported) {
 const FS = 48000;
 const SEG = 0.1; // 100 ms analysis segments
 const TARGET_LUFS = -16;
@@ -667,6 +692,7 @@ const redraw = () => items.forEach(it => { if (it.res) { const c = it.li.querySe
 window.addEventListener("resize", redraw);
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw);
 refreshButtons();
+}
 </script>
 </body>
 </html>
