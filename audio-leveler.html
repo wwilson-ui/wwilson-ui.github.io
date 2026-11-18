@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Audio Leveler</title>
+<style>
+:root {
+  --bg: #EDEEF2;
+  --surface: #FFFFFF;
+  --ink: #1B1F2A;
+  --muted: #5B6273;
+  --line: #D5D8E0;
+  --accent: #2A44C9;
+  --accent-ink: #FFFFFF;
+  --before: #C24E6E;
+  --after: #0E9A7B;
+  --target: #8A90A0;
+  --error: #B3261E;
+  color-scheme: light;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161C;
+    --surface: #1D2029;
+    --ink: #E8EAF0;
+    --muted: #A0A6B5;
+    --line: #2E3240;
+    --accent: #7D92FF;
+    --accent-ink: #10132A;
+    --before: #E77C98;
+    --after: #3CCBA6;
+    --target: #6E7486;
+    --error: #FF8A80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161C; --surface: #1D2029; --ink: #E8EAF0; --muted: #A0A6B5; --line: #2E3240;
+  --accent: #7D92FF; --accent-ink: #10132A; --before: #E77C98; --after: #3CCBA6; --target: #6E7486;
+  --error: #FF8A80; color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+main { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+
+header { display: grid; grid-template-columns: 1fr auto; gap: 1rem 1.5rem; align-items: end; margin-bottom: 2rem; }
+h1 {
+  font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(2.2rem, 7vw, 3.2rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+  margin: 0 0 0.6rem;
+}
+.lede { margin: 0; color: var(--muted); max-width: 46ch; font-size: 1.05rem; }
+.mark { width: 150px; height: 64px; }
+.mark path { fill: none; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+.mark .rough { stroke: var(--before); opacity: 0.35; }
+.mark .smooth { stroke: var(--after); }
+@media (max-width: 520px) { header { grid-template-columns: 1fr; } .mark { order: -1; width: 120px; height: 52px; } }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 1.25rem; margin-bottom: 1rem; }
+
+.drop {
+  display: block;
+  border: 2px dashed var(--line);
+  border-radius: 10px;
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.drop:hover, .drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.drop strong { display: block; font-size: 1.1rem; margin-bottom: .25rem; }
+.drop span { color: var(--muted); font-size: .92rem; }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.drop:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+fieldset { border: 0; padding: 0; margin: 1.25rem 0 0; }
+legend { font-weight: 600; margin-bottom: .5rem; padding: 0; }
+.levels { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.levels label { position: relative; text-align: center; padding: .7rem .5rem; cursor: pointer; font-weight: 600; border-left: 1px solid var(--line); }
+.levels label:first-of-type { border-left: 0; }
+.levels input { position: absolute; opacity: 0; }
+.levels label:has(input:checked) { background: var(--accent); color: var(--accent-ink); }
+.levels label:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: -3px; }
+.level-desc { color: var(--muted); font-size: .92rem; margin: .5rem 0 0; min-height: 1.4em; }
+
+.actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.25rem; }
+button {
+  font: inherit; font-weight: 600; border-radius: 8px; padding: .65rem 1.1rem; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+#list { list-style: none; margin: 0; padding: 0; }
+#list:empty { display: none; }
+.item { padding: 1rem 0; border-top: 1px solid var(--line); }
+.item:first-child { border-top: 0; padding-top: 0; }
+.item-head { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
+.item-name { font-weight: 600; overflow-wrap: anywhere; }
+.item-status { color: var(--muted); font-size: .9rem; }
+.item-status.error { color: var(--error); }
+.item canvas { display: block; width: 100%; height: 90px; margin: .6rem 0; }
+.item-foot { display: flex; justify-content: space-between; align-items: center; gap: .75rem 1rem; flex-wrap: wrap; }
+.nums { display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: .92rem; font-variant-numeric: tabular-nums; }
+.nums div span { color: var(--muted); display: block; font-size: .82rem; }
+.nums b { font-weight: 600; }
+a.dl {
+  font-weight: 600; text-decoration: none; color: var(--accent-ink); background: var(--accent);
+  border-radius: 8px; padding: .5rem .9rem; display: inline-block;
+}
+a.dl:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.legend { display: flex; gap: 1.25rem; flex-wrap: wrap; font-size: .85rem; color: var(--muted); margin-bottom: 1rem; }
+.legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: .4rem; }
+.legend .t { background: none; border-top: 2px dashed var(--target); height: 0; }
+
+details { border-top: 1px solid var(--line); padding: .9rem 0; }
+details:first-of-type { border-top: 0; padding-top: 0; }
+summary { font-weight: 600; cursor: pointer; }
+details ol, details p { margin: .6rem 0 0; color: var(--ink); }
+details ol { padding-left: 1.3rem; }
+details li { margin-bottom: .3rem; }
+.note { color: var(--muted); font-size: .9rem; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .mark .smooth { stroke-dasharray: 200; stroke-dashoffset: 200; animation: draw 1.2s .2s ease-out forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Audio Leveler</h1>
+      <p class="lede">Set every clip to the same loudness before you put it in WeVideo. Your files never leave this computer.</p>
+    </div>
+    <svg class="mark" viewBox="0 0 150 64" aria-hidden="true">
+      <path class="rough" d="M4 40 L16 22 L26 50 L38 12 L50 44 L60 30 L72 54 L84 18 L96 46 L108 26 L120 52 L132 20 L146 38"/>
+      <path class="smooth" d="M4 34 C30 30, 50 38, 75 33 S120 30, 146 34"/>
+    </svg>
+  </header>
+
+  <section class="panel" aria-label="Choose files and settings">
+    <label class="drop" id="drop">
+      <input type="file" id="picker" multiple accept="audio/*,video/*,.mp4,.mov,.m4a,.mp3,.wav,.aac,.ogg,.webm,.flac">
+      <strong>Drop audio or video files here</strong>
+      <span>or click to choose files. MP3, WAV, M4A, MP4 and MOV all work.</span>
+    </label>
+
+    <fieldset>
+      <legend>How much leveling?</legend>
+      <div class="levels">
+        <label><input type="radio" name="level" value="light"> Light</label>
+        <label><input type="radio" name="level" value="medium" checked> Medium</label>
+        <label><input type="radio" name="level" value="strong"> Strong</label>
+      </div>
+      <p class="level-desc" id="levelDesc"></p>
+    </fieldset>
+
+    <div class="actions">
+      <button class="primary" id="go" disabled>Level my files</button>
+      <button id="dlAll" disabled>Download all</button>
+      <button id="clear" disabled>Clear list</button>
+    </div>
+  </section>
+
+  <section class="panel" id="results" hidden aria-live="polite">
+    <div class="legend">
+      <span><i style="background:var(--before)"></i>Before</span>
+      <span><i style="background:var(--after)"></i>After</span>
+      <span><i class="t"></i>Target loudness</span>
+    </div>
+    <ul id="list"></ul>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>Using leveled files in WeVideo</summary>
+      <ol>
+        <li>Level each clip here: narration, interviews, music, sound effects.</li>
+        <li>Upload the new files (they end in <b>_light</b>, <b>_medium</b> or <b>_strong</b>) to WeVideo instead of the originals.</li>
+        <li>Leave their volume at 100%. They’re already set to the same loudness, so they’ll match.</li>
+      </ol>
+    </details>
+    <details>
+      <summary>Fixing a video that’s already finished</summary>
+      <ol>
+        <li>Export your video from WeVideo and level the MP4 here. You’ll get a WAV audio file back.</li>
+        <li>In WeVideo, add your exported video to a new project and turn its volume down to 0.</li>
+        <li>Put the WAV on an audio track starting at exactly 0:00 so it lines up.</li>
+        <li>Export again.</li>
+      </ol>
+    </details>
+    <details>
+      <summary>What do the numbers mean?</summary>
+      <p><b>Loudness</b> is the overall volume. Every leveled file is set to −16, so they all match.</p>
+      <p><b>Ups and downs</b> is how much the volume jumps around inside the file. Smaller is more even. Under about 6 usually sounds smooth for a narrated video.</p>
+    </details>
+    <details>
+      <summary>Privacy on a shared computer</summary>
+      <p>Files are processed inside this browser tab and are never uploaded. Close the tab and they’re gone from here. Delete your downloaded files from the Downloads folder when you’re done.</p>
+    </details>
+  </section>
+</main>
+
+<script>
+// ---------- DSP-START ----------
+const FS = 48000;
+const SEG = 0.1; // 100 ms analysis segments
+const TARGET_LUFS = -16;
+const PRE_COMP_LUFS = -18;
+const CEILING_DB = -1.5;
+
+const PRESETS = {
+  light:  { label: "Light",  desc: "Gentle. Keeps the natural rise and fall of the sound.",
+            strength: 0.5,  sigma: 3.0, maxBoost: 10, maxCut: 10,
+            comp: { threshold: -14, ratio: 2, attack: 0.010, release: 0.30 } },
+  medium: { label: "Medium", desc: "Best for most projects with narration, music and sound effects.",
+            strength: 0.75, sigma: 1.5, maxBoost: 15, maxCut: 15,
+            comp: { threshold: -18, ratio: 3, attack: 0.005, release: 0.25 } },
+  strong: { label: "Strong", desc: "Evens out big jumps, like a quiet voice next to loud music.",
+            strength: 0.9,  sigma: 0.8, maxBoost: 20, maxCut: 20,
+            comp: { threshold: -22, ratio: 4, attack: 0.003, release: 0.20 } }
+};
+
+const toL = p => -0.691 + 10 * Math.log10(p);
+
+function biquadHighShelf(fs, fc, gainDb, q) {
+  const A = Math.pow(10, gainDb / 40), w0 = 2 * Math.PI * fc / fs;
+  const c = Math.cos(w0), alpha = Math.sin(w0) / (2 * q), sA = 2 * Math.sqrt(A) * alpha;
+  const a0 = (A + 1) - (A - 1) * c + sA;
+  return {
+    b0: A * ((A + 1) + (A - 1) * c + sA) / a0,
+    b1: -2 * A * ((A - 1) + (A + 1) * c) / a0,
+    b2: A * ((A + 1) + (A - 1) * c - sA) / a0,
+    a1: 2 * ((A - 1) - (A + 1) * c) / a0,
+    a2: ((A + 1) - (A - 1) * c - sA) / a0
+  };
+}
+function biquadHighPass(fs, fc, q) {
+  const w0 = 2 * Math.PI * fc / fs, c = Math.cos(w0), alpha = Math.sin(w0) / (2 * q);
+  const a0 = 1 + alpha;
+  return { b0: (1 + c) / 2 / a0, b1: -(1 + c) / a0, b2: (1 + c) / 2 / a0, a1: -2 * c / a0, a2: (1 - alpha) / a0 };
+}
+
+// K-weighted power per 100 ms segment, summed across channels (ITU-R BS.1770)
+function segmentPowers(chs, fs) {
+  const segLen = Math.round(fs * SEG);
+  const n = Math.floor(chs[0].length / segLen);
+  const P = new Float64Array(n);
+  const s = biquadHighShelf(fs, 1500, 4.0, Math.SQRT1_2);
+  const h = biquadHighPass(fs, 38, 0.5);
+  for (const x of chs) {
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0, u1 = 0, u2 = 0, z1 = 0, z2 = 0;
+    let seg = 0, k = 0, acc = 0;
+    const len = n * segLen;
+    for (let i = 0; i < len; i++) {
+      const xi = x[i];
+      const v = s.b0 * xi + s.b1 * x1 + s.b2 * x2 - s.a1 * y1 - s.a2 * y2;
+      x2 = x1; x1 = xi; y2 = y1; y1 = v;
+      const w = h.b0 * v + h.b1 * u1 + h.b2 * u2 - h.a1 * z1 - h.a2 * z2;
+      u2 = u1; u1 = v; z2 = z1; z1 = w;
+      acc += w * w;
+      if (++k === segLen) { P[seg++] += acc / segLen; k = 0; acc = 0; }
+    }
+  }
+  return { P, segLen };
+}
+
+function prefix(P) {
+  const cs = new Float64Array(P.length + 1);
+  for (let i = 0; i < P.length; i++) cs[i + 1] = cs[i] + P[i];
+  return cs;
+}
+
+// Integrated loudness, loudness range and a loudness envelope for the graph
+function loudnessStats(P) {
+  const n = P.length, cs = prefix(P);
+  const mean = (a, len) => (cs[a + len] - cs[a]) / len;
+  const mom = [];
+  for (let i = 0; i + 4 <= n; i++) mom.push(mean(i, 4));
+  let s = 0, c = 0;
+  for (const p of mom) if (toL(p) > -70) { s += p; c++; }
+  let I = -Infinity;
+  if (c) {
+    const rel = toL(s / c) - 10;
+    let s2 = 0, c2 = 0;
+    for (const p of mom) { const L = toL(p); if (L > -70 && L > rel) { s2 += p; c2++; } }
+    if (c2) I = toL(s2 / c2);
+  }
+  // Loudness range (EBU Tech 3342): 3 s short-term blocks
+  let LRA = NaN;
+  const st = [];
+  for (let i = 0; i + 30 <= n; i++) st.push(mean(i, 30));
+  const pa = st.filter(p => toL(p) > -70);
+  if (pa.length >= 2) {
+    const relL = toL(pa.reduce((a, b) => a + b, 0) / pa.length) - 20;
+    const vals = pa.map(toL).filter(L => L > relL).sort((a, b) => a - b);
+    if (vals.length >= 2) {
+      const q = f => vals[Math.min(vals.length - 1, Math.max(0, Math.round(f * (vals.length - 1))))];
+      LRA = q(0.95) - q(0.10);
+    }
+  }
+  // Envelope: momentary loudness, bucketed to at most 300 points
+  const env = [];
+  if (mom.length) {
+    const k = Math.ceil(mom.length / 300);
+    for (let i = 0; i < mom.length; i += k) {
+      let a = 0, m = 0;
+      for (let j = i; j < Math.min(mom.length, i + k); j++) { a += mom[j]; m++; }
+      env.push(Math.max(-70, toL(a / m)));
+    }
+  }
+  return { I, LRA, env };
+}
+
+// Slow automatic gain riding: raise quiet passages, lower loud ones
+function levelerGainsDb(P, I, preset) {
+  const n = P.length, cs = prefix(P);
+  const d = new Float64Array(n), w = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const a = Math.max(0, i - 2), b = Math.min(n, i + 2);
+    const L = toL((cs[b] - cs[a]) / (b - a));
+    if (L > I - 25 && L > -60) {
+      w[i] = 1;
+      d[i] = Math.max(-preset.maxCut, Math.min(preset.maxBoost, preset.strength * (I - L)));
+    }
+  }
+  const sf = preset.sigma / SEG, R = Math.ceil(3 * sf);
+  const ker = new Float64Array(2 * R + 1);
+  for (let j = -R; j <= R; j++) ker[j + R] = Math.exp(-0.5 * (j / sf) * (j / sf));
+  const g = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    let num = 0, den = 0;
+    const lo = Math.max(0, i - R), hi = Math.min(n - 1, i + R);
+    for (let j = lo; j <= hi; j++) {
+      if (!w[j]) continue;
+      const k = ker[j - i + R];
+      num += k * d[j]; den += k;
+    }
+    g[i] = den > 1e-6 ? num / den : 0;
+  }
+  return g;
+}
+
+function applyGainCurve(chs, gDb, segLen) {
+  const n = gDb.length;
+  if (!n) return;
+  const len = chs[0].length;
+  const gain = new Float32Array(len);
+  const lin = new Float64Array(n);
+  for (let i = 0; i < n; i++) lin[i] = Math.pow(10, gDb[i] / 20);
+  const half = segLen / 2;
+  for (let i = 0; i < len; i++) {
+    const pos = (i - half) / segLen;
+    const j = Math.floor(pos);
+    if (j < 0) gain[i] = lin[0];
+    else if (j >= n - 1) gain[i] = lin[n - 1];
+    else gain[i] = lin[j] + (lin[j + 1] - lin[j]) * (pos - j);
+  }
+  for (let c = 0; c < chs.length; c++) {
+    const x = chs[c];
+    for (let i = 0; i < len; i++) x[i] *= gain[i];
+  }
+}
+
+function applyGain(chs, db) {
+  const g = Math.pow(10, db / 20);
+  for (let c = 0; c < chs.length; c++) {
+    const x = chs[c];
+    for (let i = 0; i < x.length; i++) x[i] *= g;
+  }
+}
+
+// Look-ahead peak limiter
+function limit(chs, fs, ceilDb) {
+  const n = chs[0].length, nCh = chs.length, ceil = Math.pow(10, ceilDb / 20);
+  const L = Math.max(1, Math.round(0.005 * fs));
+  const rel = 1 - Math.exp(-1 / (0.08 * fs));
+  const N = n + L;
+  const t = new Float32Array(N).fill(1);
+  for (let c = 0; c < nCh; c++) {
+    const x = chs[c];
+    for (let i = 0; i < n; i++) {
+      const a = x[i] < 0 ? -x[i] : x[i];
+      if (a > ceil) { const v = ceil / a; if (v < t[i]) t[i] = v; }
+    }
+  }
+  // m[i] = min(t[i .. i+L]) with a monotonic deque
+  const m = new Float32Array(n);
+  const dq = new Int32Array(N);
+  let head = 0, tail = 0;
+  for (let j = 0; j < N; j++) {
+    const v = t[j];
+    while (tail > head && t[dq[tail - 1]] >= v) tail--;
+    dq[tail++] = j;
+    if (dq[head] < j - L) head++;
+    if (j >= L) m[j - L] = t[dq[head]];
+  }
+  // release smoothing, then a box filter so the gain ramps down before each peak
+  const gain = new Float32Array(n);
+  const ring = new Float32Array(L + 1).fill(1);
+  let r = 1, sum = L + 1, ri = 0;
+  for (let i = 0; i < n; i++) {
+    r = Math.min(m[i], r + (1 - r) * rel);
+    sum += r - ring[ri]; ring[ri] = r;
+    if (++ri > L) ri = 0;
+    gain[i] = sum / (L + 1);
+  }
+  for (let c = 0; c < nCh; c++) {
+    const x = chs[c];
+    for (let i = 0; i < n; i++) x[i] *= gain[i];
+  }
+}
+
+function encodeWav(chs, fs) {
+  const nCh = chs.length, n = chs[0].length;
+  const buf = new ArrayBuffer(44 + n * nCh * 2), v = new DataView(buf);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); v.setUint32(4, 36 + n * nCh * 2, true); str(8, "WAVE");
+  str(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, nCh, true);
+  v.setUint32(24, fs, true); v.setUint32(28, fs * nCh * 2, true); v.setUint16(32, nCh * 2, true); v.setUint16(34, 16, true);
+  str(36, "data"); v.setUint32(40, n * nCh * 2, true);
+  const out = new Int16Array(buf, 44, n * nCh); // WAV is little-endian, like every computer this runs on
+  let seed = 22222;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  for (let c = 0; c < nCh; c++) {
+    const x = chs[c];
+    for (let i = 0, o = c; i < n; i++, o += nCh) {
+      let s = x[i] * 32767 + (rnd() - rnd());
+      s = s < -32768 ? -32768 : s > 32767 ? 32767 : Math.round(s);
+      out[o] = s;
+    }
+  }
+  return buf;
+}
+// ---------- DSP-END ----------
+
+const tick = () => new Promise(r => setTimeout(r, 0));
+
+async function decodeFile(file) {
+  const data = await file.arrayBuffer();
+  const ctx = new OfflineAudioContext(2, 1, FS);
+  const ab = await ctx.decodeAudioData(data);
+  if (ab.numberOfChannels <= 2) {
+    const out = [];
+    for (let c = 0; c < ab.numberOfChannels; c++) out.push(Float32Array.from(ab.getChannelData(c)));
+    return out;
+  }
+  // Surround: let the browser fold it down to stereo
+  const mix = new OfflineAudioContext(2, ab.length, FS);
+  const src = mix.createBufferSource();
+  src.buffer = ab; src.connect(mix.destination); src.start();
+  const r = await mix.startRendering();
+  return [Float32Array.from(r.getChannelData(0)), Float32Array.from(r.getChannelData(1))];
+}
+
+async function compress(chs, fs, c) {
+  const nCh = chs.length, n = chs[0].length;
+  const pad = Math.round(0.006 * fs); // the browser compressor delays its output by 6 ms
+  const ctx = new OfflineAudioContext(nCh, n + pad, fs);
+  const b = ctx.createBuffer(nCh, n, fs);
+  chs.forEach((x, i) => b.copyToChannel(x, i));
+  const src = ctx.createBufferSource();
+  src.buffer = b;
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = c.threshold;
+  comp.knee.value = 6;
+  comp.ratio.value = c.ratio;
+  comp.attack.value = c.attack;
+  comp.release.value = c.release;
+  src.connect(comp).connect(ctx.destination);
+  src.start();
+  const out = await ctx.startRendering();
+  return chs.map((_, i) => out.getChannelData(i).slice(pad, pad + n));
+}
+
+async function processAudio(file, preset, status) {
+  status("Reading the file…"); await tick();
+  let chs;
+  try { chs = await decodeFile(file); }
+  catch (e) { throw new Error("This file has no sound track the browser can read. Try exporting it as MP4 or MP3."); }
+  if (!chs.length || chs[0].length < FS) throw new Error("This file is shorter than 1 second, so there’s nothing to level.");
+
+  status("Measuring…"); await tick();
+  let { P, segLen } = segmentPowers(chs, FS);
+  const before = loudnessStats(P);
+  if (!isFinite(before.I)) throw new Error("No sound found in this file. It may be silent.");
+
+  status("Leveling…"); await tick();
+  applyGainCurve(chs, levelerGainsDb(P, before.I, preset), segLen);
+  await tick();
+  let mid = loudnessStats(segmentPowers(chs, FS).P);
+  if (isFinite(mid.I)) applyGain(chs, PRE_COMP_LUFS - mid.I);
+
+  status("Compressing…"); await tick();
+  chs = await compress(chs, FS, preset.comp);
+
+  status("Finishing…"); await tick();
+  for (let pass = 0; pass < 2; pass++) {
+    const s = loudnessStats(segmentPowers(chs, FS).P);
+    if (!isFinite(s.I) || Math.abs(TARGET_LUFS - s.I) < 0.3) break;
+    applyGain(chs, TARGET_LUFS - s.I);
+    limit(chs, FS, CEILING_DB);
+    await tick();
+  }
+  const after = loudnessStats(segmentPowers(chs, FS).P);
+
+  status("Saving…"); await tick();
+  const wav = encodeWav(chs, FS);
+  return { before, after, blob: new Blob([wav], { type: "audio/wav" }) };
+}
+
+// ---------- UI ----------
+const $ = id => document.getElementById(id);
+const picker = $("picker"), drop = $("drop"), list = $("list"), results = $("results");
+const goBtn = $("go"), dlAll = $("dlAll"), clearBtn = $("clear"), levelDesc = $("levelDesc");
+let items = [];
+let busy = false;
+let doneWith = null;
+
+const preset = () => document.querySelector('input[name="level"]:checked').value;
+const fmt = x => (isFinite(x) ? x.toFixed(1).replace("-", "−") : "—");
+
+function updateLevelDesc() {
+  levelDesc.textContent = PRESETS[preset()].desc;
+  if (doneWith && doneWith !== preset() && items.length) goBtn.textContent = "Level again with these settings";
+  else goBtn.textContent = "Level my files";
+}
+document.querySelectorAll('input[name="level"]').forEach(r => r.addEventListener("change", updateLevelDesc));
+updateLevelDesc();
+
+function refreshButtons() {
+  goBtn.disabled = busy || !items.length;
+  clearBtn.disabled = busy || !items.length;
+  dlAll.disabled = busy || !items.some(it => it.url);
+  results.hidden = !items.length;
+}
+
+function addFiles(files) {
+  for (const f of files) {
+    const li = document.createElement("li");
+    li.className = "item";
+    li.innerHTML = '<div class="item-head"><span class="item-name"></span><span class="item-status">Ready</span></div>';
+    li.querySelector(".item-name").textContent = f.name;
+    list.appendChild(li);
+    items.push({ file: f, li, url: null, res: null });
+  }
+  refreshButtons();
+}
+
+picker.addEventListener("change", () => { addFiles(picker.files); picker.value = ""; });
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => addFiles(e.dataTransfer.files));
+window.addEventListener("dragover", e => e.preventDefault());
+window.addEventListener("drop", e => e.preventDefault());
+
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+function drawGraph(canvas, res) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w) return;
+  canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+  const g = canvas.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const top = -5, bot = -45, pad = 4;
+  const y = L => pad + (Math.min(top, Math.max(bot, L)) - top) / (bot - top) * (h - 2 * pad);
+  g.setLineDash([5, 5]); g.strokeStyle = cssVar("--target"); g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(0, y(TARGET_LUFS)); g.lineTo(w, y(TARGET_LUFS)); g.stroke();
+  g.setLineDash([]);
+  const line = (env, color, width, alpha) => {
+    if (env.length < 2) return;
+    g.globalAlpha = alpha; g.strokeStyle = color; g.lineWidth = width; g.lineJoin = "round";
+    g.beginPath();
+    env.forEach((L, i) => { const x = i / (env.length - 1) * w; i ? g.lineTo(x, y(L)) : g.moveTo(x, y(L)); });
+    g.stroke(); g.globalAlpha = 1;
+  };
+  line(res.before.env, cssVar("--before"), 1.5, 0.8);
+  line(res.after.env, cssVar("--after"), 2.5, 1);
+}
+
+function renderDone(it, name) {
+  const { before, after } = it.res;
+  it.li.innerHTML = `
+    <div class="item-head"><span class="item-name"></span><span class="item-status">Done</span></div>
+    <canvas aria-label="Loudness over time, before and after leveling"></canvas>
+    <div class="item-foot">
+      <div class="nums">
+        <div><span>Loudness</span><b>${fmt(before.I)} → ${fmt(after.I)}</b></div>
+        <div><span>Ups and downs</span><b>${fmt(before.LRA)} → ${fmt(after.LRA)}</b></div>
+      </div>
+      <a class="dl">Download</a>
+    </div>`;
+  it.li.querySelector(".item-name").textContent = it.file.name;
+  const a = it.li.querySelector("a.dl");
+  a.href = it.url; a.download = name;
+  a.setAttribute("aria-label", "Download " + name);
+  drawGraph(it.li.querySelector("canvas"), it.res);
+}
+
+goBtn.addEventListener("click", async () => {
+  busy = true; refreshButtons();
+  const key = preset(), p = PRESETS[key];
+  for (const it of items) {
+    if (it.url) { URL.revokeObjectURL(it.url); it.url = null; }
+    it.res = null;
+    it.li.innerHTML = '<div class="item-head"><span class="item-name"></span><span class="item-status">Waiting…</span></div>';
+    it.li.querySelector(".item-name").textContent = it.file.name;
+  }
+  for (const it of items) {
+    const st = it.li.querySelector(".item-status");
+    try {
+      const out = await processAudio(it.file, p, msg => { st.textContent = msg; });
+      it.res = out;
+      it.url = URL.createObjectURL(out.blob);
+      it.name = it.file.name.replace(/\.[^.]+$/, "") + "_" + key + ".wav";
+      renderDone(it, it.name);
+    } catch (e) {
+      st.textContent = e.message || "Something went wrong with this file.";
+      st.classList.add("error");
+    }
+    await tick();
+  }
+  doneWith = key;
+  busy = false; refreshButtons(); updateLevelDesc();
+});
+
+dlAll.addEventListener("click", async () => {
+  for (const it of items) {
+    if (!it.url) continue;
+    const a = document.createElement("a");
+    a.href = it.url; a.download = it.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    await new Promise(r => setTimeout(r, 400));
+  }
+});
+
+clearBtn.addEventListener("click", () => {
+  for (const it of items) if (it.url) URL.revokeObjectURL(it.url);
+  items = []; list.innerHTML = ""; doneWith = null;
+  refreshButtons(); updateLevelDesc();
+});
+
+const redraw = () => items.forEach(it => { if (it.res) { const c = it.li.querySelector("canvas"); if (c) drawGraph(c, it.res); } });
+window.addEventListener("resize", redraw);
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw);
+refreshButtons();
+</script>
+</body>
+</html>
